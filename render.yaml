@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: teleems-auth-service
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build:auth
+    startCommand: node dist/apps/auth-service/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        fromDatabase:
+          name: teleems-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: teleems-db
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: teleems-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: teleems-db
+          property: password
+      - key: DB_DATABASE
+        fromDatabase:
+          name: teleems-db
+          property: database
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION
+        value: 15m
+      - key: JWT_REFRESH_EXPIRATION
+        value: 7d
+
+databases:
+  - name: teleems-db
+    databaseName: teleems
+    user: teleems_user
+    plan: free
