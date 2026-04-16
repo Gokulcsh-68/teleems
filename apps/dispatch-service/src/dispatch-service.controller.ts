@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Patch, Delete } from '@nestjs/common';
 import { DispatchServiceService } from './dispatch-service.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
-import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto } from './dto/update-incident.dto';
+import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
@@ -63,5 +63,12 @@ export class DispatchServiceController {
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
   async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto) {
     return this.dispatchService.updateIncident(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('CCE', 'CURESELECT_ADMIN')
+  @HttpCode(204)
+  async cancelIncident(@Param('id') id: string, @Body() dto: CancelIncidentDto) {
+    await this.dispatchService.cancelIncident(id, dto);
   }
 }

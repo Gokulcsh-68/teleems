@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { CreateIncidentDto } from './dto/create-incident.dto';
-import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto } from './dto/update-incident.dto';
+import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 
@@ -127,6 +127,22 @@ export class DispatchServiceService {
     if (dto.notes) {
       incident.notes = incident.notes ? `${incident.notes}\n${dto.notes}` : dto.notes;
     }
+
+    await this.incidentRepository.save(incident);
+    return { data: incident };
+  }
+
+  async cancelIncident(id: string, dto: CancelIncidentDto) {
+    const incident = await this.incidentRepository.findOneBy({ id });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    if (incident.status !== 'PENDING') {
+      throw new BadRequestException('Incident can only be cancelled before dispatch (status: PENDING)');
+    }
+
+    incident.status = 'CANCELLED';
+    const cancelNote = `[CANCELLED] Reason: ${dto.reason}`;
+    incident.notes = incident.notes ? `${incident.notes}\n${cancelNote}` : cancelNote;
 
     await this.incidentRepository.save(incident);
     return { data: incident };

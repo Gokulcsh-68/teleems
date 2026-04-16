@@ -46,3 +46,8 @@ export class UpdateIncidentDto {
   @IsOptional()
   address?: string;
 }
+
+export class CancelIncidentDto {
+  @IsString()
+  reason: string;
+}
