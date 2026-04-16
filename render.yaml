@@ -60,6 +60,8 @@ services:
           type: keyvalue
           name: teleems-redis
           property: port
+      - key: JWT_EXPIRATION
+        value: 3h
 
   # The Dispatch Service (Private Backend Engine)
   - type: pserv

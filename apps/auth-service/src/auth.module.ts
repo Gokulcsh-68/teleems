@@ -44,7 +44,7 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
           privateKey,
           publicKey,
           signOptions: { 
-            expiresIn: config.get('JWT_ACCESS_EXPIRY') || '15m',
+            expiresIn: config.get('JWT_EXPIRATION') || '3h',
             algorithm: 'RS256'
           },
         };
