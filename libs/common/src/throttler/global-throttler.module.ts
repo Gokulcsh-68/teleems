@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ThrottlerStorageRedisService } from 'nestjs-throttler-storage-redis';
+import { RedisThrottlerStorage } from './redis.throttler.storage';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -15,7 +15,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
             ttl: 60000,
           },
         ],
-        storage: new ThrottlerStorageRedisService({
+        storage: new RedisThrottlerStorage({
           host: config.get('REDIS_HOST') || 'localhost',
           port: config.get('REDIS_PORT') || 6379,
           password: config.get('REDIS_PASSWORD'),
