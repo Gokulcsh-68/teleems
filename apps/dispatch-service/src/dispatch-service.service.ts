@@ -103,10 +103,12 @@ export class DispatchServiceService {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    // Security: Non-admins/CCE can only view their own incidents
+    // Security: Non-admins/CCE/Hospital can only view their own incidents
     if (requestUser) {
-      const isAdmin = requestUser.roles.includes('CURESELECT_ADMIN') || requestUser.roles.includes('CCE');
-      if (!isAdmin && incident.caller_id !== requestUser.userId) {
+      const isPrivileged = requestUser.roles.includes('CURESELECT_ADMIN') || 
+                           requestUser.roles.includes('CCE') ||
+                           requestUser.roles.includes('HOSPITAL');
+      if (!isPrivileged && incident.caller_id !== requestUser.userId) {
         throw new ForbiddenException('You do not have permission to view this incident');
       }
     }

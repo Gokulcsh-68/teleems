@@ -110,7 +110,7 @@ export class AuthService implements OnModuleInit {
       sid: session.id 
     };
     
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
     return { accessToken, refreshToken, user };
   }
@@ -675,7 +675,7 @@ export class AuthService implements OnModuleInit {
         sub: payload.sub, 
         roles: payload.roles || [payload.role] 
       };
-      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
+      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '3h' });
       const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
       return { accessToken: newAccessToken, refreshToken: newRefreshToken };
     } catch (err) {
@@ -693,7 +693,7 @@ export class AuthService implements OnModuleInit {
     }
 
     const payload = { sub: clientId, roles: ['SYSTEM'] };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
     return { 
       accessToken,
       expiresIn: 900 // 15 minutes as per signing option

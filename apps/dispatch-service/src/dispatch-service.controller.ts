@@ -42,7 +42,7 @@ export class DispatchServiceController {
 
 
   @Get(':id')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER')
+  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
   async getIncident(@Param('id') id: string, @Req() req: any) {
     return this.dispatchService.findOne(id, req.user);
   }

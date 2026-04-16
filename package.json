@@ -7,9 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "build:auth": "nest build auth-service",
     "build:gateway": "nest build api-gateway",
-    "build:dispatch": "nest build dispatch-service",
     "build:telelink": "nest build telelink-service",
     "build:api": "nest build teleems-backend",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
