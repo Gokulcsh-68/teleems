@@ -6,10 +6,12 @@ import { DispatchServiceService } from './dispatch-service.service';
 import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AuthModule } from '../../auth-service/src/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Incident, IncidentTimeline]),
+    AuthModule,
   ],
   controllers: [DispatchServiceController],
   providers: [DispatchServiceService, JwtStrategy],

@@ -8,6 +8,14 @@ import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelInc
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 
+import { AuditLogService } from '../../auth-service/src/audit-log.service';
+
+export interface AuditContext {
+  userId: string;
+  ip: string;
+  userAgent: string;
+}
+
 @Injectable()
 export class DispatchServiceService {
   constructor(
@@ -15,7 +23,28 @@ export class DispatchServiceService {
     private readonly incidentRepository: Repository<Incident>,
     @InjectRepository(IncidentTimeline)
     private readonly timelineRepository: Repository<IncidentTimeline>,
+    private readonly auditLogService: AuditLogService,
   ) {}
+
+  private async logSecurityAudit(
+    userId: string,
+    action: string,
+    incidentId: string,
+    request: { ip: string; userAgent: string },
+    metadata: Record<string, any> = {},
+  ) {
+    await this.auditLogService.log({
+      userId,
+      action,
+      ipAddress: request.ip,
+      userAgent: request.userAgent,
+      metadata: {
+        ...metadata,
+        entityType: 'incident',
+        entityId: incidentId,
+      },
+    });
+  }
 
   private async logTimelineEvent(
     incidentId: string, 
@@ -34,10 +63,10 @@ export class DispatchServiceService {
     await this.timelineRepository.save(event);
   }
 
-  async createIncident(dto: CreateIncidentDto, requestUserId: string) {
+  async createIncident(dto: CreateIncidentDto, context: AuditContext) {
     const incidentData = {
       ...dto,
-      caller_id: dto.caller_id || requestUserId,
+      caller_id: dto.caller_id || context.userId,
       status: 'PENDING',
     };
 
@@ -48,7 +77,15 @@ export class DispatchServiceService {
       incident.id, 
       'CREATED', 
       `Incident reported by ${incident.caller_id}`,
-      requestUserId,
+      context.userId,
+      { category: incident.category, severity: incident.severity }
+    );
+
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_CREATED',
+      incident.id,
+      context,
       { category: incident.category, severity: incident.severity }
     );
 
@@ -144,7 +181,7 @@ export class DispatchServiceService {
     return { data: incident };
   }
 
-  async updateIncident(id: string, dto: UpdateIncidentDto, requestUserId?: string) {
+  async updateIncident(id: string, dto: UpdateIncidentDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -164,7 +201,7 @@ export class DispatchServiceService {
       incident.id,
       'UPDATED',
       'Incident details updated',
-      requestUserId,
+      context.userId,
       { 
         updates: dto,
         previous: { 
@@ -175,10 +212,18 @@ export class DispatchServiceService {
       }
     );
 
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_UPDATED',
+      incident.id,
+      context,
+      { updates: dto }
+    );
+
     return { data: incident };
   }
 
-  async cancelIncident(id: string, dto: CancelIncidentDto, requestUserId?: string) {
+  async cancelIncident(id: string, dto: CancelIncidentDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -196,14 +241,26 @@ export class DispatchServiceService {
       incident.id,
       'CANCELLED',
       `Incident cancelled: ${dto.reason}`,
-      requestUserId,
+      context.userId,
+      { reason: dto.reason }
+    );
+
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_CANCELLED',
+      incident.id,
+      context,
       { reason: dto.reason }
     );
 
     return { data: incident };
   }
 
-  async updateStatus(id: string, dto: UpdateIncidentStatusDto, requestUserId?: string) {
+  async getAuditLogs(id: string, limit = 50, cursor?: string) {
+    return this.auditLogService.getLogsByEntity('incident', id, limit, cursor);
+  }
+
+  async updateStatus(id: string, dto: UpdateIncidentStatusDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -219,14 +276,22 @@ export class DispatchServiceService {
       incident.id,
       'STATUS_CHANGE',
       `Status changed from ${oldStatus} to ${dto.status}`,
-      requestUserId,
+      context.userId,
       { oldStatus, newStatus: dto.status, notes: dto.notes }
+    );
+
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_STATUS_CHANGE',
+      incident.id,
+      context,
+      { oldStatus, newStatus: dto.status }
     );
 
     return { data: incident };
   }
 
-  async assignVehicle(id: string, dto: AssignVehicleDto, requestUserId?: string) {
+  async assignVehicle(id: string, dto: AssignVehicleDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -242,7 +307,15 @@ export class DispatchServiceService {
       incident.id,
       'VEHICLE_ASSIGNED',
       `Vehicle ${dto.vehicle_id} assigned to incident`,
-      requestUserId,
+      context.userId,
+      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds }
+    );
+
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_VEHICLE_ASSIGNED',
+      incident.id,
+      context,
       { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds }
     );
 

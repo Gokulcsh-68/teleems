@@ -84,4 +84,43 @@ export class AuditLogService {
     });
     return { logs, total };
   }
+
+  /**
+   * Retrieves audit logs for a specific entity (e.g. incident) with cursor-based pagination.
+   */
+  async getLogsByEntity(entityType: string, entityId: string, limit = 50, cursor?: string) {
+    const qb = this.auditRepo.createQueryBuilder('log')
+      .leftJoinAndSelect('log.user', 'user')
+      .where("log.metadata->>'entityType' = :entityType", { entityType })
+      .andWhere("log.metadata->>'entityId' = :entityId", { entityId })
+      .orderBy('log.createdAt', 'DESC')
+      .addOrderBy('log.id', 'DESC')
+      .take(limit + 1);
+
+    if (cursor) {
+      const decoded = decodeCursor(cursor);
+      if (decoded) {
+        const [createdAtStr, id] = decoded.split('|');
+        qb.andWhere('(log.createdAt < :createdAt OR (log.createdAt = :createdAt AND log.id < :id))', {
+          createdAt: new Date(createdAtStr),
+          id,
+        });
+      }
+    }
+
+    const data = await qb.getMany();
+    const hasNextPage = data.length > limit;
+    if (hasNextPage) {
+      data.pop();
+    }
+
+    let next_cursor: string | null = null;
+    if (data.length > 0 && hasNextPage) {
+      const last = data[data.length - 1];
+      next_cursor = encodeCursor(`${last.createdAt.toISOString()}|${last.id}`);
+    }
+
+    const total_count = await qb.getCount();
+    return new PaginatedResponse(data, next_cursor, total_count);
+  }
 }

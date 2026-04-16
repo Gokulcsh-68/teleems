@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Patch, Delete } from '@nestjs/common';
-import { DispatchServiceService } from './dispatch-service.service';
+import { DispatchServiceService, AuditContext } from './dispatch-service.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
@@ -16,8 +16,12 @@ export class DispatchServiceController {
   @Roles('CALLER', 'CCE', 'HOSPITAL', 'CURESELECT_ADMIN')
   @HttpCode(201)
   async createIncident(@Body() dto: CreateIncidentDto, @Req() req: any) {
-    const requestUserId = req.user.userId;
-    const result = await this.dispatchService.createIncident(dto, requestUserId);
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    const result = await this.dispatchService.createIncident(dto, context);
     return {
       message: 'Incident reported successfully',
       data: result.data,
@@ -50,26 +54,46 @@ export class DispatchServiceController {
   @Patch(':id/status')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateIncidentStatusDto, @Req() req: any) {
-    return this.dispatchService.updateStatus(id, dto, req.user.userId);
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.updateStatus(id, dto, context);
   }
 
   @Patch(':id/assign')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
   async assignVehicle(@Param('id') id: string, @Body() dto: AssignVehicleDto, @Req() req: any) {
-    return this.dispatchService.assignVehicle(id, dto, req.user.userId);
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.assignVehicle(id, dto, context);
   }
 
   @Patch(':id')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
   async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto, @Req() req: any) {
-    return this.dispatchService.updateIncident(id, dto, req.user.userId);
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.updateIncident(id, dto, context);
   }
 
   @Delete(':id')
   @Roles('CCE', 'CURESELECT_ADMIN')
   @HttpCode(204)
   async cancelIncident(@Param('id') id: string, @Body() dto: CancelIncidentDto, @Req() req: any) {
-    await this.dispatchService.cancelIncident(id, dto, req.user.userId);
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    await this.dispatchService.cancelIncident(id, dto, context);
   }
 
   @Get(':id/timeline')
@@ -78,5 +102,11 @@ export class DispatchServiceController {
     // Security check: ensure user has access to this incident first
     await this.dispatchService.findOne(id, req.user);
     return this.dispatchService.getTimeline(id);
+  }
+
+  @Get(':id/audit')
+  @Roles('CURESELECT_ADMIN', 'FLEET_MANAGER')
+  async getAudit(@Param('id') id: string) {
+    return this.dispatchService.getAuditLogs(id);
   }
 }
