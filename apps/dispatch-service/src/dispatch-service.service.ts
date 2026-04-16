@@ -7,8 +7,10 @@ import { Dispatch } from './entities/dispatch.entity';
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
+import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
+import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
 
 import { AuditLogService } from '../../auth-service/src/audit-log.service';
 
@@ -27,6 +29,8 @@ export class DispatchServiceService {
     private readonly timelineRepository: Repository<IncidentTimeline>,
     @InjectRepository(Dispatch)
     private readonly dispatchRepository: Repository<Dispatch>,
+    @InjectRepository(Vehicle)
+    private readonly vehicleRepository: Repository<Vehicle>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -65,6 +69,44 @@ export class DispatchServiceService {
       metadata,
     });
     await this.timelineRepository.save(event);
+  }
+
+  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+  }
+
+  private async findNearestVehicle(lat: number, lon: number): Promise<Vehicle | null> {
+    const availableVehicles = await this.vehicleRepository.find({
+      where: { status: VehicleStatus.AVAILABLE }
+    });
+
+    if (availableVehicles.length === 0) return null;
+
+    let nearest: Vehicle | null = null;
+    let minDistance = Infinity;
+
+    for (const vehicle of availableVehicles) {
+      const distance = this.getDistance(
+        Number(lat), 
+        Number(lon), 
+        Number(vehicle.gps_lat), 
+        Number(vehicle.gps_lon)
+      );
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = vehicle;
+      }
+    }
+
+    return nearest;
   }
 
   async createIncident(dto: CreateIncidentDto, context: AuditContext) {
@@ -299,6 +341,17 @@ export class DispatchServiceService {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
+    const vehicle = await this.vehicleRepository.findOneBy({ identifier: dto.vehicle_id });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    
+    if (vehicle.status !== VehicleStatus.AVAILABLE) {
+      throw new BadRequestException(`Vehicle '${dto.vehicle_id}' is not available (Status: ${vehicle.status})`);
+    }
+
+    // Update vehicle status
+    vehicle.status = VehicleStatus.BUSY;
+    await this.vehicleRepository.save(vehicle);
+
     incident.assigned_vehicle = dto.vehicle_id;
     incident.status = 'ASSIGNED';
     if (dto.eta_seconds !== undefined) {
@@ -338,20 +391,36 @@ export class DispatchServiceService {
 
     // Determine vehicle: manual override or auto-assign nearest
     const isManualOverride = !!dto.manual_vehicle_id;
+    let targetVehicle: Vehicle | null = null;
     let vehicleId: string;
     let eta: number;
 
     if (isManualOverride) {
-      vehicleId = dto.manual_vehicle_id!;
-      // Simulated ETA for manually selected vehicle
-      eta = Math.floor(Math.random() * 600) + 120; // 2-12 minutes
+      targetVehicle = await this.vehicleRepository.findOneBy({ identifier: dto.manual_vehicle_id! });
+      if (!targetVehicle) throw new NotFoundException('Selected vehicle not found');
+      if (targetVehicle.status !== VehicleStatus.AVAILABLE) {
+        throw new BadRequestException(`Vehicle '${dto.manual_vehicle_id}' is not available.`);
+      }
+      vehicleId = targetVehicle.identifier;
+      // Simulated ETA for manually selected vehicle (distance based)
+      const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
+      eta = Math.floor((dist / 30) * 3600); // 30km/h avg speed
     } else {
-      // Auto-assign: simulate nearest unit selection based on GPS
-      // In production, this would query the fleet service for available vehicles
-      // sorted by distance to incident.gps_lat / incident.gps_lon
-      vehicleId = `AMB-${String(Math.floor(Math.random() * 50) + 1).padStart(3, '0')}`;
-      eta = Math.floor(Math.random() * 480) + 60; // 1-9 minutes
+      targetVehicle = await this.findNearestVehicle(incident.gps_lat, incident.gps_lon);
+      if (!targetVehicle) {
+        throw new BadRequestException('No available ambulances found in the system for auto-assignment.');
+      }
+      vehicleId = targetVehicle.identifier;
+      const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
+      eta = Math.floor((dist / 30) * 3600);
     }
+
+    // Buffer minimum ETA (2 mins)
+    if (eta < 120) eta = 120;
+
+    // Update the vehicle status to BUSY
+    targetVehicle.status = VehicleStatus.BUSY;
+    await this.vehicleRepository.save(targetVehicle);
 
     // Create the dispatch record
     const dispatch = new Dispatch();
@@ -374,7 +443,7 @@ export class DispatchServiceService {
     // Timeline event
     const description = isManualOverride
       ? `Dispatch triggered (manual override: ${vehicleId}). Reason: ${dto.override_reason || 'N/A'}`
-      : `Dispatch triggered (auto-assigned: ${vehicleId})`;
+      : `Dispatch triggered (auto-assigned nearest: ${vehicleId})`;
 
     await this.logTimelineEvent(
       incident.id,
@@ -401,6 +470,83 @@ export class DispatchServiceService {
       },
       eta_seconds: eta,
     };
+  }
+
+  async reassignVehicle(id: string, dto: ReassignVehicleDto, context: AuditContext) {
+    const incident = await this.incidentRepository.findOneBy({ id });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    // 1. Find the active dispatch for this incident
+    // We look for the most recent record that isn't COMPLETED or CANCELLED
+    const currentDispatch = await this.dispatchRepository.findOne({
+      where: { incident_id: id },
+      order: { dispatched_at: 'DESC' }
+    });
+
+    if (!currentDispatch) {
+      throw new BadRequestException('No active dispatch found for this incident.');
+    }
+
+    if (incident.status === 'COMPLETED' || incident.status === 'CANCELLED' || incident.status === 'ON_SCENE') {
+      throw new BadRequestException(`Cannot reassign vehicle for incident with status '${incident.status}'.`);
+    }
+
+    // 2. Identify and release the old vehicle
+    const oldVehicle = await this.vehicleRepository.findOneBy({ identifier: currentDispatch.vehicle_id });
+    if (oldVehicle) {
+      oldVehicle.status = VehicleStatus.AVAILABLE;
+      await this.vehicleRepository.save(oldVehicle);
+    }
+
+    // 3. Identify and lock the new vehicle
+    const newVehicle = await this.vehicleRepository.findOneBy({ identifier: dto.new_vehicle_id });
+    if (!newVehicle) throw new NotFoundException(`New vehicle '${dto.new_vehicle_id}' not found.`);
+    if (newVehicle.status !== VehicleStatus.AVAILABLE) {
+      throw new BadRequestException(`Vehicle '${dto.new_vehicle_id}' is not available.`);
+    }
+
+    newVehicle.status = VehicleStatus.BUSY;
+    await this.vehicleRepository.save(newVehicle);
+
+    // 4. Update the Dispatch record
+    // We keep the record history by updating the existing one or marking it as reassigned and creating new. 
+    // Usually, updating the active record is cleaner for active dispatch tracking.
+    const oldVehicleId = currentDispatch.vehicle_id;
+    currentDispatch.vehicle_id = dto.new_vehicle_id;
+    
+    // Recalculate ETA from new vehicle location
+    const dist = this.getDistance(incident.gps_lat, incident.gps_lon, newVehicle.gps_lat, newVehicle.gps_lon);
+    let newEta = Math.floor((dist / 30) * 3600);
+    if (newEta < 120) newEta = 120; // 2 min min
+    
+    currentDispatch.eta_seconds = newEta;
+    currentDispatch.is_manual_override = true; // Reassignment is always manual
+    currentDispatch.override_reason = `REASSIGNED: ${dto.reason}`;
+    await this.dispatchRepository.save(currentDispatch);
+
+    // 5. Update Incident
+    incident.assigned_vehicle = dto.new_vehicle_id;
+    incident.eta_seconds = newEta;
+    await this.incidentRepository.save(incident);
+
+    // 6. Logging
+    await this.logTimelineEvent(
+      incident.id,
+      'REASSIGNED',
+      `Vehicle reassigned from ${oldVehicleId} to ${dto.new_vehicle_id}. Reason: ${dto.reason}`,
+      context.userId,
+      { old_vehicle: oldVehicleId, new_vehicle: dto.new_vehicle_id, reason: dto.reason }
+    );
+
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_REASSIGNED',
+      incident.id,
+      context,
+      { old_vehicle: oldVehicleId, new_vehicle: dto.new_vehicle_id, reason: dto.reason }
+    );
+
+    return { data: currentDispatch };
   }
 
   async getTimeline(id: string) {

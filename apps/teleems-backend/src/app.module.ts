@@ -23,6 +23,7 @@ import { Incident } from '../../dispatch-service/src/entities/incident.entity';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
 import { Dispatch } from '../../dispatch-service/src/entities/dispatch.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
+import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 
 @Module({
   imports: [
@@ -38,7 +39,7 @@ import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
         username: config.get('DB_USER') || config.get('DB_USERNAME') || 'postgres',
         password: config.get('DB_PASSWORD') || '',
         database: config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
-        entities: [User, AuditLog, Role, Session, Incident, IncidentTimeline, Dispatch, RtvsRecord],
+        entities: [User, AuditLog, Role, Session, Incident, IncidentTimeline, Dispatch, RtvsRecord, Vehicle],
         synchronize: true, // Auto-create tables; revert for prod migrations
       }),
     }),
