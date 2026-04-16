@@ -26,9 +26,9 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
         type: 'postgres',
         host: config.get('DB_HOST') || 'localhost',
         port: parseInt(config.get('DB_PORT') || '5433', 10),
-        username: config.get('DB_USER') || 'postgres',
+        username: config.get('DB_USER') || config.get('DB_USERNAME') || 'postgres',
         password: config.get('DB_PASSWORD') || '',
-        database: config.get('DB_NAME') || 'teleems',
+        database: config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
         entities: [User, AuditLog, Role, Session],
         synchronize: true, // Set to true to auto-create Role table; revert for production migrations
       }),

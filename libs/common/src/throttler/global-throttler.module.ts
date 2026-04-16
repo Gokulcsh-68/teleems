@@ -15,11 +15,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
             ttl: 60000,
           },
         ],
-        storage: new RedisThrottlerStorage({
-          host: config.get('REDIS_HOST') || 'localhost',
-          port: config.get('REDIS_PORT') || 6379,
-          password: config.get('REDIS_PASSWORD'),
-        }),
+        storage: new RedisThrottlerStorage(
+          config.get('REDIS_URL') || {
+            host: config.get('REDIS_HOST') || 'localhost',
+            port: parseInt(config.get('REDIS_PORT') || '6379', 10),
+            password: config.get('REDIS_PASSWORD'),
+          }
+        ),
       }),
     }),
   ],
