@@ -20,8 +20,7 @@ export class CreateUserDto {
   org_id?: string;
 
   @IsString()
-  @IsOptional()
-  password?: string;
+  password: string;
   
   @IsString()
   @IsOptional()

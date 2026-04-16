@@ -948,14 +948,8 @@ export class AuthService implements OnModuleInit {
     const isOtpOnlyRole = ['EMT', 'CALLER'].includes(dto.role);
     const isSuperAdmin = dto.role === 'SUPER_ADMIN';
 
-    let hashedPassword = null as any;
-    if (dto.password) {
-      hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-    } else if (!isOtpOnlyRole) {
-      // Generate random password for non-OTP roles if not provided
-      const randomPassword = Math.random().toString(36).substring(2, 12);
-      hashedPassword = await bcrypt.hash(randomPassword, BCRYPT_SALT_ROUNDS);
-    }
+    const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
+
 
     const user = this.userRepo.create({
       phone: dto.phone,
