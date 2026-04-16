@@ -19,7 +19,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     config: ConfigService,
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {
-    const publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+    let publicKey = config.get('JWT_PUBLIC_KEY');
+    
+    if (!publicKey) {
+      try {
+        publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+      } catch (e) {
+        // Fallback for when keys are only in ENV
+        console.warn('JWT Public Key not found in secrets folder, using ENV.');
+      }
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

@@ -62,6 +62,10 @@ services:
           property: port
       - key: JWT_EXPIRATION
         value: 3h
+      - key: JWT_PRIVATE_KEY
+        sync: false
+      - key: JWT_PUBLIC_KEY
+        sync: false
 
   # The Dispatch Service
   - type: web

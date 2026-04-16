@@ -38,8 +38,20 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const privateKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key'), 'utf8');
-        const publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+        let privateKey = config.get('JWT_PRIVATE_KEY');
+        let publicKey = config.get('JWT_PUBLIC_KEY');
+
+        if (!privateKey || !publicKey) {
+          try {
+            privateKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key'), 'utf8');
+            publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+          } catch (e) {
+            console.error('CRITICAL: JWT keys not found in ENV and secrets folder is missing!', e.message);
+            // On Render, this will crash the app with a clear log instead of an obscure 500
+            throw e; 
+          }
+        }
+
         return {
           privateKey,
           publicKey,
