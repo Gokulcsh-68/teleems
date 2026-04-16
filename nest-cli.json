@@ -19,6 +19,15 @@
         "tsConfigPath": "apps/admin-service/tsconfig.app.json"
       }
     },
+    "api-gateway": {
+      "type": "application",
+      "root": "apps/api-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/api-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+      }
+    },
     "auth-service": {
       "type": "application",
       "root": "apps/auth-service",
