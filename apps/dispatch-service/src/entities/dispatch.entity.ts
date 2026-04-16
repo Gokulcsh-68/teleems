@@ -21,10 +21,10 @@ export class Dispatch {
   @Column({ type: 'int', nullable: true })
   eta_seconds: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   manual_vehicle_id: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   override_reason: string | null;
 
   @Column({ default: false })
