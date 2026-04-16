@@ -5,8 +5,10 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);
   
-  const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
-  const dispatchUrl = process.env.DISPATCH_SERVICE_URL || 'http://localhost:3002';
+  const ensureHttp = (url: string) => url.startsWith('http') ? url : `http://${url}`;
+  
+  const authUrl = ensureHttp(process.env.AUTH_SERVICE_URL || 'http://localhost:3001');
+  const dispatchUrl = ensureHttp(process.env.DISPATCH_SERVICE_URL || 'http://localhost:3002');
   
   // Proxy for Auth Service
   app.use(
