@@ -1,98 +1,101 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# TeleEMS Backend - Unified API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Production-grade emergency medical services platform backend. Consolidates multiple services into a high-performance Unified API for simplified deployment and management.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Environment Overview
 
-## Description
+| Service Name | Environment | Public URL |
+|--------------|-------------|------------|
+| **Unified API** | Production | `https://teleems-api-gateway.onrender.com` |
+| **Telelink Service** | Production | `https://telelink-service.onrender.com` |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 📖 API Reference (Quick Start)
 
+Base URL: `https://teleems-api-gateway.onrender.com`
+
+### 🔐 Authentication (`/v1/auth`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/auth/login` | Authenticate with username/password |
+| `POST` | `/v1/auth/otp/request` | Request OTP for mobile authentication |
+| `POST` | `/v1/auth/otp/verify` | Verify OTP and receive JWT |
+| `GET`  | `/v1/auth/me` | Get current user profile (Requires JWT) |
+| `POST` | `/v1/auth/password/change` | Change password for logged-in user |
+| `POST` | `/v1/auth/token/refresh` | Refresh access token using HTTP-only cookie |
+| `POST` | `/v1/auth/token/revoke` | Logout (Revoke current session) |
+
+
+### 🚨 Incident Management (`/v1/incidents`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/v1/incidents` | List incidents (Filters: `status`) |
+| `POST` | `/v1/incidents` | Report a new emergency incident |
+| `GET`  | `/v1/incidents/:id` | Get full details of a specific incident |
+| **`PATCH`** | **`/v1/incidents/:id/status`** | **Update incident status (CCE/Admin)** |
+| `PATCH` | `/v1/incidents/:id/assign` | Assign a vehicle to an incident |
+
+### 👥 User Management (`/v1/auth/users`)
+
+*Note: Most user management endpoints require `CURESELECT_ADMIN` role.*
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET`  | `/v1/auth/users` | List all users (Admin only) |
+| `POST` | `/v1/auth/users` | Create a new user (Admin only) |
+| `GET`  | `/v1/auth/users/:id` | Get user profile details |
+| **`PATCH`** | **`/v1/auth/users/:id`** | **Update user details (Partial)** |
+| `PUT`  | `/v1/auth/users/:id` | Update user details (Full) |
+| `DELETE` | `/v1/auth/users/:id` | Deactivate/Delete user |
+| `GET`  | `/v1/auth/users/:id/sessions` | List active sessions for user |
+| `DELETE`| `/v1/auth/users/:id/sessions/:sid` | Revoke specific user session |
+
+### 🛠️ Other Services
+
+- **Admin:** `/v1/admin`
+- **Fleet:** `/v1/fleet`
+- **Hospital:** `/v1/hospital`
+- **Notifications:** `/v1/notifications`
+
+---
+
+## 🛠️ Local Development
+
+### Prerequisites
+- Node.js (v20+)
+- PostgreSQL
+- Redis
+
+### Setup
 ```bash
-$ npm install
+# Install dependencies
+npm install
+
+# Build all services
+npm run build
+
+# Start Unified API in dev mode
+npm run start:dev teleems-backend
+
+# Start Telelink Service in dev mode
+npm run start:dev telelink-service
 ```
 
-## Compile and run the project
-
+### Build Commands
 ```bash
-# development
-$ npm run start
+# Unified API
+npm run build:api
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# Telelink Service
+npm run build:telelink
 ```
 
-## Run tests
+## 📦 Deployment (Render)
 
-```bash
-# unit tests
-$ npm run test
+Deployment is managed via `render.yaml`. Pushing to `main` branch triggers an automatic build/deploy cycle.
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+> [!IMPORTANT]
+> **Secret Management:** Ensure `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` are manually configured in the Render Dashboard for the `teleems-api-gateway` service.
