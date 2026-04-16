@@ -3,7 +3,7 @@ services:
     name: teleems-auth-service
     env: node
     plan: free
-    buildCommand: npm install && npm run build:auth
+    buildCommand: npm install --include=dev && npm run build:auth
     startCommand: node dist/apps/auth-service/main.js
     envVars:
       - key: NODE_ENV
