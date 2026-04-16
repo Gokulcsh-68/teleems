@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { EpcrServiceService } from './epcr-service.service';
 
-@Controller()
+@Controller('v1/epcr')
 export class EpcrServiceController {
   constructor(private readonly epcrServiceService: EpcrServiceService) {}
 

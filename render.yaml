@@ -1,32 +1,11 @@
 services:
-  # The Unified API Gateway (Accessible from the Public Internet)
+  # The Consolidated Unified API (Combines Auth, Dispatch, etc.)
   - type: web
     name: teleems-api-gateway
     env: node
     plan: free
-    buildCommand: npm install --include=dev && npm run build:gateway
-    startCommand: node dist/apps/api-gateway/main.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: AUTH_SERVICE_URL
-        fromService:
-          type: web
-          name: teleems-auth-service
-          property: hostport
-      - key: DISPATCH_SERVICE_URL
-        fromService:
-          type: web
-          name: teleems-dispatch-service
-          property: hostport
-
-  # The Auth Service
-  - type: web
-    name: teleems-auth-service
-    env: node
-    plan: free
-    buildCommand: npm install --include=dev && npm run build:auth
-    startCommand: node dist/apps/auth-service/main.js
+    buildCommand: npm install --include=dev && npm run build:api
+    startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
@@ -67,36 +46,17 @@ services:
       - key: JWT_PUBLIC_KEY
         sync: false
 
-  # The Dispatch Service
+  # The Telelink Service (Kept as separate Microservice)
   - type: web
-    name: teleems-dispatch-service
+    name: telelink-service
+
     env: node
     plan: free
-    buildCommand: npm install --include=dev && npm run build:dispatch
-    startCommand: node dist/apps/dispatch-service/main.js
+    buildCommand: npm install --include=dev && npm run build:telelink
+    startCommand: node dist/apps/telelink-service/main.js
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DB_HOST
-        fromDatabase:
-          name: teleems-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: teleems-db
-          property: port
-      - key: DB_USER
-        fromDatabase:
-          name: teleems-db
-          property: user
-      - key: DB_PASSWORD
-        fromDatabase:
-          name: teleems-db
-          property: password
-      - key: DB_NAME
-        fromDatabase:
-          name: teleems-db
-          property: database
 
   - type: keyvalue
     name: teleems-redis

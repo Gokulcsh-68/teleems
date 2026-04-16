@@ -19,20 +19,6 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('DB_HOST') || 'localhost',
-        port: parseInt(config.get('DB_PORT') || '5433', 10),
-        username: config.get('DB_USER') || config.get('DB_USERNAME') || 'postgres',
-        password: config.get('DB_PASSWORD') || '',
-        database: config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
-        entities: [User, AuditLog, Role, Session],
-        synchronize: true, // Set to true to auto-create Role table; revert for production migrations
-      }),
-    }),
     TypeOrmModule.forFeature([User, AuditLog, Role, Session]),
     GlobalThrottlerModule,
     JwtModule.registerAsync({
@@ -47,7 +33,6 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
             publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
           } catch (e) {
             console.error('CRITICAL: JWT keys not found in ENV and secrets folder is missing!', e.message);
-            // On Render, this will crash the app with a clear log instead of an obscure 500
             throw e; 
           }
         }
@@ -73,6 +58,7 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
       useClass: DynamicRateLimitGuard,
     }
   ],
-  exports: [JwtModule],
+  exports: [AuthService, JwtModule, AuditLogService],
 })
 export class AuthModule {}
+

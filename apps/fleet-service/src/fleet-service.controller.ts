@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { FleetServiceService } from './fleet-service.service';
 
-@Controller()
+@Controller('v1/fleet')
 export class FleetServiceController {
   constructor(private readonly fleetServiceService: FleetServiceService) {}
 
