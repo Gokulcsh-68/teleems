@@ -4,28 +4,28 @@ services:
     name: teleems-api-gateway
     env: node
     plan: free
-    buildCommand: npm install --include=dev && nest build api-gateway
+    buildCommand: npm install --include=dev && npm run build:gateway
     startCommand: node dist/apps/api-gateway/main.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: AUTH_SERVICE_URL
         fromService:
-          type: pserv
+          type: pservice
           name: teleems-auth-service
           property: host
       - key: DISPATCH_SERVICE_URL
         fromService:
-          type: pserv
+          type: pservice
           name: teleems-dispatch-service
           property: host
 
   # The Auth Service (Private Backend Engine)
-  - type: pserv
+  - type: pservice
     name: teleems-auth-service
     env: node
     plan: free
-    buildCommand: npm install --include=dev && nest build auth-service
+    buildCommand: npm install --include=dev && npm run build:auth
     startCommand: node dist/apps/auth-service/main.js
     envVars:
       - key: NODE_ENV
@@ -62,11 +62,11 @@ services:
           property: port
 
   # The Dispatch Service (Private Backend Engine)
-  - type: pserv
+  - type: pservice
     name: teleems-dispatch-service
     env: node
     plan: free
-    buildCommand: npm install --include=dev && nest build dispatch-service
+    buildCommand: npm install --include=dev && npm run build:dispatch
     startCommand: node dist/apps/dispatch-service/main.js
     envVars:
       - key: NODE_ENV
