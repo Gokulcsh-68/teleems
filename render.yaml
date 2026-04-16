@@ -11,17 +11,17 @@ services:
         value: production
       - key: AUTH_SERVICE_URL
         fromService:
-          type: pserv
+          type: web
           name: teleems-auth-service
           property: host
       - key: DISPATCH_SERVICE_URL
         fromService:
-          type: pserv
+          type: web
           name: teleems-dispatch-service
           property: host
 
-  # The Auth Service (Private Backend Engine)
-  - type: pserv
+  # The Auth Service
+  - type: web
     name: teleems-auth-service
     env: node
     plan: free
@@ -63,8 +63,8 @@ services:
       - key: JWT_EXPIRATION
         value: 3h
 
-  # The Dispatch Service (Private Backend Engine)
-  - type: pserv
+  # The Dispatch Service
+  - type: web
     name: teleems-dispatch-service
     env: node
     plan: free
