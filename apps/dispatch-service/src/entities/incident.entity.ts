@@ -28,6 +28,7 @@ export class Incident {
 
   @Column({ type: 'jsonb' })
   patients: { 
+    id: string;
     name?: string; 
     age?: number; 
     gender: string; 

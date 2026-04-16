@@ -11,7 +11,10 @@ import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
 import { RecommendVehicleDto } from './dto/recommend-vehicle.dto';
 import { AddPatientDto } from './dto/add-patient.dto';
+import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
+import { v4 as uuid } from 'uuid';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
 
@@ -115,6 +118,11 @@ export class DispatchServiceService {
   async createIncident(dto: CreateIncidentDto, context: AuditContext) {
     const incidentData = {
       ...dto,
+      patients: dto.patients.map(p => ({
+        id: uuid(),
+        ...p,
+        triage_code: p.triage_code.toUpperCase(),
+      })),
       caller_id: dto.caller_id || context.userId,
       status: 'PENDING',
     };
@@ -219,9 +227,9 @@ export class DispatchServiceService {
 
     // Security: Non-admins/CCE/Hospital can only view their own incidents
     if (requestUser) {
-      const isPrivileged = requestUser.roles.includes('CURESELECT_ADMIN') || 
-                           requestUser.roles.includes('CCE') ||
-                           requestUser.roles.includes('HOSPITAL');
+      const isPrivileged = requestUser.roles.some((r: string) => 
+        ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE', 'Hospital Admin', 'HOSPITAL'].includes(r)
+      );
       if (!isPrivileged && incident.caller_id !== requestUser.userId) {
         throw new ForbiddenException('You do not have permission to view this incident');
       }
@@ -734,39 +742,87 @@ export class DispatchServiceService {
     return { data: events };
   }
 
-  async addPatient(incidentId: string, dto: AddPatientDto, context: AuditContext) {
+  async addPatient(incidentId: string, dto: BulkAddPatientsDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id: incidentId });
     if (!incident) throw new NotFoundException('Incident not found');
 
-    const patient = {
-      name: dto.name,
-      age: dto.age,
-      gender: dto.gender,
-      triage_code: dto.triage_code.toUpperCase(),
-      symptoms: dto.symptoms || [],
-    };
+    const newPatients = dto.patients.map(p => ({
+      id: uuid(),
+      name: p.name,
+      age: p.age,
+      gender: p.gender,
+      triage_code: p.triage_code.toUpperCase(),
+      symptoms: p.symptoms || [],
+    }));
 
-    incident.patients = [...(incident.patients || []), patient];
+    incident.patients = [...(incident.patients || []), ...newPatients];
     await this.incidentRepository.save(incident);
 
     // Timeline Event
     await this.logTimelineEvent(
       incident.id,
-      'PATIENT_ADDED',
-      `New patient added (${patient.triage_code}). Total patients: ${incident.patients.length}`,
+      'PATIENTS_ADDED',
+      `${newPatients.length} new patient(s) added. Total: ${incident.patients.length}`,
       context.userId,
-      { triage_code: patient.triage_code }
+      { 
+        patient_count: newPatients.length, 
+        triages: newPatients.map(p => p.triage_code) 
+      }
     );
 
     // Security Audit
     await this.logSecurityAudit(
       context.userId,
-      'INCIDENT_PATIENT_ADDED',
+      'INCIDENT_BULK_PATIENT_ADDED',
       incident.id,
       context,
-      { triage_code: patient.triage_code, total_patients: incident.patients.length }
+      { count: newPatients.length, total: incident.patients.length }
     );
 
-    return { data: patient };
+    return { 
+      message: 'Patients added successfully',
+      data: newPatients,
+      total_count: incident.patients.length 
+    };
+  }
+
+  async getPatients(incidentId: string, requestUser: any) {
+    const incidentWrapper = await this.findOne(incidentId, requestUser);
+    return { data: incidentWrapper.data.patients || [] };
+  }
+
+  async updatePatient(incidentId: string, patientId: string, dto: UpdatePatientDto, context: AuditContext) {
+    const incidentWrapper = await this.findOne(incidentId, { roles: ['CureSelect Admin'], userId: context.userId });
+    const incident = incidentWrapper.data;
+
+    const patientIndex = incident.patients.findIndex(p => p.id === patientId);
+    if (patientIndex === -1) {
+      throw new NotFoundException(`Patient with ID ${patientId} not found in this incident`);
+    }
+
+    const patient = incident.patients[patientIndex];
+    if (dto.name) patient.name = dto.name;
+    if (dto.age) patient.age = dto.age;
+    if (dto.gender) patient.gender = dto.gender;
+    if (dto.triage_code) patient.triage_code = dto.triage_code.toUpperCase();
+    if (dto.symptoms) {
+      patient.symptoms = [...(patient.symptoms || []), ...dto.symptoms];
+    }
+
+    incident.patients[patientIndex] = patient;
+    await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id,
+      'PATIENT_UPDATED',
+      `Patient update: ${dto.triage_code ? `Triage changed to ${dto.triage_code.toUpperCase()}` : 'Profile updated.'}`,
+      context.userId,
+      { patient_id: patientId, updates: dto }
+    );
+
+    return { 
+      message: 'Patient updated successfully',
+      data: patient 
+    };
   }
 }

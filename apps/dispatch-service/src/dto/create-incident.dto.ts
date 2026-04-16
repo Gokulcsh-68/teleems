@@ -19,15 +19,18 @@ export enum IncidentSeverity {
 
 export class PatientDto {
   @IsString()
-  name: string;
+  @IsOptional()
+  name?: string;
 
   @IsNumber()
   @IsOptional()
   age?: number;
 
   @IsString()
-  @IsOptional()
-  gender?: string;
+  gender: string;
+
+  @IsString()
+  triage_code: string;
 
   @IsArray()
   @IsString({ each: true })

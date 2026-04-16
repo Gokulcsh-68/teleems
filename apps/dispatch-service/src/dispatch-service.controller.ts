@@ -6,7 +6,8 @@ import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
 import { RecommendVehicleDto } from './dto/recommend-vehicle.dto';
-import { AddPatientDto } from './dto/add-patient.dto';
+import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
@@ -18,7 +19,7 @@ export class DispatchServiceController {
   constructor(private readonly dispatchService: DispatchServiceService) {}
 
   @Post()
-  @Roles('CALLER', 'CCE', 'HOSPITAL', 'CURESELECT_ADMIN')
+  @Roles('Caller (Public)', 'Call Centre Executive (CCE)', 'Hospital Admin', 'CureSelect Admin')
   @HttpCode(201)
   async createIncident(@Body() dto: CreateIncidentDto, @Req() req: any) {
     const context: AuditContext = {
@@ -30,18 +31,18 @@ export class DispatchServiceController {
     return {
       message: 'Incident reported successfully',
       data: result.data,
+      patient_count: result.data.patients?.length || 0,
       assigned_vehicle: result.assigned_vehicle,
       eta_seconds: result.eta_seconds,
     };
   }
 
   @Get()
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async listIncidents(@Query() query: IncidentQueryDto, @Req() req: any) {
-    const isPrivileged = req.user.roles.includes('CURESELECT_ADMIN') || 
-                        req.user.roles.includes('CCE') ||
-                        req.user.roles.includes('FLEET_MANAGER') ||
-                        req.user.roles.includes('HOSPITAL');
+    const isPrivileged = req.user.roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE', 'Fleet Operator', 'Hospital Admin'].includes(r)
+    );
 
     const callerIdOverride = !isPrivileged ? req.user.userId : undefined;
     
@@ -49,7 +50,7 @@ export class DispatchServiceController {
   }
 
   @Post(':id/dispatch')
-  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL', 'FLEET_MANAGER')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
   async dispatchIncident(@Param('id') id: string, @Body() dto: DispatchIncidentDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -60,13 +61,13 @@ export class DispatchServiceController {
   }
 
   @Get(':id/dispatch')
-  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL', 'FLEET_MANAGER')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
   async getActiveDispatch(@Param('id') id: string) {
     return this.dispatchService.getActiveDispatch(id);
   }
 
   @Put(':id/dispatch/reassign')
-  @Roles('CCE', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin')
   async reassignVehicle(@Param('id') id: string, @Body() dto: ReassignVehicleDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -77,7 +78,7 @@ export class DispatchServiceController {
   }
 
   @Post(':id/dispatch/cancel')
-  @Roles('CCE', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin')
   async cancelDispatch(@Param('id') id: string, @Body() dto: CancelDispatchDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -88,13 +89,13 @@ export class DispatchServiceController {
   }
 
   @Get(':id')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async getIncident(@Param('id') id: string, @Req() req: any) {
     return this.dispatchService.findOne(id, req.user);
   }
 
   @Patch(':id/status')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin')
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateIncidentStatusDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -105,7 +106,7 @@ export class DispatchServiceController {
   }
 
   @Patch(':id/assign')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin')
   async assignVehicle(@Param('id') id: string, @Body() dto: AssignVehicleDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -116,7 +117,7 @@ export class DispatchServiceController {
   }
 
   @Patch(':id')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin')
   async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
@@ -127,7 +128,7 @@ export class DispatchServiceController {
   }
 
   @Delete(':id')
-  @Roles('CCE', 'CURESELECT_ADMIN')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin')
   @HttpCode(204)
   async cancelIncident(@Param('id') id: string, @Body() dto: CancelIncidentDto, @Req() req: any) {
     const context: AuditContext = {
@@ -139,27 +140,48 @@ export class DispatchServiceController {
   }
 
   @Get(':id/timeline')
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async getTimeline(@Param('id') id: string, @Req() req: any) {
-    // Security check: ensure user has access to this incident first
     await this.dispatchService.findOne(id, req.user);
     return this.dispatchService.getTimeline(id);
   }
 
   @Get(':id/audit')
-  @Roles('CURESELECT_ADMIN', 'FLEET_MANAGER')
+  @Roles('CureSelect Admin', 'Fleet Operator')
   async getAudit(@Param('id') id: string) {
     return this.dispatchService.getAuditLogs(id);
   }
 
   @Post(':id/patients')
-  @Roles('CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
-  async addPatient(@Param('id') id: string, @Body() dto: AddPatientDto, @Req() req: any) {
+  @Roles('CureSelect Admin', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
+  async addPatient(@Param('id') id: string, @Body() dto: BulkAddPatientsDto, @Req() req: any) {
     const context: AuditContext = {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
     };
     return this.dispatchService.addPatient(id, dto, context);
+  }
+
+  @Get(':id/patients')
+  @Roles('CureSelect Admin', 'Call Centre Executive (CCE)', 'EMT / Paramedic', 'Hospital Admin', 'Fleet Operator')
+  async getPatients(@Param('id') id: string, @Req() req: any) {
+    return this.dispatchService.getPatients(id, req.user);
+  }
+
+  @Patch(':id/patients/:patient_id')
+  @Roles('CureSelect Admin', 'Call Centre Executive (CCE)', 'EMT / Paramedic', 'Hospital Admin')
+  async updatePatient(
+    @Param('id') id: string, 
+    @Param('patient_id') patientId: string, 
+    @Body() dto: UpdatePatientDto, 
+    @Req() req: any
+  ) {
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.updatePatient(id, patientId, dto, context);
   }
 }

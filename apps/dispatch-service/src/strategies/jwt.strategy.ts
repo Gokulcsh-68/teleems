@@ -19,6 +19,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     // Stateless validation for decoupled microservices
     // Signature & expiration are automatically checked by passport-jwt
-    return { userId: payload.sub, roles: payload.roles || [payload.role] };
+    return { 
+      userId: payload.sub, 
+      roles: payload.roles || [payload.role],
+      organisationId: payload.org_id
+    };
   }
 }

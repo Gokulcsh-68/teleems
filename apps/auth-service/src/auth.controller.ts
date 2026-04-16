@@ -210,12 +210,12 @@ export class AuthController {
 
   @Post('users/:user_id/force-password-reset')
   @UseGuards(JwtAuthGuard, RolesGuard, IpWhitelistGuard)
-  @Roles('CURESELECT_ADMIN')
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   @HttpCode(HttpStatus.NO_CONTENT)
   async forcePasswordReset(@Req() req: any) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
-    await this.authService.forcePasswordReset(req.user.userId, req.params.user_id, ip, userAgent);
+    await this.authService.forcePasswordReset(req.user, req.params.user_id, ip, userAgent);
   }
 
   @Post('password/change')
@@ -342,8 +342,23 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
-  async listUsers(@Query() query: UserQueryDto) {
+  @Roles('CURESELECT_ADMIN', 'CureSelect Admin', 'Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)')
+  async listUsers(@Query() query: UserQueryDto, @Req() req: any) {
+    const isPlatformAdmin = req.user.roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+    );
+    const isHospitalAdmin = req.user.roles.some((r: string) => 
+      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
+    );
+    const isEdDoctor = req.user.roles.some((r: string) => 
+      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+    );
+
+    // Enforce tenant isolation for Hospital Admins and ED Doctors
+    if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+      query.org_id = req.user.organisationId;
+    }
+
     const result = await this.authService.findAllUsers(query);
     return {
       message: 'Users retrieved successfully',
@@ -358,7 +373,7 @@ export class AuthController {
 
   @Post('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN', 'Hospital Admin')
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   async createUser(@Req() req: any, @Body() dto: CreateUserDto) {
     const user = await this.authService.createUser(dto, req.user);
     return {
@@ -386,9 +401,9 @@ export class AuthController {
 
   @Put('users/:user_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   async updateUserFull(@Req() req: any, @Body() dto: UpdateUserDto) {
-    const user = await this.authService.updateUser(req.params.user_id, dto);
+    const user = await this.authService.updateUser(req.params.user_id, dto, req.user);
     return {
       data: user,
     };
@@ -398,46 +413,63 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   async updateUserPartial(@Req() req: any, @Body() dto: UpdateUserDto) {
     const targetId = req.params.user_id;
-    const isAdmin = req.user.roles.includes('CURESELECT_ADMIN');
+    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
+    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
     const isOwn = req.user.userId === targetId;
 
-    if (!isAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only update your own profile');
+    if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
+      throw new ForbiddenException('Access denied: You can only update your own profile or sub-accounts');
     }
 
-    // Security: Non-admins cannot update their own 'status' or 'role' or 'org_id'
-    if (!isAdmin) {
-      delete dto.status;
-      delete dto.role;
-      delete dto.org_id;
+    // Security: Non-platform-admins cannot update their own 'status' or 'role' or 'org_id'
+    // Hospital Admins can update these for OTHER users in their org, but NOT for themselves via Patch
+    if (!isPlatformAdmin) {
+      if (isOwn) {
+        delete dto.status;
+        delete dto.role;
+        delete dto.org_id;
+      }
     }
 
-    const user = await this.authService.updateUser(targetId, dto);
+    const user = await this.authService.updateUser(targetId, dto, req.user);
     return {
+      data: user,
+    };
+  }
+
+  @Patch('users/:user_id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
+  async updateUserStatus(@Req() req: any, @Body() body: { status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING' }) {
+    const targetId = req.params.user_id;
+    const user = await this.authService.updateUser(targetId, { status: body.status }, req.user);
+    return {
+      message: `User status updated to ${body.status}`,
       data: user,
     };
   }
 
   @Delete('users/:user_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivateUser(@Req() req: any) {
-    await this.authService.deleteUser(req.params.user_id, req.user.userId);
+    await this.authService.deleteUser(req.params.user_id, req.user);
   }
 
   @Get('users/:user_id/sessions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   async getUserSessions(@Req() req: any) {
     const targetId = req.params.user_id;
-    const isAdmin = req.user.roles.includes('CURESELECT_ADMIN');
+    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
+    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
     const isOwn = req.user.userId === targetId;
 
-    if (!isAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only view your own sessions');
+    if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
+      throw new ForbiddenException('Access denied: You can only view your own sessions or sub-accounts');
     }
 
-    const sessions = await this.authService.getUserSessions(targetId);
+    const sessions = await this.authService.getUserSessions(targetId, req.user);
     return {
       data: sessions,
     };
@@ -449,30 +481,49 @@ export class AuthController {
   async revokeSession(@Req() req: any) {
     const targetId = req.params.user_id;
     const sessionId = req.params.session_id;
-    const isAdmin = req.user.roles.includes('CURESELECT_ADMIN');
+    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
+    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
     const isOwn = req.user.userId === targetId;
 
-    if (!isAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only terminate your own sessions');
+    if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
+      throw new ForbiddenException('Access denied: You can only terminate your own sessions or sub-accounts');
     }
 
-    await this.authService.revokeSession(targetId, sessionId);
+    await this.authService.revokeSession(targetId, sessionId, req.user);
   }
 
   @Get('users/:user_id/audit-log')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   async getUserAuditLog(@Req() req: any, @Query('limit') limit?: string, @Query('cursor') cursor?: string) {
-    const parsedLimit = Math.min(parseInt(limit || '50', 10), 100);
     const targetUserId = req.params.user_id;
+    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
+    const isHospitalLevelAdmin = req.user.roles.some((r: string) => 
+      ['Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+    );
+
+    // Enforce tenant isolation for Audit Logs
+    if (isHospitalLevelAdmin && !isPlatformAdmin) {
+      const targetUser = await this.authService.findOneUser(targetUserId);
+      if (targetUser.organisationId !== req.user.organisationId) {
+        throw new ForbiddenException('Access denied: You can only view audit logs for users in your own organization');
+      }
+    }
+
+    const parsedLimit = Math.min(parseInt(limit || '50', 10), 100);
     return this.auditLogService.getLogsForUser(targetUserId, parsedLimit, cursor);
   }
 
   @Get('roles')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
-  async getRoles() {
-    const roles = await this.authService.getRolesWithPermissions();
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
+  async getRoles(@Req() req: any) {
+    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
+    
+    // For Hospital Admins and ED Doctors, filter by 'Hospital' scope
+    const scope = isPlatformAdmin ? undefined : 'Hospital';
+    const roles = await this.authService.getRolesWithPermissions(scope);
+    
     return {
       data: roles,
     };

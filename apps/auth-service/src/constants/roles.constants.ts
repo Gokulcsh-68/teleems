@@ -24,7 +24,7 @@ export const SYSTEM_ROLES: Role[] = [
   {
     name: 'Hospital ED Doctor (ERCP)',
     scope: 'Hospital',
-    permissions: ['telelink_accept_initiate', 'rtvs_view', 'epcr_read', 'clinical_notes_write'],
+    permissions: ['telelink_accept_initiate', 'rtvs_view', 'epcr_read', 'clinical_notes_write', 'manage_sub_accounts'],
   },
   {
     name: 'Hospital Nurse',

@@ -84,6 +84,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       this.userRepo.update(user.id, { lastActiveAt: now }).catch(() => {});
     }
 
-    return { userId: user.id, roles: user.roles };
+    return { 
+      userId: user.id, 
+      roles: user.roles, 
+      organisationId: user.organisationId 
+    };
   }
 }

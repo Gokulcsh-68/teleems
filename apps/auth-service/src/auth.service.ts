@@ -107,6 +107,7 @@ export class AuthService implements OnModuleInit {
     const payload = { 
       sub: user.id, 
       roles: user.roles,
+      org_id: user.organisationId,
       sid: session.id 
     };
     
@@ -516,16 +517,26 @@ export class AuthService implements OnModuleInit {
   /**
    * Force password reset on a sub-account (admin-only).
    */
-  async forcePasswordReset(adminUserId: string, targetUserId: string, ipAddress: string, userAgent: string) {
+  async forcePasswordReset(creator: any, targetUserId: string, ipAddress: string, userAgent: string) {
     const targetUser = await this.userRepo.findOneBy({ id: targetUserId });
     if (!targetUser) {
       throw new BadRequestException('Target user not found');
     }
 
+    const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
+    const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+
+    if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+      if (targetUser.organisationId !== creator.organisationId) {
+        throw new ForbiddenException('Access denied: You can only reset passwords for users in your own organization');
+      }
+    }
+
     await this.userRepo.update(targetUserId, { forcePasswordReset: true });
 
     await this.auditLogService.log({
-      userId: adminUserId,
+      userId: creator.userId,
       action: 'FORCE_PASSWORD_RESET',
       ipAddress,
       userAgent,
@@ -726,9 +737,12 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
-   * List all roles with permission sets.
+   * List all roles with optional scope filtering.
    */
-  async getRolesWithPermissions() {
+  async getRolesWithPermissions(scope?: string) {
+    if (scope) {
+      return this.roleRepo.find({ where: { scope } });
+    }
     return this.roleRepo.find();
   }
 
@@ -907,6 +921,27 @@ export class AuthService implements OnModuleInit {
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
     }
+    if (query.email) {
+      qb.andWhere('user.email ILIKE :email', { email: `%${query.email}%` });
+    }
+    if (query.phone) {
+      qb.andWhere('user.phone ILIKE :phone', { phone: `%${query.phone}%` });
+    }
+    if (query.username) {
+      qb.andWhere('user.username ILIKE :username', { username: `%${query.username}%` });
+    }
+    if (query.search) {
+      qb.andWhere(
+        '(user.name ILIKE :search OR user.phone ILIKE :search OR user.email ILIKE :search OR user.username ILIKE :search)',
+        { search: `%${query.search}%` }
+      );
+    }
+    if (query.date_from) {
+      qb.andWhere('user.createdAt >= :dateFrom', { dateFrom: query.date_from });
+    }
+    if (query.date_to) {
+      qb.andWhere('user.createdAt <= :dateTo', { dateTo: query.date_to });
+    }
 
     if (query.cursor) {
       const decoded = decodeCursor(query.cursor);
@@ -963,6 +998,9 @@ export class AuthService implements OnModuleInit {
     const isHospitalAdmin = creator.roles.some((r: string) => 
       ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
     );
+    const isEdDoctor = creator.roles.some((r: string) => 
+      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+    );
     
     let targetOrgId = dto.org_id;
     let targetRole = dto.role;
@@ -972,6 +1010,9 @@ export class AuthService implements OnModuleInit {
       'ED_DOCTOR': 'Hospital ED Doctor (ERCP)',
       'NURSE': 'Hospital Nurse',
       'COORDINATOR': 'Hospital Coordinator',
+      'CO-ORDINATOR': 'Hospital Coordinator',
+      'HOSPITAL-COORDINATOR': 'Hospital Coordinator',
+      'HOSPITAL_COORDINATOR': 'Hospital Coordinator',
       'ADMIN': 'Hospital Admin',
       'EMT': 'EMT / Paramedic',
       'CURESELECT_ADMIN': 'CureSelect Admin',
@@ -981,11 +1022,11 @@ export class AuthService implements OnModuleInit {
       targetRole = roleMapping[targetRole.toUpperCase()];
     }
 
-    if (isHospitalAdmin && !isPlatformAdmin) {
+    if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
       // 1. Force tenant isolation
       targetOrgId = creator.organisationId;
       
-      // 2. Validate role scope (Hospital Admins restricted to hospital staff roles)
+      // 2. Validate role scope (Hospital Admins/Doctors restricted to hospital staff roles)
       const allowedHospitalRoles = [
         'Hospital ED Doctor (ERCP)', 
         'Hospital Nurse', 
@@ -993,7 +1034,7 @@ export class AuthService implements OnModuleInit {
         'Hospital Admin'
       ];
       if (!allowedHospitalRoles.includes(targetRole)) {
-        throw new ForbiddenException(`Hospital Admins can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
+        throw new ForbiddenException(`Hospital Administrators can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
       }
     } else if (!isPlatformAdmin) {
       throw new ForbiddenException(`You do not have permission to create users. (Current roles: ${creator.roles.join(', ')})`);
@@ -1043,8 +1084,20 @@ export class AuthService implements OnModuleInit {
   /**
    * Update user account.
    */
-  async updateUser(id: string, dto: UpdateUserDto) {
+  async updateUser(id: string, dto: UpdateUserDto, creator?: any) {
     const user = await this.findOneUser(id);
+
+    if (creator) {
+      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
+      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+
+      if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+        if (user.organisationId !== creator.organisationId) {
+          throw new ForbiddenException('Access denied: You can only update users in your own organization');
+        }
+      }
+    }
 
     // Prevent duplicate phone/email/username if they are being updated
     if (dto.phone || dto.email) {
@@ -1088,14 +1141,24 @@ export class AuthService implements OnModuleInit {
   /**
    * Soft delete a user account (deactivate).
    */
-  async deleteUser(id: string, adminId: string) {
+  async deleteUser(id: string, creator: any) {
     const user = await this.findOneUser(id);
+
+    const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
+    const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+
+    if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+      if (user.organisationId !== creator.organisationId) {
+        throw new ForbiddenException('Access denied: You can only deactivate users in your own organization');
+      }
+    }
     
     user.status = 'INACTIVE';
     await this.userRepo.save(user);
 
     await this.auditLogService.log({
-      userId: adminId,
+      userId: creator.userId,
       action: 'USER_DEACTIVATED',
       ipAddress: '0.0.0.0',
       metadata: { target_user_id: user.id },
@@ -1117,7 +1180,22 @@ export class AuthService implements OnModuleInit {
   /**
    * Retrieves all active stateful sessions for a user.
    */
-  async getUserSessions(userId: string) {
+  async getUserSessions(userId: string, creator?: any) {
+    if (creator) {
+      const user = await this.userRepo.findOneBy({ id: userId });
+      if (!user) throw new BadRequestException('User not found');
+
+      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
+      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+
+      if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+        if (user.organisationId !== creator.organisationId) {
+          throw new ForbiddenException('Access denied: You can only view sessions for users in your own organization');
+        }
+      }
+    }
+
     return this.sessionRepo.find({
       where: { userId, isValid: true },
       order: { lastActiveAt: 'DESC' },
@@ -1128,7 +1206,22 @@ export class AuthService implements OnModuleInit {
   /**
    * Terminate a specific target session for a user.
    */
-  async revokeSession(userId: string, sessionId: string) {
+  async revokeSession(userId: string, sessionId: string, creator?: any) {
+    if (creator) {
+      const targetUser = await this.userRepo.findOneBy({ id: userId });
+      if (!targetUser) throw new BadRequestException('User not found');
+
+      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
+      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+
+      if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
+        if (targetUser.organisationId !== creator.organisationId) {
+          throw new ForbiddenException('Access denied: You can only terminate sessions for users in your own organization');
+        }
+      }
+    }
+
     const session = await this.sessionRepo.findOneBy({ id: sessionId, userId });
     
     if (!session) {

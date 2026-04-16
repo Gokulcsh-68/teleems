@@ -22,13 +22,33 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('Access denied: No roles assigned');
     }
 
-    const hasAuthorizedRole = requiredRoles.some((role) =>
-      user.roles.includes(role),
-    );
+    // Resilience Mapping for v4.0 Migration
+    const roleAliases: Record<string, string[]> = {
+      'CureSelect Admin': ['CURESELECT_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'],
+      'Hospital Admin': ['HOSPITAL_ADMIN', 'HOSPITAL_MANAGER'],
+      'Hospital Coordinator': ['COORDINATOR', 'HOSPITAL_COORDINATOR', 'CO-ORDINATOR'],
+      'Hospital ED Doctor (ERCP)': ['ED_DOCTOR', 'ERCP_DOCTOR', 'HOSPITAL_DOCTOR'],
+      'Hospital Nurse': ['NURSE', 'HOSPITAL_NURSE'],
+      'Call Centre Executive (CCE)': ['CCE', 'DISPATCHER'],
+      'EMT / Paramedic': ['EMT', 'PARAMEDIC'],
+      'Caller (Public)': ['CALLER', 'USER'],
+      'Fleet Operator': ['FLEET_MANAGER', 'FLEET_OPERATOR'],
+    };
+
+    const hasAuthorizedRole = requiredRoles.some((requiredRole) => {
+      // Direct Match
+      if (user.roles.includes(requiredRole)) return true;
+
+      // Alias Match (Legacy support)
+      const aliases = roleAliases[requiredRole];
+      if (aliases && aliases.some(alias => user.roles.includes(alias))) return true;
+
+      return false;
+    });
 
     if (!hasAuthorizedRole) {
       throw new ForbiddenException(
-        `Access denied: Your roles [${user.roles.join(', ')}] are not authorized for this resource`,
+        `Access denied: Your roles [${user.roles.join(', ')}] are not authorized for this resource. (Required: ${requiredRoles.join(', ')})`,
       );
     }
 

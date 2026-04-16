@@ -73,6 +73,30 @@ export class UserQueryDto {
   status?: string;
 
   @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  date_from?: string;
+
+  @IsOptional()
+  @IsString()
+  date_to?: string;
+
+  @IsOptional()
   limit?: string;
 
   @IsOptional()
