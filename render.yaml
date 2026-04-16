@@ -13,12 +13,12 @@ services:
         fromService:
           type: web
           name: teleems-auth-service
-          property: host
+          property: hostport
       - key: DISPATCH_SERVICE_URL
         fromService:
           type: web
           name: teleems-dispatch-service
-          property: host
+          property: hostport
 
   # The Auth Service
   - type: web
