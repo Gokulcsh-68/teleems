@@ -16,7 +16,7 @@ services:
         fromDatabase:
           name: teleems-db
           property: port
-      - key: DB_USERNAME
+      - key: DB_USER
         fromDatabase:
           name: teleems-db
           property: user
@@ -24,7 +24,7 @@ services:
         fromDatabase:
           name: teleems-db
           property: password
-      - key: DB_DATABASE
+      - key: DB_NAME
         fromDatabase:
           name: teleems-db
           property: database
@@ -34,6 +34,21 @@ services:
         value: 15m
       - key: JWT_REFRESH_EXPIRATION
         value: 7d
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: teleems-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: teleems-redis
+          property: port
+
+  - type: redis
+    name: teleems-redis
+    plan: free
+    ipAllowList: []
 
 databases:
   - name: teleems-db
