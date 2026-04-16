@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incident } from './entities/incident.entity';
+import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
@@ -12,7 +13,26 @@ export class DispatchServiceService {
   constructor(
     @InjectRepository(Incident)
     private readonly incidentRepository: Repository<Incident>,
+    @InjectRepository(IncidentTimeline)
+    private readonly timelineRepository: Repository<IncidentTimeline>,
   ) {}
+
+  private async logTimelineEvent(
+    incidentId: string, 
+    type: string, 
+    description: string, 
+    userId?: string, 
+    metadata?: Record<string, any>
+  ) {
+    const event = this.timelineRepository.create({
+      incident_id: incidentId,
+      type,
+      description,
+      user_id: userId,
+      metadata,
+    });
+    await this.timelineRepository.save(event);
+  }
 
   async createIncident(dto: CreateIncidentDto, requestUserId: string) {
     const incidentData = {
@@ -23,6 +43,14 @@ export class DispatchServiceService {
 
     const incident = this.incidentRepository.create(incidentData);
     await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id, 
+      'CREATED', 
+      `Incident reported by ${incident.caller_id}`,
+      requestUserId,
+      { category: incident.category, severity: incident.severity }
+    );
 
     return {
       data: incident,
@@ -116,9 +144,11 @@ export class DispatchServiceService {
     return { data: incident };
   }
 
-  async updateIncident(id: string, dto: UpdateIncidentDto) {
+  async updateIncident(id: string, dto: UpdateIncidentDto, requestUserId?: string) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
+
+    const originalData = { ...incident };
 
     // Only apply fields if they are provided in the DTO
     if (dto.category) incident.category = dto.category;
@@ -129,10 +159,26 @@ export class DispatchServiceService {
     }
 
     await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id,
+      'UPDATED',
+      'Incident details updated',
+      requestUserId,
+      { 
+        updates: dto,
+        previous: { 
+          category: originalData.category, 
+          severity: originalData.severity, 
+          address: originalData.address 
+        } 
+      }
+    );
+
     return { data: incident };
   }
 
-  async cancelIncident(id: string, dto: CancelIncidentDto) {
+  async cancelIncident(id: string, dto: CancelIncidentDto, requestUserId?: string) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -145,23 +191,42 @@ export class DispatchServiceService {
     incident.notes = incident.notes ? `${incident.notes}\n${cancelNote}` : cancelNote;
 
     await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id,
+      'CANCELLED',
+      `Incident cancelled: ${dto.reason}`,
+      requestUserId,
+      { reason: dto.reason }
+    );
+
     return { data: incident };
   }
 
-  async updateStatus(id: string, dto: UpdateIncidentStatusDto) {
+  async updateStatus(id: string, dto: UpdateIncidentStatusDto, requestUserId?: string) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
+    const oldStatus = incident.status;
     incident.status = dto.status;
     if (dto.notes) {
       incident.notes = incident.notes ? `${incident.notes}\n${dto.notes}` : dto.notes;
     }
 
     await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id,
+      'STATUS_CHANGE',
+      `Status changed from ${oldStatus} to ${dto.status}`,
+      requestUserId,
+      { oldStatus, newStatus: dto.status, notes: dto.notes }
+    );
+
     return { data: incident };
   }
 
-  async assignVehicle(id: string, dto: AssignVehicleDto) {
+  async assignVehicle(id: string, dto: AssignVehicleDto, requestUserId?: string) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -172,6 +237,23 @@ export class DispatchServiceService {
     }
 
     await this.incidentRepository.save(incident);
+
+    await this.logTimelineEvent(
+      incident.id,
+      'VEHICLE_ASSIGNED',
+      `Vehicle ${dto.vehicle_id} assigned to incident`,
+      requestUserId,
+      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds }
+    );
+
     return { data: incident };
+  }
+
+  async getTimeline(id: string) {
+    const events = await this.timelineRepository.find({
+      where: { incident_id: id },
+      order: { createdAt: 'ASC' },
+    });
+    return { data: events };
   }
 }

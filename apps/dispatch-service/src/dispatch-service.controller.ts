@@ -49,26 +49,34 @@ export class DispatchServiceController {
 
   @Patch(':id/status')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
-  async updateStatus(@Param('id') id: string, @Body() dto: UpdateIncidentStatusDto) {
-    return this.dispatchService.updateStatus(id, dto);
+  async updateStatus(@Param('id') id: string, @Body() dto: UpdateIncidentStatusDto, @Req() req: any) {
+    return this.dispatchService.updateStatus(id, dto, req.user.userId);
   }
 
   @Patch(':id/assign')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
-  async assignVehicle(@Param('id') id: string, @Body() dto: AssignVehicleDto) {
-    return this.dispatchService.assignVehicle(id, dto);
+  async assignVehicle(@Param('id') id: string, @Body() dto: AssignVehicleDto, @Req() req: any) {
+    return this.dispatchService.assignVehicle(id, dto, req.user.userId);
   }
 
   @Patch(':id')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
-  async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto) {
-    return this.dispatchService.updateIncident(id, dto);
+  async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto, @Req() req: any) {
+    return this.dispatchService.updateIncident(id, dto, req.user.userId);
   }
 
   @Delete(':id')
   @Roles('CCE', 'CURESELECT_ADMIN')
   @HttpCode(204)
-  async cancelIncident(@Param('id') id: string, @Body() dto: CancelIncidentDto) {
-    await this.dispatchService.cancelIncident(id, dto);
+  async cancelIncident(@Param('id') id: string, @Body() dto: CancelIncidentDto, @Req() req: any) {
+    await this.dispatchService.cancelIncident(id, dto, req.user.userId);
+  }
+
+  @Get(':id/timeline')
+  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
+  async getTimeline(@Param('id') id: string, @Req() req: any) {
+    // Security check: ensure user has access to this incident first
+    await this.dispatchService.findOne(id, req.user);
+    return this.dispatchService.getTimeline(id);
   }
 }

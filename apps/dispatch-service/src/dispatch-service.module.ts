@@ -4,11 +4,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DispatchServiceController } from './dispatch-service.controller';
 import { DispatchServiceService } from './dispatch-service.service';
 import { Incident } from './entities/incident.entity';
+import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Incident]),
+    TypeOrmModule.forFeature([Incident, IncidentTimeline]),
   ],
   controllers: [DispatchServiceController],
   providers: [DispatchServiceService, JwtStrategy],
