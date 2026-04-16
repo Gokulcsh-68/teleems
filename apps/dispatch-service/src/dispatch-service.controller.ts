@@ -5,6 +5,8 @@ import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelInc
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
+import { RecommendVehicleDto } from './dto/recommend-vehicle.dto';
+import { AddPatientDto } from './dto/add-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
@@ -55,6 +57,12 @@ export class DispatchServiceController {
       userAgent: req.get('user-agent'),
     };
     return this.dispatchService.dispatchIncident(id, dto, context);
+  }
+
+  @Get(':id/dispatch')
+  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL', 'FLEET_MANAGER')
+  async getActiveDispatch(@Param('id') id: string) {
+    return this.dispatchService.getActiveDispatch(id);
   }
 
   @Put(':id/dispatch/reassign')
@@ -142,5 +150,16 @@ export class DispatchServiceController {
   @Roles('CURESELECT_ADMIN', 'FLEET_MANAGER')
   async getAudit(@Param('id') id: string) {
     return this.dispatchService.getAuditLogs(id);
+  }
+
+  @Post(':id/patients')
+  @Roles('CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
+  async addPatient(@Param('id') id: string, @Body() dto: AddPatientDto, @Req() req: any) {
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.addPatient(id, dto, context);
   }
 }

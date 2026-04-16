@@ -911,9 +911,9 @@ export class AuthService implements OnModuleInit {
     if (query.cursor) {
       const decoded = decodeCursor(query.cursor);
       // Assuming cursor is "ISO_TIMESTAMP|ID"
-      const [createdAt, id] = decoded.split('|');
+      const [createdAtStr, id] = decoded.split('|');
       qb.andWhere('(user.createdAt < :createdAt OR (user.createdAt = :createdAt AND user.id < :id))', {
-        createdAt: new Date(createdAt),
+        createdAt: new Date(createdAtStr),
         id,
       });
     }
@@ -928,46 +928,81 @@ export class AuthService implements OnModuleInit {
       next_cursor = encodeCursor(`${last.createdAt.toISOString()}|${last.id}`);
     }
 
-    const total_count = await qb.getCount(); // Note: getCount might ignore take/skip, usually we want filtered total
+    const total_count = await qb.getCount();
 
     return new PaginatedResponse(data, next_cursor, total_count);
   }
 
   /**
-   * Create a new user account.
+   * Create a new user account with tenant isolation and role normalization.
    */
   async createUser(dto: CreateUserDto, creator: any) {
-    const existing = await this.userRepo.findOne({
-      where: [{ phone: dto.phone }, { email: dto.email }, { username: dto.username }],
-    });
-    if (existing) {
-      throw new BadRequestException('User with this phone, email, or username already exists');
+    // Check for specific collisions
+    const phoneExists = await this.userRepo.findOne({ where: { phone: dto.phone } });
+    if (phoneExists) {
+      throw new BadRequestException(`User with phone ${dto.phone} already exists`);
     }
 
-    // RBAC Security (Spec 2.4/5.1)
-    const isPlatformAdmin = creator.roles.includes('CURESELECT_ADMIN');
-    const isHospitalAdmin = creator.roles.includes('Hospital Admin');
+    if (dto.email) {
+      const emailExists = await this.userRepo.findOne({ where: { email: dto.email } });
+      if (emailExists) {
+        throw new BadRequestException(`User with email ${dto.email} already exists`);
+      }
+    }
+
+    const username = dto.username || dto.email?.split('@')[0] || dto.phone;
+    const usernameExists = await this.userRepo.findOne({ where: { username } });
+    if (usernameExists) {
+      throw new BadRequestException(`User with username ${username} already exists`);
+    }
+
+    // RBAC Security (Spec 2.4/5.1) - Resilient to v4.0 Renames
+    const isPlatformAdmin = creator.roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+    );
+    const isHospitalAdmin = creator.roles.some((r: string) => 
+      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
+    );
     
     let targetOrgId = dto.org_id;
+    let targetRole = dto.role;
+
+    // Role Normalization for User Convenience (e.g. ED_DOCTOR -> Hospital ED Doctor (ERCP))
+    const roleMapping: Record<string, string> = {
+      'ED_DOCTOR': 'Hospital ED Doctor (ERCP)',
+      'NURSE': 'Hospital Nurse',
+      'COORDINATOR': 'Hospital Coordinator',
+      'ADMIN': 'Hospital Admin',
+      'EMT': 'EMT / Paramedic',
+      'CURESELECT_ADMIN': 'CureSelect Admin',
+    };
+
+    if (roleMapping[targetRole.toUpperCase()]) {
+      targetRole = roleMapping[targetRole.toUpperCase()];
+    }
 
     if (isHospitalAdmin && !isPlatformAdmin) {
       // 1. Force tenant isolation
       targetOrgId = creator.organisationId;
       
-      // 2. Validate role scope
-      const allowedHospitalRoles = ['Hospital ERCP Doctor', 'Hospital Nurse', 'Hospital Coordinator', 'Hospital Admin'];
-      if (!allowedHospitalRoles.includes(dto.role)) {
+      // 2. Validate role scope (Hospital Admins restricted to hospital staff roles)
+      const allowedHospitalRoles = [
+        'Hospital ED Doctor (ERCP)', 
+        'Hospital Nurse', 
+        'Hospital Coordinator', 
+        'Hospital Admin'
+      ];
+      if (!allowedHospitalRoles.includes(targetRole)) {
         throw new ForbiddenException(`Hospital Admins can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
       }
     } else if (!isPlatformAdmin) {
-      throw new ForbiddenException('You do not have permission to create users');
+      throw new ForbiddenException(`You do not have permission to create users. (Current roles: ${creator.roles.join(', ')})`);
     }
 
     // Persona-specific defaults
-    const isSuperAdmin = dto.role === 'CURESELECT_ADMIN';
+    const isSuperAdmin = targetRole === 'CureSelect Admin';
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-
 
     const user = this.userRepo.create({
       phone: dto.phone,
@@ -975,7 +1010,7 @@ export class AuthService implements OnModuleInit {
       name: dto.name,
       username: dto.username || dto.email?.split('@')[0] || dto.phone,
       password: hashedPassword,
-      roles: [dto.role],
+      roles: [targetRole],
       organisationId: targetOrgId,
       metadata: dto.metadata,
       mfaEnabled: isSuperAdmin ? true : false,
@@ -991,7 +1026,6 @@ export class AuthService implements OnModuleInit {
       metadata: { roles: user.roles, targetUserId: user.id, org_id: targetOrgId },
     });
 
-    // Return user without password (password is select: false by default, but double check)
     return user;
   }
 

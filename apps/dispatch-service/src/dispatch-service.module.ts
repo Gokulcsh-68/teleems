@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DispatchServiceController } from './dispatch-service.controller';
+import { DispatchController } from './dispatch.controller';
 import { DispatchServiceService } from './dispatch-service.service';
 import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
@@ -15,7 +16,7 @@ import { AuthModule } from '../../auth-service/src/auth.module';
     TypeOrmModule.forFeature([Incident, IncidentTimeline, Dispatch, Vehicle]),
     AuthModule,
   ],
-  controllers: [DispatchServiceController],
+  controllers: [DispatchServiceController, DispatchController],
   providers: [DispatchServiceService, JwtStrategy],
   exports: [DispatchServiceService],
 })

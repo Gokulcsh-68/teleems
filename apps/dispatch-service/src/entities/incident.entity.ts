@@ -27,7 +27,13 @@ export class Incident {
   address: string;
 
   @Column({ type: 'jsonb' })
-  patients: { name: string; age?: number; gender?: string; symptoms?: string[] }[];
+  patients: { 
+    name?: string; 
+    age?: number; 
+    gender: string; 
+    triage_code: string; 
+    symptoms?: string[] 
+  }[];
 
   @Column({ type: 'text', nullable: true })
   notes: string;

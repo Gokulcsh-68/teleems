@@ -50,4 +50,8 @@ export const PERMISSION_MASTER: Permission[] = [
   { key: 'create_booking', label: 'Create booking', category: 'Own Incidents' },
   { key: 'view_own_trip', label: 'View own trip', category: 'Own Incidents' },
   { key: 'rate_service', label: 'Rate service', category: 'Own Incidents' },
+
+  // New Permissions for v4.0 Spec
+  { key: 'receive_referral_notifications', label: 'Receive referral notifications', category: 'Referral' },
+  { key: 'manage_onboard_care', label: 'Manage on-board patient care', category: 'Clinical' },
 ];

@@ -9,6 +9,8 @@ import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
+import { RecommendVehicleDto } from './dto/recommend-vehicle.dto';
+import { AddPatientDto } from './dto/add-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
@@ -668,11 +670,103 @@ export class DispatchServiceService {
     return responseData;
   }
 
+  async getActiveDispatch(incidentId: string) {
+    const dispatch = await this.dispatchRepository.findOne({
+      where: { incident_id: incidentId },
+      order: { dispatched_at: 'DESC' }
+    });
+
+    if (!dispatch) {
+      throw new NotFoundException(`No dispatch records found for incident ${incidentId}`);
+    }
+
+    return { data: dispatch };
+  }
+
+  async recommendVehicles(dto: RecommendVehicleDto) {
+    const { gps_lat, gps_lon, vehicle_type_required } = dto;
+
+    const query = this.vehicleRepository.createQueryBuilder('vehicle')
+      .where('vehicle.status = :status', { status: VehicleStatus.AVAILABLE });
+
+    if (vehicle_type_required) {
+      query.andWhere('vehicle.type = :type', { type: vehicle_type_required });
+    }
+
+    const availableVehicles = await query.getMany();
+
+    const recommendations = availableVehicles.map(vehicle => {
+      const distance = this.getDistance(
+        Number(gps_lat),
+        Number(gps_lon),
+        Number(vehicle.gps_lat),
+        Number(vehicle.gps_lon)
+      );
+
+      // ETA simulation (30 km/h average)
+      let eta = Math.floor((distance / 30) * 3600);
+      if (eta < 120) eta = 120; // 2 min minimum
+
+      return {
+        id: vehicle.id,
+        identifier: vehicle.identifier,
+        type: vehicle.type,
+        distance_km: parseFloat(distance.toFixed(2)),
+        eta_seconds: eta,
+        gps_lat: vehicle.gps_lat,
+        gps_lon: vehicle.gps_lon,
+      };
+    });
+
+    // Rank by nearest first
+    recommendations.sort((a, b) => a.distance_km - b.distance_km);
+
+    return {
+      data: recommendations.slice(0, 5) // Return top 5
+    };
+  }
+
   async getTimeline(id: string) {
     const events = await this.timelineRepository.find({
       where: { incident_id: id },
       order: { createdAt: 'ASC' },
     });
     return { data: events };
+  }
+
+  async addPatient(incidentId: string, dto: AddPatientDto, context: AuditContext) {
+    const incident = await this.incidentRepository.findOneBy({ id: incidentId });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    const patient = {
+      name: dto.name,
+      age: dto.age,
+      gender: dto.gender,
+      triage_code: dto.triage_code.toUpperCase(),
+      symptoms: dto.symptoms || [],
+    };
+
+    incident.patients = [...(incident.patients || []), patient];
+    await this.incidentRepository.save(incident);
+
+    // Timeline Event
+    await this.logTimelineEvent(
+      incident.id,
+      'PATIENT_ADDED',
+      `New patient added (${patient.triage_code}). Total patients: ${incident.patients.length}`,
+      context.userId,
+      { triage_code: patient.triage_code }
+    );
+
+    // Security Audit
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_PATIENT_ADDED',
+      incident.id,
+      context,
+      { triage_code: patient.triage_code, total_patients: incident.patients.length }
+    );
+
+    return { data: patient };
   }
 }

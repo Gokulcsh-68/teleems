@@ -1,6 +1,6 @@
 export interface Role {
   name: string;
-  scope: 'Platform' | 'Hospital' | 'Organisation' | 'Station' | 'Trip' | 'Patient' | 'Dispatch' | 'Own Incidents';
+  scope: 'Platform' | 'Hospital' | 'Organisation' | 'Station' | 'Trip' | 'Patient' | 'Dispatch' | 'Own Incidents' | 'Referral' | 'Clinical';
   description?: string;
   permissions: string[];
 }
@@ -22,7 +22,7 @@ export const SYSTEM_ROLES: Role[] = [
     permissions: ['create_modify_trips', 'view_fleet_map', 'send_pre_alerts'],
   },
   {
-    name: 'Hospital ERCP Doctor',
+    name: 'Hospital ED Doctor (ERCP)',
     scope: 'Hospital',
     permissions: ['telelink_accept_initiate', 'rtvs_view', 'epcr_read', 'clinical_notes_write'],
   },
@@ -42,7 +42,7 @@ export const SYSTEM_ROLES: Role[] = [
     permissions: ['manage_assigned_station_vehicles', 'manage_assigned_station_crew'],
   },
   {
-    name: 'Ambulance Pilot',
+    name: 'Ambulance Pilot (Driver)',
     scope: 'Trip',
     permissions: ['accept_reject_trips', 'update_trip_status', 'breakdown_report'],
   },
@@ -52,9 +52,19 @@ export const SYSTEM_ROLES: Role[] = [
     permissions: ['3c_data_capture', 'rtvs_pairing', 'telelink_patient', 'epcr_write'],
   },
   {
-    name: 'CCE',
+    name: 'On-board Doctor',
+    scope: 'Clinical',
+    permissions: ['3c_data_capture', 'telelink_patient', 'epcr_write', 'manage_onboard_care'],
+  },
+  {
+    name: 'Call Centre Executive (CCE)',
     scope: 'Dispatch',
     permissions: ['create_incidents', 'dispatch_vehicles', 'view_fleet_in_zone'],
+  },
+  {
+    name: 'Referral Hospital',
+    scope: 'Referral',
+    permissions: ['receive_referral_notifications'],
   },
   {
     name: 'Caller (Public)',
