@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsOptional, IsInt, Min } from 'class-validator';
+import { IncidentCategory, IncidentSeverity } from './create-incident.dto';
 
 export enum IncidentStatus {
   PENDING = 'PENDING',
@@ -26,4 +27,22 @@ export class AssignVehicleDto {
   @Min(0)
   @IsOptional()
   eta_seconds?: number;
+}
+
+export class UpdateIncidentDto {
+  @IsEnum(IncidentCategory)
+  @IsOptional()
+  category?: IncidentCategory;
+
+  @IsEnum(IncidentSeverity)
+  @IsOptional()
+  severity?: IncidentSeverity;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
 }

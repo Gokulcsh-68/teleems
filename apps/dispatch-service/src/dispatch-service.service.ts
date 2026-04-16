@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { CreateIncidentDto } from './dto/create-incident.dto';
-import { UpdateIncidentStatusDto, AssignVehicleDto } from './dto/update-incident.dto';
+import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 
@@ -113,6 +113,22 @@ export class DispatchServiceService {
       }
     }
 
+    return { data: incident };
+  }
+
+  async updateIncident(id: string, dto: UpdateIncidentDto) {
+    const incident = await this.incidentRepository.findOneBy({ id });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    // Only apply fields if they are provided in the DTO
+    if (dto.category) incident.category = dto.category;
+    if (dto.severity) incident.severity = dto.severity;
+    if (dto.address) incident.address = dto.address;
+    if (dto.notes) {
+      incident.notes = incident.notes ? `${incident.notes}\n${dto.notes}` : dto.notes;
+    }
+
+    await this.incidentRepository.save(incident);
     return { data: incident };
   }
 

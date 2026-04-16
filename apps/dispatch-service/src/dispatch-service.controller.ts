@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Patch } from '@nestjs/common';
 import { DispatchServiceService } from './dispatch-service.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
-import { UpdateIncidentStatusDto, AssignVehicleDto } from './dto/update-incident.dto';
+import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
@@ -57,5 +57,11 @@ export class DispatchServiceController {
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
   async assignVehicle(@Param('id') id: string, @Body() dto: AssignVehicleDto) {
     return this.dispatchService.assignVehicle(id, dto);
+  }
+
+  @Patch(':id')
+  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN')
+  async updateIncident(@Param('id') id: string, @Body() dto: UpdateIncidentDto) {
+    return this.dispatchService.updateIncident(id, dto);
   }
 }
