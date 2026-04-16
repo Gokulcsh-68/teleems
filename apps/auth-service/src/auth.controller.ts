@@ -127,19 +127,36 @@ export class AuthController {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Extract partial JWT from Authorization header
+    // 1. Extract session token (Header has priority, then Body)
     const authHeader = req.headers['authorization'] || '';
-    const mfaSessionToken = authHeader.replace('Bearer ', '');
-    if (!mfaSessionToken) {
-      throw new UnauthorizedException('MFA session token required in Authorization header');
+    let mfaSessionToken = authHeader.replace('Bearer ', '').trim();
+    
+    if (!mfaSessionToken && body.mfa_session_token) {
+      mfaSessionToken = body.mfa_session_token;
     }
 
-    const result = await this.authService.verifyMfa(mfaSessionToken, body.method, body.code, ip, userAgent);
+    if (!mfaSessionToken) {
+      throw new UnauthorizedException('MFA session token required (Header or Body)');
+    }
+
+    // 2. Extract verification code (code has priority, then totp_code)
+    const verificationCode = body.code || body.totp_code;
+    if (!verificationCode) {
+      throw new UnauthorizedException('Verification code required (code or totp_code)');
+    }
+
+    const result = await this.authService.verifyMfa(
+      mfaSessionToken, 
+      body.method || 'TOTP', 
+      verificationCode, 
+      ip, 
+      userAgent
+    );
 
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // Matching session persistence if required
     });
 
     return {

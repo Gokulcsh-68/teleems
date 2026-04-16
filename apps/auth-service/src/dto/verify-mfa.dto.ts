@@ -1,11 +1,20 @@
-import { IsNotEmpty, IsString, IsIn } from 'class-validator';
+import { IsNotEmpty, IsString, IsIn, IsOptional } from 'class-validator';
 
 export class VerifyMfaDto {
   @IsString()
-  @IsIn(['TOTP', 'SMS'], { message: 'method must be either TOTP or SMS' })
-  method: 'TOTP' | 'SMS';
+  @IsOptional()
+  mfa_session_token?: string;
 
   @IsString()
-  @IsNotEmpty()
-  code: string;
+  @IsOptional()
+  @IsIn(['TOTP', 'SMS'], { message: 'method must be either TOTP or SMS' })
+  method?: 'TOTP' | 'SMS' = 'TOTP';
+
+  @IsString()
+  @IsOptional()
+  code?: string;
+
+  @IsString()
+  @IsOptional()
+  totp_code?: string;
 }
