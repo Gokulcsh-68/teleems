@@ -46,6 +46,10 @@ export class CreateIncidentDto {
   @IsOptional()
   caller_id?: string;
 
+  @IsString()
+  @IsOptional()
+  organisationId?: string;
+
   @IsNumber()
   gps_lat: number;
 

@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto } from './dto/update-incident.dto';
+import { IncidentQueryDto } from './dto/incident-query.dto';
+import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 
 @Injectable()
 export class DispatchServiceService {
@@ -29,22 +31,71 @@ export class DispatchServiceService {
     };
   }
 
-  async findAll(status?: string, callerId?: string) {
+  async findAll(query: IncidentQueryDto, callerIdOverride?: string) {
+    const { 
+      status, category, severity, org_id, caller_id, 
+      date_from, date_to, limit, cursor 
+    } = query;
+
     const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
 
-    if (status) {
-      queryBuilder.andWhere('incident.status = :status', { status });
+    // 1. Apply Basic Filters
+    if (status) queryBuilder.andWhere('incident.status = :status', { status });
+    if (category) queryBuilder.andWhere('incident.category = :category', { category });
+    if (severity) queryBuilder.andWhere('incident.severity = :severity', { severity });
+    if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+
+    // 2. Caller Isolation (Security + Filter)
+    const effectiveCallerId = callerIdOverride || caller_id;
+    if (effectiveCallerId) {
+      queryBuilder.andWhere('incident.caller_id = :effectiveCallerId', { effectiveCallerId });
     }
 
-    if (callerId) {
-      queryBuilder.andWhere('incident.caller_id = :callerId', { callerId });
+    // 3. Date Range Filters
+    if (date_from) {
+      queryBuilder.andWhere('incident.createdAt >= :date_from', { date_from });
+    }
+    if (date_to) {
+      queryBuilder.andWhere('incident.createdAt <= :date_to', { date_to });
     }
 
+    // 4. Cursor Pagination Logic
+    // Using (createdAt, id) for stable, unique sorting
+    if (cursor) {
+      const decodedCursor = decodeCursor(cursor);
+      const [cursorDate, cursorId] = decodedCursor.split('|');
+      
+      if (cursorDate && cursorId) {
+        queryBuilder.andWhere(
+          '(incident.createdAt < :cursorDate OR (incident.createdAt = :cursorDate AND incident.id < :cursorId))',
+          { cursorDate, cursorId }
+        );
+      }
+    }
+
+    // Sort: Newest to Oldest
     queryBuilder.orderBy('incident.createdAt', 'DESC');
+    queryBuilder.addOrderBy('incident.id', 'DESC');
+
+    // Fetch limit + 1 to determine if there is a next page
+    queryBuilder.take(limit + 1);
 
     const incidents = await queryBuilder.getMany();
-    return { data: incidents };
+    
+    let next_cursor: string | null = null;
+    const hasNextPage = incidents.length > limit;
+    const data = hasNextPage ? incidents.slice(0, limit) : incidents;
+
+    if (hasNextPage) {
+      const lastItem = data[data.length - 1];
+      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+    }
+
+    const total_count = await queryBuilder.getCount(); // Optional: might be expensive on very large tables
+
+    return new PaginatedResponse(data, next_cursor, total_count);
   }
+
 
   async findOne(id: string, requestUser?: any) {
     const incident = await this.incidentRepository.findOneBy({ id });

@@ -14,6 +14,9 @@ export class Incident {
   @Column({ nullable: true })
   caller_id: string;
 
+  @Column({ nullable: true })
+  organisationId: string;
+
   @Column({ type: 'decimal', precision: 10, scale: 7 })
   gps_lat: number;
 

@@ -2,6 +2,7 @@ import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Pa
 import { DispatchServiceService } from './dispatch-service.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto } from './dto/update-incident.dto';
+import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
@@ -26,14 +27,19 @@ export class DispatchServiceController {
   }
 
   @Get()
-  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER')
-  async listIncidents(@Query('status') status: string, @Req() req: any) {
-    const isAdmin = req.user.roles.includes('CURESELECT_ADMIN') || req.user.roles.includes('CCE');
+  @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
+  async listIncidents(@Query() query: IncidentQueryDto, @Req() req: any) {
+    const isPrivileged = req.user.roles.includes('CURESELECT_ADMIN') || 
+                        req.user.roles.includes('CCE') ||
+                        req.user.roles.includes('FLEET_MANAGER') ||
+                        req.user.roles.includes('HOSPITAL');
+
     // Callers can only see their own incidents
-    const callerIdFilter = !isAdmin ? req.user.userId : undefined;
+    const callerIdOverride = !isPrivileged ? req.user.userId : undefined;
     
-    return this.dispatchService.findAll(status, callerIdFilter);
+    return this.dispatchService.findAll(query, callerIdOverride);
   }
+
 
   @Get(':id')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER')
