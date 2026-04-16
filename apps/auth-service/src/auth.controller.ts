@@ -130,7 +130,7 @@ export class AuthController {
     // 1. Extract session token (Header has priority, then Body)
     const authHeader = req.headers['authorization'] || '';
     let mfaSessionToken = authHeader.replace('Bearer ', '').trim();
-    
+
     if (!mfaSessionToken && body.mfa_session_token) {
       mfaSessionToken = body.mfa_session_token;
     }
@@ -146,10 +146,10 @@ export class AuthController {
     }
 
     const result = await this.authService.verifyMfa(
-      mfaSessionToken, 
-      body.method || 'TOTP', 
-      verificationCode, 
-      ip, 
+      mfaSessionToken,
+      body.method || 'TOTP',
+      verificationCode,
+      ip,
       userAgent
     );
 

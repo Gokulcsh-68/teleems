@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
+import { Dispatch } from './entities/dispatch.entity';
+import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
@@ -23,6 +25,8 @@ export class DispatchServiceService {
     private readonly incidentRepository: Repository<Incident>,
     @InjectRepository(IncidentTimeline)
     private readonly timelineRepository: Repository<IncidentTimeline>,
+    @InjectRepository(Dispatch)
+    private readonly dispatchRepository: Repository<Dispatch>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -320,6 +324,83 @@ export class DispatchServiceService {
     );
 
     return { data: incident };
+  }
+
+  async dispatchIncident(id: string, dto: DispatchIncidentDto, context: AuditContext) {
+    const incident = await this.incidentRepository.findOneBy({ id });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    if (incident.status !== 'PENDING' && incident.status !== 'ASSIGNED') {
+      throw new BadRequestException(
+        `Cannot dispatch incident with status '${incident.status}'. Must be PENDING or ASSIGNED.`
+      );
+    }
+
+    // Determine vehicle: manual override or auto-assign nearest
+    const isManualOverride = !!dto.manual_vehicle_id;
+    let vehicleId: string;
+    let eta: number;
+
+    if (isManualOverride) {
+      vehicleId = dto.manual_vehicle_id!;
+      // Simulated ETA for manually selected vehicle
+      eta = Math.floor(Math.random() * 600) + 120; // 2-12 minutes
+    } else {
+      // Auto-assign: simulate nearest unit selection based on GPS
+      // In production, this would query the fleet service for available vehicles
+      // sorted by distance to incident.gps_lat / incident.gps_lon
+      vehicleId = `AMB-${String(Math.floor(Math.random() * 50) + 1).padStart(3, '0')}`;
+      eta = Math.floor(Math.random() * 480) + 60; // 1-9 minutes
+    }
+
+    // Create the dispatch record
+    const dispatch = new Dispatch();
+    dispatch.incident_id = incident.id;
+    dispatch.vehicle_id = vehicleId;
+    dispatch.dispatched_by = context.userId;
+    dispatch.status = 'DISPATCHED';
+    dispatch.eta_seconds = eta;
+    dispatch.manual_vehicle_id = dto.manual_vehicle_id || null;
+    dispatch.override_reason = dto.override_reason || null;
+    dispatch.is_manual_override = isManualOverride;
+    await this.dispatchRepository.save(dispatch);
+
+    // Update the incident
+    incident.assigned_vehicle = vehicleId;
+    incident.status = 'DISPATCHED';
+    incident.eta_seconds = eta;
+    await this.incidentRepository.save(incident);
+
+    // Timeline event
+    const description = isManualOverride
+      ? `Dispatch triggered (manual override: ${vehicleId}). Reason: ${dto.override_reason || 'N/A'}`
+      : `Dispatch triggered (auto-assigned: ${vehicleId})`;
+
+    await this.logTimelineEvent(
+      incident.id,
+      'DISPATCHED',
+      description,
+      context.userId,
+      { vehicle_id: vehicleId, eta_seconds: eta, is_manual: isManualOverride }
+    );
+
+    // Audit log
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_DISPATCHED',
+      incident.id,
+      context,
+      { vehicle_id: vehicleId, eta_seconds: eta, is_manual: isManualOverride, override_reason: dto.override_reason }
+    );
+
+    return {
+      data: dispatch,
+      vehicle: {
+        id: vehicleId,
+        status: 'DISPATCHED',
+      },
+      eta_seconds: eta,
+    };
   }
 
   async getTimeline(id: string) {

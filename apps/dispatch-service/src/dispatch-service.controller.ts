@@ -2,6 +2,7 @@ import { Controller, Post, Body, Req, UseGuards, HttpCode, Get, Query, Param, Pa
 import { DispatchServiceService, AuditContext } from './dispatch-service.service';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
+import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
@@ -38,12 +39,21 @@ export class DispatchServiceController {
                         req.user.roles.includes('FLEET_MANAGER') ||
                         req.user.roles.includes('HOSPITAL');
 
-    // Callers can only see their own incidents
     const callerIdOverride = !isPrivileged ? req.user.userId : undefined;
     
     return this.dispatchService.findAll(query, callerIdOverride);
   }
 
+  @Post(':id/dispatch')
+  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL')
+  async dispatchIncident(@Param('id') id: string, @Body() dto: DispatchIncidentDto, @Req() req: any) {
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.dispatchIncident(id, dto, context);
+  }
 
   @Get(':id')
   @Roles('CCE', 'FLEET_MANAGER', 'CURESELECT_ADMIN', 'CALLER', 'HOSPITAL')
