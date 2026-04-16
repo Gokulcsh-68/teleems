@@ -8,6 +8,7 @@ import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
+import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
@@ -547,6 +548,124 @@ export class DispatchServiceService {
     );
 
     return { data: currentDispatch };
+  }
+
+  async cancelDispatch(id: string, dto: CancelDispatchDto, context: AuditContext) {
+    const incident = await this.incidentRepository.findOneBy({ id });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    // 1. Find the active dispatch
+    const currentDispatch = await this.dispatchRepository.findOne({
+      where: { incident_id: id },
+      order: { dispatched_at: 'DESC' }
+    });
+
+    if (!currentDispatch || currentDispatch.status === 'CANCELLED') {
+      throw new BadRequestException('No active dispatch found to cancel.');
+    }
+
+    // 2. Release current vehicle
+    const vehicle = await this.vehicleRepository.findOneBy({ identifier: currentDispatch.vehicle_id });
+    if (vehicle) {
+      vehicle.status = VehicleStatus.AVAILABLE;
+      await this.vehicleRepository.save(vehicle);
+    }
+
+    // 3. Mark current dispatch as CANCELLED
+    currentDispatch.status = 'CANCELLED';
+    currentDispatch.override_reason = `CANCELLED: ${dto.reason}`;
+    await this.dispatchRepository.save(currentDispatch);
+
+    const cancelledVehicleId = currentDispatch.vehicle_id;
+    let responseData: any = { data: currentDispatch };
+
+    // 4. Handle Backup Request vs Reversion
+    if (dto.request_backup) {
+      // Find backup (excluding the one just cancelled)
+      // Note: findNearestVehicle already filters by AVAILABLE, and we just marked the old one as AVAILABLE.
+      // To strictly avoid picking the same one, we'd need to modify findNearestVehicle or filter here.
+      const availableVehicles = await this.vehicleRepository.find({
+        where: { status: VehicleStatus.AVAILABLE }
+      });
+
+      const backupVehicle = availableVehicles
+        .filter(v => v.identifier !== cancelledVehicleId)
+        .map(v => ({ v, dist: this.getDistance(incident.gps_lat, incident.gps_lon, v.gps_lat, v.gps_lon) }))
+        .sort((a, b) => a.dist - b.dist)[0]?.v;
+
+      if (!backupVehicle) {
+        // Fallback: No other vehicles available
+        incident.status = 'PENDING';
+        incident.assigned_vehicle = null;
+        incident.eta_seconds = null;
+        await this.incidentRepository.save(incident);
+        
+        await this.logTimelineEvent(
+          incident.id,
+          'DISPATCH_CANCELLED',
+          `Dispatch for ${cancelledVehicleId} cancelled. Backup requested but none available. Incident reverted to PENDING.`,
+          context.userId,
+          { reason: dto.reason }
+        );
+      } else {
+        // Dispatch backup
+        backupVehicle.status = VehicleStatus.BUSY;
+        await this.vehicleRepository.save(backupVehicle);
+
+        const backupDispatch = new Dispatch();
+        backupDispatch.incident_id = incident.id;
+        backupDispatch.vehicle_id = backupVehicle.identifier;
+        backupDispatch.dispatched_by = context.userId;
+        backupDispatch.status = 'DISPATCHED';
+        
+        const dist = this.getDistance(incident.gps_lat, incident.gps_lon, backupVehicle.gps_lat, backupVehicle.gps_lon);
+        let eta = Math.floor((dist / 30) * 3600);
+        if (eta < 120) eta = 120;
+        backupDispatch.eta_seconds = eta;
+        backupDispatch.override_reason = `BACKUP for ${cancelledVehicleId}`;
+        await this.dispatchRepository.save(backupDispatch);
+
+        incident.assigned_vehicle = backupVehicle.identifier;
+        incident.status = 'DISPATCHED';
+        incident.eta_seconds = eta;
+        await this.incidentRepository.save(incident);
+
+        await this.logTimelineEvent(
+          incident.id,
+          'BACKUP_DISPATCHED',
+          `Dispatch for ${cancelledVehicleId} cancelled. Backup unit ${backupVehicle.identifier} dispatched.`,
+          context.userId,
+          { reason: dto.reason, backup_vehicle: backupVehicle.identifier }
+        );
+        
+        responseData = { data: backupDispatch };
+      }
+    } else {
+      // No backup requested, revert to PENDING
+      incident.status = 'PENDING';
+      incident.assigned_vehicle = null;
+      incident.eta_seconds = null;
+      await this.incidentRepository.save(incident);
+
+      await this.logTimelineEvent(
+        incident.id,
+        'DISPATCH_CANCELLED',
+        `Dispatch for ${cancelledVehicleId} cancelled. Incident reverted to PENDING.`,
+        context.userId,
+        { reason: dto.reason }
+      );
+    }
+
+    // 5. Audit Logging
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_DISPATCH_CANCELLED',
+      incident.id,
+      context,
+      { reason: dto.reason, backup_requested: dto.request_backup }
+    );
+
+    return responseData;
   }
 
   async getTimeline(id: string) {

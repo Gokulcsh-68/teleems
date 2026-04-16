@@ -27,6 +27,11 @@ export const SYSTEM_ROLES: Role[] = [
     permissions: ['telelink_accept_initiate', 'rtvs_view', 'epcr_read', 'clinical_notes_write'],
   },
   {
+    name: 'Hospital Nurse',
+    scope: 'Hospital',
+    permissions: ['telelink_accept_initiate', 'epcr_read'],
+  },
+  {
     name: 'Fleet Operator',
     scope: 'Organisation',
     permissions: ['manage_vehicles', 'manage_staff', 'manage_inventory', 'manage_schedules'],

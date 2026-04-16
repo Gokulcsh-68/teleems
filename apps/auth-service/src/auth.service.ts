@@ -936,7 +936,7 @@ export class AuthService implements OnModuleInit {
   /**
    * Create a new user account.
    */
-  async createUser(dto: CreateUserDto) {
+  async createUser(dto: CreateUserDto, creator: any) {
     const existing = await this.userRepo.findOne({
       where: [{ phone: dto.phone }, { email: dto.email }, { username: dto.username }],
     });
@@ -944,9 +944,27 @@ export class AuthService implements OnModuleInit {
       throw new BadRequestException('User with this phone, email, or username already exists');
     }
 
+    // RBAC Security (Spec 2.4/5.1)
+    const isPlatformAdmin = creator.roles.includes('CURESELECT_ADMIN');
+    const isHospitalAdmin = creator.roles.includes('Hospital Admin');
+    
+    let targetOrgId = dto.org_id;
+
+    if (isHospitalAdmin && !isPlatformAdmin) {
+      // 1. Force tenant isolation
+      targetOrgId = creator.organisationId;
+      
+      // 2. Validate role scope
+      const allowedHospitalRoles = ['Hospital ERCP Doctor', 'Hospital Nurse', 'Hospital Coordinator', 'Hospital Admin'];
+      if (!allowedHospitalRoles.includes(dto.role)) {
+        throw new ForbiddenException(`Hospital Admins can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
+      }
+    } else if (!isPlatformAdmin) {
+      throw new ForbiddenException('You do not have permission to create users');
+    }
+
     // Persona-specific defaults
-    const isOtpOnlyRole = ['EMT', 'CALLER'].includes(dto.role);
-    const isSuperAdmin = dto.role === 'SUPER_ADMIN';
+    const isSuperAdmin = dto.role === 'CURESELECT_ADMIN';
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
@@ -958,7 +976,7 @@ export class AuthService implements OnModuleInit {
       username: dto.username || dto.email?.split('@')[0] || dto.phone,
       password: hashedPassword,
       roles: [dto.role],
-      organisationId: dto.org_id,
+      organisationId: targetOrgId,
       metadata: dto.metadata,
       mfaEnabled: isSuperAdmin ? true : false,
       status: 'ACTIVE',
@@ -967,10 +985,10 @@ export class AuthService implements OnModuleInit {
     await this.userRepo.save(user);
 
     await this.auditLogService.log({
-      userId: user.id,
+      userId: creator.userId,
       action: 'USER_CREATED',
       ipAddress: '0.0.0.0',
-      metadata: { roles: user.roles, createdBy: 'ADMIN' },
+      metadata: { roles: user.roles, targetUserId: user.id, org_id: targetOrgId },
     });
 
     // Return user without password (password is select: false by default, but double check)

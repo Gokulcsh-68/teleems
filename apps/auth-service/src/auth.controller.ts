@@ -358,9 +358,9 @@ export class AuthController {
 
   @Post('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN')
-  async createUser(@Body() dto: CreateUserDto) {
-    const user = await this.authService.createUser(dto);
+  @Roles('CURESELECT_ADMIN', 'Hospital Admin')
+  async createUser(@Req() req: any, @Body() dto: CreateUserDto) {
+    const user = await this.authService.createUser(dto, req.user);
     return {
       data: user,
     };

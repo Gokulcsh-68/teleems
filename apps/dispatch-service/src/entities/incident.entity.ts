@@ -35,11 +35,11 @@ export class Incident {
   @Column({ default: 'PENDING' })
   status: string;
 
-  @Column({ nullable: true })
-  assigned_vehicle: string;
+  @Column({ type: 'varchar', nullable: true })
+  assigned_vehicle: string | null;
 
   @Column({ type: 'int', nullable: true })
-  eta_seconds: number;
+  eta_seconds: number | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

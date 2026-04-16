@@ -19,7 +19,7 @@ export class Dispatch {
   status: string; // DISPATCHED, EN_ROUTE, ON_SCENE, TRANSPORTING, COMPLETED, CANCELLED
 
   @Column({ type: 'int', nullable: true })
-  eta_seconds: number;
+  eta_seconds: number | null;
 
   @Column({ type: 'varchar', nullable: true })
   manual_vehicle_id: string | null;
