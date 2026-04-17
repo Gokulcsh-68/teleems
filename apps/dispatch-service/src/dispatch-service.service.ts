@@ -14,6 +14,7 @@ import { AddPatientDto } from './dto/add-patient.dto';
 import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
+import { SLAStatusDto, SLATimerStatus, SLATimerDetail } from './dto/sla-status.dto';
 import { v4 as uuid } from 'uuid';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
@@ -740,6 +741,89 @@ export class DispatchServiceService {
       order: { createdAt: 'ASC' },
     });
     return { data: events };
+  }
+
+  private getSLATargets(severity: string) {
+    const s = severity?.toUpperCase();
+    if (s === 'CRITICAL' || s === 'RED') {
+      return { dispatch: 480, on_scene: 960, total: 3600 };
+    } else if (s === 'HIGH' || s === 'YELLOW') {
+      return { dispatch: 900, on_scene: 1800, total: 7200 };
+    } else if (s === 'MEDIUM' || s === 'GREEN') {
+      return { dispatch: 1800, on_scene: 3600, total: 14400 };
+    }
+    return { dispatch: 3600, on_scene: 7200, total: 28800 };
+  }
+
+  private calculateTimer(target: number, actual: number | null): SLATimerDetail {
+    let status = SLATimerStatus.PENDING;
+    if (actual !== null) {
+      status = actual <= target ? SLATimerStatus.WITHIN_SLA : SLATimerStatus.EXCEEDED;
+    }
+    return { target_seconds: target, actual_seconds: actual, status };
+  }
+
+  async getSlaStatus(id: string): Promise<{ data: SLAStatusDto }> {
+    const incidentWrapper = await this.findOne(id);
+    const incident = incidentWrapper.data;
+
+    const timeline = await this.timelineRepository.find({
+      where: { incident_id: id },
+      order: { createdAt: 'ASC' },
+    });
+
+    const dispatch = await this.dispatchRepository.findOne({
+      where: { incident_id: id },
+      order: { dispatched_at: 'ASC' },
+    });
+
+    const targets = this.getSLATargets(incident.severity);
+    const start = incident.createdAt.getTime();
+
+    // 1. Dispatch Timer
+    const dispatchedAt = dispatch?.dispatched_at?.getTime() || null;
+    const dispatchActual = dispatchedAt ? Math.floor((dispatchedAt - start) / 1000) : null;
+    const dispatchTimer = this.calculateTimer(targets.dispatch, dispatchActual);
+
+    // 2. On-Scene Timer
+    const onSceneEvent = timeline.find(e => 
+      e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'ON_SCENE'
+    );
+    const onSceneAt = onSceneEvent?.createdAt?.getTime() || null;
+    const onSceneActual = onSceneAt ? Math.floor((onSceneAt - start) / 1000) : null;
+    const onSceneTimer = this.calculateTimer(targets.on_scene, onSceneActual);
+
+    // 3. Total Resolution Timer
+    const completedEvent = timeline.find(e => 
+      e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'COMPLETED'
+    );
+    const completedAt = completedEvent?.createdAt?.getTime() || null;
+    const totalActual = completedAt ? Math.floor((completedAt - start) / 1000) : null;
+    const totalTimer = this.calculateTimer(targets.total, totalActual);
+
+    // Overall Status
+    let overall: 'HEALTHY' | 'WARNING' | 'VIOLATED' = 'HEALTHY';
+    if (dispatchTimer.status === SLATimerStatus.EXCEEDED || 
+        onSceneTimer.status === SLATimerStatus.EXCEEDED || 
+        totalTimer.status === SLATimerStatus.EXCEEDED) {
+      overall = 'VIOLATED';
+    } else if (dispatchTimer.status === SLATimerStatus.PENDING && 
+               (Date.now() - start) / 1000 > targets.dispatch) {
+      overall = 'WARNING'; // Approaching or just passed but not yet closed
+    }
+
+    return {
+      data: {
+        incident_id: id,
+        severity: incident.severity,
+        timers: {
+          dispatch: dispatchTimer,
+          on_scene: onSceneTimer,
+          total_resolution: totalTimer,
+        },
+        overall_sla_status: overall,
+      }
+    };
   }
 
   async addPatient(incidentId: string, dto: BulkAddPatientsDto, context: AuditContext) {

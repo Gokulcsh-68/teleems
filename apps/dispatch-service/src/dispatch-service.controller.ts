@@ -146,6 +146,12 @@ export class DispatchServiceController {
     return this.dispatchService.getTimeline(id);
   }
 
+  @Get(':id/sla')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Hospital Admin')
+  async getSlaStatus(@Param('id') id: string) {
+    return this.dispatchService.getSlaStatus(id);
+  }
+
   @Get(':id/audit')
   @Roles('CureSelect Admin', 'Fleet Operator')
   async getAudit(@Param('id') id: string) {
