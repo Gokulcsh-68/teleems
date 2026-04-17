@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -30,6 +31,7 @@ export class AuthService implements OnModuleInit {
 
   constructor(
     private jwtService: JwtService,
+    private configService: ConfigService,
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Role) private roleRepo: Repository<Role>,
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
@@ -181,9 +183,10 @@ export class AuthService implements OnModuleInit {
     });
 
     const isAdmin = user.roles.some(r => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const isMfaEnforced = this.configService.get('ENFORCE_MFA') !== 'false';
 
     // Mandatory MFA Enforcement for Admins (Spec 5.1)
-    if (isAdmin && !user.mfaEnabled) {
+    if (isAdmin && !user.mfaEnabled && isMfaEnforced) {
       const setupToken = this.jwtService.sign(
         { sub: user.id, roles: user.roles, purpose: 'mfa_setup' },
         { expiresIn: '15m' },

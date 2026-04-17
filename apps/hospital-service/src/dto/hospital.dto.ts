@@ -40,6 +40,14 @@ export class CreateHospitalDto {
 
   @IsString()
   @IsOptional()
+  contact_phone?: string;
+
+  @IsString()
+  @IsOptional()
+  contact_email?: string;
+
+  @IsString()
+  @IsOptional()
   medical_director?: string;
 
   @IsObject()

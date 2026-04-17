@@ -45,6 +45,8 @@ services:
         sync: false
       - key: JWT_PUBLIC_KEY
         sync: false
+      - key: ENFORCE_MFA
+        value: "false"
 
   # The Telelink Service (Kept as separate Microservice)
   - type: web

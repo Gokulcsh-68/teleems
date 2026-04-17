@@ -50,6 +50,12 @@ export class Hospital {
   emergency_phone: string;
 
   @Column({ nullable: true })
+  contact_phone: string;
+
+  @Column({ nullable: true })
+  contact_email: string;
+
+  @Column({ nullable: true })
   medical_director: string;
 
   // Bed Capacity Metadata

@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsBoolean, IsNumber, IsArray } from 'class-validator';
-import { SymptomSeverity, InventoryItemCategory } from '@app/common';
+import { SymptomSeverity, InventoryItemCategory, HospitalType } from '@app/common';
 
 export class CreateSymptomDto {
   @IsObject()
@@ -80,6 +80,34 @@ export class CreateInventoryItemDto {
 }
 
 export class UpdateHospitalMasterDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsEnum(HospitalType)
+  @IsOptional()
+  type?: HospitalType;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @IsString()
+  @IsOptional()
+  emergency_phone?: string;
+
+  @IsString()
+  @IsOptional()
+  contact_phone?: string;
+
+  @IsString()
+  @IsOptional()
+  contact_email?: string;
+
+  @IsString()
+  @IsOptional()
+  medical_director?: string;
+
   @IsString()
   @IsOptional()
   district?: string;
