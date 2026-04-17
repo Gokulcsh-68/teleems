@@ -18,6 +18,14 @@ export class Dispatch {
   @Column({ default: 'DISPATCHED' })
   status: string; // DISPATCHED, EN_ROUTE, ON_SCENE, TRANSPORTING, COMPLETED, CANCELLED
 
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  driver_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  emt_id: string;
+
   @Column({ type: 'int', nullable: true })
   eta_seconds: number | null;
 

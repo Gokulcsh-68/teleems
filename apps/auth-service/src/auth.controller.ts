@@ -357,6 +357,10 @@ export class AuthController {
     // Enforce tenant isolation for Hospital Admins and ED Doctors
     if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
       query.org_id = req.user.organisationId;
+    } else if (!isPlatformAdmin) {
+        // If they are not platform admins, they shouldn't even be here with @Roles,
+        // but as a safety measure, pin it to their own org if they have one.
+        query.org_id = req.user.organisationId;
     }
 
     const result = await this.authService.findAllUsers(query);
@@ -383,17 +387,8 @@ export class AuthController {
 
   @Get('users/:user_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  // No @Roles here because we handle Admin OR Own logic inside
   async getUser(@Req() req: any) {
-    const targetId = req.params.user_id;
-    const isAdmin = req.user.roles.includes('CURESELECT_ADMIN');
-    const isOwn = req.user.userId === targetId;
-
-    if (!isAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only view your own profile');
-    }
-
-    const user = await this.authService.findOneUser(targetId);
+    const user = await this.authService.findOneUser(req.params.user_id, req.user);
     return {
       data: user,
     };
@@ -504,10 +499,7 @@ export class AuthController {
 
     // Enforce tenant isolation for Audit Logs
     if (isHospitalLevelAdmin && !isPlatformAdmin) {
-      const targetUser = await this.authService.findOneUser(targetUserId);
-      if (targetUser.organisationId !== req.user.organisationId) {
-        throw new ForbiddenException('Access denied: You can only view audit logs for users in your own organization');
-      }
+      await this.authService.findOneUser(targetUserId, req.user);
     }
 
     const parsedLimit = Math.min(parseInt(limit || '50', 10), 100);

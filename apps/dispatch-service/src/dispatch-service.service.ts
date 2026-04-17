@@ -4,6 +4,7 @@ import { Repository, Brackets } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { Dispatch } from './entities/dispatch.entity';
+import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
@@ -16,6 +17,8 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { SLAStatusDto, SLATimerStatus, SLATimerDetail } from './dto/sla-status.dto';
 import { SlaBreachQueryDto } from './dto/sla-breach-query.dto';
+import { EscalateIncidentDto } from './dto/escalate-incident.dto';
+import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
@@ -40,6 +43,8 @@ export class DispatchServiceService {
     private readonly dispatchRepository: Repository<Dispatch>,
     @InjectRepository(Vehicle)
     private readonly vehicleRepository: Repository<Vehicle>,
+    @InjectRepository(IncidentEscalation)
+    private readonly escalationRepository: Repository<IncidentEscalation>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -228,13 +233,26 @@ export class DispatchServiceService {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
 
-    // Security: Non-admins/CCE/Hospital can only view their own incidents
+    // Security: Enforce Tenant and User Isolation
     if (requestUser) {
-      const isPrivileged = requestUser.roles.some((r: string) => 
-        ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE', 'Hospital Admin', 'HOSPITAL'].includes(r)
+      const roles = requestUser.roles || [];
+      const isPlatformAdmin = roles.some((r: string) => 
+        ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
       );
-      if (!isPrivileged && incident.caller_id !== requestUser.userId) {
-        throw new ForbiddenException('You do not have permission to view this incident');
+
+      if (!isPlatformAdmin) {
+        // 1. Case-insensitive check for Hospital Admin
+        const isHospitalAdmin = roles.some(r => r.toUpperCase() === 'HOSPITAL ADMIN');
+        
+        if (isHospitalAdmin) {
+          if (incident.organisationId !== requestUser.org_id) {
+            throw new ForbiddenException('Access denied: You can only access incidents in your own organization');
+          }
+        } 
+        // 2. Regular User / Fleet Operator Isolation (must be the caller)
+        else if (incident.caller_id !== requestUser.userId) {
+          throw new ForbiddenException('You do not have permission to access this incident');
+        }
       }
     }
 
@@ -1016,6 +1034,111 @@ export class DispatchServiceService {
 
     return { 
       data: patient 
+    };
+  }
+
+  async escalateIncident(id: string, requestUser: any, dto: EscalateIncidentDto, context: AuditContext) {
+    // Use findOne with requestUser to automatically enforce tenant isolation
+    const incidentWrapper = await this.findOne(id, requestUser);
+    const incident = incidentWrapper.data;
+
+    const escalatedBy = requestUser.userId;
+
+    // 1. Create Escalation Record
+    const escalation = this.escalationRepository.create({
+      incident_id: id,
+      escalated_by: escalatedBy,
+      escalate_to: dto.escalate_to,
+      reason: dto.reason,
+    });
+    const saved = await this.escalationRepository.save(escalation);
+
+    // 2. Add to Timeline
+    const timeline = this.timelineRepository.create({
+      incident_id: id,
+      user_id: escalatedBy,
+      type: 'ESCALATION',
+      description: `Incident manually escalated by ${escalatedBy} to ${dto.escalate_to}. Reason: ${dto.reason}`,
+      metadata: {
+        escalationId: saved.id,
+        escalateTo: dto.escalate_to,
+        reason: dto.reason,
+      },
+    });
+    await this.timelineRepository.save(timeline);
+
+    // 3. Security Audit Log
+    await this.logSecurityAudit(escalatedBy, 'MANUAL_ESCALATION_RECORDED', id, {
+      ip: context.ip,
+      userAgent: context.userAgent,
+    }, {
+      escalateTo: dto.escalate_to,
+      reason: dto.reason,
+    });
+
+    return { data: saved };
+  }
+
+  async getAnalyticsSummary(query: IncidentAnalyticsQueryDto, requestUser: any) {
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    );
+
+    const applyFilters = (qb: any) => {
+      if (!isPlatformAdmin) {
+        const isHospitalAdmin = roles.some(r => r.toUpperCase() === 'HOSPITAL ADMIN');
+        const isFleetOperator = roles.some(r => r.toUpperCase() === 'FLEET OPERATOR');
+        
+        if (isHospitalAdmin || isFleetOperator) {
+          qb.andWhere('incident.organisationId = :orgId', { orgId: requestUser.org_id });
+        } else {
+          throw new ForbiddenException('Insufficient permissions for analytics');
+        }
+      } else if (query.org_id) {
+        qb.andWhere('incident.organisationId = :orgId', { orgId: query.org_id });
+      }
+
+      if (query.date_from) {
+        qb.andWhere('incident.createdAt >= :dateFrom', { dateFrom: query.date_from });
+      }
+      if (query.date_to) {
+        qb.andWhere('incident.createdAt <= :dateTo', { dateTo: query.date_to });
+      }
+      return qb;
+    };
+
+    const format = (arr: any[]) => arr.reduce((acc, curr) => ({ ...acc, [curr.key]: parseInt(curr.count, 10) }), {});
+
+    const byStatus = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+      .select('incident.status', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('incident.status')
+      .getRawMany();
+
+    const byCategory = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+      .select('incident.category', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('incident.category')
+      .getRawMany();
+
+    const bySeverity = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+      .select('incident.severity', 'key')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('incident.severity')
+      .getRawMany();
+
+    const totalCount = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+      .select('COUNT(*)', 'total')
+      .getRawOne();
+
+    return {
+      data: {
+        total_incidents: parseInt(totalCount?.total || '0', 10),
+        by_status: format(byStatus),
+        by_category: format(byCategory),
+        by_severity: format(bySeverity)
+      }
     };
   }
 }

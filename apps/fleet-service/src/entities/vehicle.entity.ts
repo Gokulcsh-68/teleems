@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
@@ -13,6 +13,10 @@ export class Vehicle {
 
   @Column({ unique: true })
   identifier: string; // e.g. "AMB-001"
+
+  @Column({ nullable: true })
+  @Index()
+  organisationId: string;
 
   @Column({
     type: 'enum',

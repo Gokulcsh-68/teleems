@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, PrimaryColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, PrimaryColumn, Column, Index } from 'typeorm';
 
 @Entity({ name: 'rtvs_records' })
 export class RtvsRecord {
@@ -7,6 +7,10 @@ export class RtvsRecord {
 
   @PrimaryColumn({ type: 'timestamptz' })
   timestamp: Date;
+
+  @Column()
+  @Index()
+  organisationId: string;
 
   @Column({ type: 'json' })
   vitals: any;

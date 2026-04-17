@@ -28,6 +28,24 @@ async function bootstrap() {
     }),
   );
 
+  // Proxy for Patient Service (Integrated in Dispatch Service)
+  app.use(
+    '/v1/patients',
+    createProxyMiddleware({
+      target: dispatchUrl,
+      changeOrigin: true,
+    }),
+  );
+
+  // Proxy for Trip Service (Integrated in Dispatch Service)
+  app.use(
+    '/v1/trips',
+    createProxyMiddleware({
+      target: dispatchUrl,
+      changeOrigin: true,
+    }),
+  );
+
   // You can easily scale this to other microservices:
   // '/v1/users' -> UserService
   // '/v1/fleet' -> FleetService

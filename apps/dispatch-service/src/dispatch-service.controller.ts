@@ -11,6 +11,8 @@ import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { SlaBreachQueryDto } from './dto/sla-breach-query.dto';
 import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
+import { EscalateIncidentDto } from './dto/escalate-incident.dto';
+import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
@@ -206,5 +208,22 @@ export class DispatchServiceController {
       userAgent: req.get('user-agent'),
     };
     return this.dispatchService.updatePatient(id, patientId, dto, context);
+  }
+
+  @Post(':id/escalate')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin')
+  async escalateIncident(@Param('id') id: string, @Body() dto: EscalateIncidentDto, @Req() req: any) {
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    };
+    return this.dispatchService.escalateIncident(id, req.user, dto, context);
+  }
+
+  @Get('analytics/summary')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
+  async getAnalyticsSummary(@Query() query: IncidentAnalyticsQueryDto, @Req() req: any) {
+    return this.dispatchService.getAnalyticsSummary(query, req.user);
   }
 }

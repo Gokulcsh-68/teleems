@@ -1073,11 +1073,33 @@ export class AuthService implements OnModuleInit {
   /**
    * Find a single user by ID.
    */
-  async findOneUser(id: string) {
+  async findOneUser(id: string, requester?: any) {
     const user = await this.userRepo.findOneBy({ id });
     if (!user) {
       throw new BadRequestException('User not found');
     }
+
+    if (requester) {
+      const isPlatformAdmin = requester.roles.some((r: string) => 
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+      );
+      const isOwn = requester.userId === id;
+
+      if (!isPlatformAdmin && !isOwn) {
+        const isHospitalLevelAdmin = requester.roles.some((r: string) => 
+          ['Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+        );
+
+        if (isHospitalLevelAdmin) {
+          if (user.organisationId !== requester.organisationId) {
+            throw new ForbiddenException('Access denied: You can only view users in your own organization');
+          }
+        } else {
+          throw new ForbiddenException('Access denied: Insufficient permissions to view this profile');
+        }
+      }
+    }
+
     return user;
   }
 
@@ -1095,6 +1117,18 @@ export class AuthService implements OnModuleInit {
       if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
         if (user.organisationId !== creator.organisationId) {
           throw new ForbiddenException('Access denied: You can only update users in your own organization');
+        }
+
+        // Additional constraints for non-platform admins
+        if (dto.org_id && dto.org_id !== user.organisationId) {
+          throw new ForbiddenException('Access denied: Hospital Administrators cannot change a user\'s organization');
+        }
+
+        if (dto.role) {
+          const platformRoles = ['CURESELECT_ADMIN', 'CureSelect Admin', 'Call Centre Executive (CCE)', 'CCE'];
+          if (platformRoles.includes(dto.role)) {
+            throw new ForbiddenException(`Access denied: Only Platform Administrators can assign the ${dto.role} role`);
+          }
         }
       }
     }
