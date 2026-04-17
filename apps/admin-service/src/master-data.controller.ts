@@ -4,7 +4,8 @@ import {
   CreateSymptomDto, 
   CreateIncidentCategoryDto, 
   CreateInventoryItemDto,
-  UpdateHospitalMasterDto
+  UpdateHospitalMasterDto,
+  RegisterHospitalDto
 } from './dto/master-data.dto';
 import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
@@ -47,5 +48,10 @@ export class MasterDataController {
   @Put('hospitals/:id')
   async updateHospital(@Param('id') id: string, @Body() dto: UpdateHospitalMasterDto, @Req() req: any) {
     return this.masterDataService.updateHospitalMaster(id, dto, req.user.userId, req.ip);
+  }
+
+  @Post('register-hospital')
+  async registerHospital(@Body() dto: RegisterHospitalDto, @Req() req: any) {
+    return this.masterDataService.registerHospitalWithAdmin(dto, req.user, req.ip);
   }
 }

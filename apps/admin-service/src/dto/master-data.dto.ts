@@ -116,3 +116,4 @@ export class UpdateHospitalMasterDto {
   @IsOptional()
   specialties?: string[];
 }
+export * from './register-hospital.dto';
