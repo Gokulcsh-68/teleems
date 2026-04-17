@@ -30,6 +30,7 @@ export interface AuditContext {
   userId: string;
   ip: string;
   userAgent: string;
+  organisationId?: string;
 }
 
 @Injectable()
@@ -126,6 +127,7 @@ export class DispatchServiceService {
   async createIncident(dto: CreateIncidentDto, context: AuditContext) {
     const incidentData = {
       ...dto,
+      organisationId: dto.organisationId || context.organisationId,
       patients: dto.patients.map(p => ({
         id: uuid(),
         ...p,
@@ -161,7 +163,7 @@ export class DispatchServiceService {
     };
   }
 
-  async findAll(query: IncidentQueryDto, callerIdOverride?: string) {
+  async findAll(query: IncidentQueryDto, requestUser: any) {
     const { 
       status, category, severity, org_id, caller_id, 
       date_from, date_to, limit, cursor 
@@ -169,17 +171,35 @@ export class DispatchServiceService {
 
     const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
 
-    // 1. Apply Basic Filters
+    // 1. RBAC & Tenant Isolation
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    );
+
+    if (!isPlatformAdmin) {
+      // Isolation for Hospital Admins and Fleet Operators
+      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+        const orgId = requestUser.organisationId || requestUser.org_id;
+        if (!orgId) throw new ForbiddenException('User organization context missing');
+        queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
+      } 
+      // Isolation for Dispatchers / Public Callers (only see their own)
+      else if (roles.includes('Caller (Public)') || roles.includes('Individual Dispatcher')) {
+        queryBuilder.andWhere('incident.caller_id = :userId', { userId: requestUser.userId });
+      } else {
+        throw new ForbiddenException('Insufficient permissions to list incidents');
+      }
+    } else {
+      // Platform Admin Filters
+      if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+      if (caller_id) queryBuilder.andWhere('incident.caller_id = :caller_id', { caller_id });
+    }
+
+    // 2. Filters
     if (status) queryBuilder.andWhere('incident.status = :status', { status });
     if (category) queryBuilder.andWhere('incident.category = :category', { category });
     if (severity) queryBuilder.andWhere('incident.severity = :severity', { severity });
-    if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
-
-    // 2. Caller Isolation (Security + Filter)
-    const effectiveCallerId = callerIdOverride || caller_id;
-    if (effectiveCallerId) {
-      queryBuilder.andWhere('incident.caller_id = :effectiveCallerId', { effectiveCallerId });
-    }
 
     // 3. Date Range Filters
     if (date_from) {

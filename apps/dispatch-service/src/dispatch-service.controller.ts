@@ -30,6 +30,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     const result = await this.dispatchService.createIncident(dto, context);
     return {
@@ -44,13 +45,7 @@ export class DispatchServiceController {
   @Get()
   @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async listIncidents(@Query() query: IncidentQueryDto, @Req() req: any) {
-    const isPrivileged = req.user.roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE', 'Fleet Operator', 'Hospital Admin'].includes(r)
-    );
-
-    const callerIdOverride = !isPrivileged ? req.user.userId : undefined;
-    
-    return this.dispatchService.findAll(query, callerIdOverride);
+    return this.dispatchService.findAll(query, req.user);
   }
 
   @Get('sla-breaches')
@@ -75,6 +70,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.dispatchIncident(id, dto, context);
   }
@@ -92,6 +88,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.reassignVehicle(id, dto, context);
   }
@@ -103,6 +100,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.cancelDispatch(id, dto, context);
   }
@@ -120,6 +118,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.updateStatus(id, dto, context);
   }
@@ -131,6 +130,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.assignVehicle(id, dto, context);
   }
@@ -142,6 +142,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.updateIncident(id, dto, context);
   }
@@ -154,6 +155,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     await this.dispatchService.cancelIncident(id, dto, context);
   }
@@ -184,6 +186,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.addPatient(id, dto, context);
   }
@@ -206,6 +209,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.updatePatient(id, patientId, dto, context);
   }
@@ -217,6 +221,7 @@ export class DispatchServiceController {
       userId: req.user.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
     };
     return this.dispatchService.escalateIncident(id, req.user, dto, context);
   }

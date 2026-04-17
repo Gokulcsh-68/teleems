@@ -3,6 +3,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
   BUSY = 'BUSY',
+  DISPATCHED = 'DISPATCHED',
+  MAINTENANCE = 'MAINTENANCE',
   OFFLINE = 'OFFLINE'
 }
 

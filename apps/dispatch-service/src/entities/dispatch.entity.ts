@@ -43,4 +43,22 @@ export class Dispatch {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  destination_hospital_id: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  actual_hospital_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  cancellation_reason: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  breakdown_reason: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  breakdown_category: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  epcr_draft_url: string | null;
 }
