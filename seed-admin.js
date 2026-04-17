@@ -4,16 +4,29 @@ const crypto = require('crypto');
 
 async function seed() {
   const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error("❌ Please provide the DATABASE_URL environment variable.");
+  let clientConfig;
+
+  if (url) {
+    clientConfig = {
+      connectionString: url,
+      ssl: { rejectUnauthorized: false }
+    };
+  } else if (process.env.DB_HOST) {
+    clientConfig = {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT || 5432,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      ssl: process.env.DB_HOST === 'localhost' ? false : { rejectUnauthorized: false }
+    };
+  } else {
+    console.error("❌ Please provide either DATABASE_URL or DB_HOST environment variables.");
     console.error("Example: $env:DATABASE_URL='postgresql://...'; node seed-admin.js");
     process.exit(1);
   }
 
-  const client = new Client({
-    connectionString: url,
-    ssl: { rejectUnauthorized: false }
-  });
+  const client = new Client(clientConfig);
 
   try {
     await client.connect();

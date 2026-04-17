@@ -15,6 +15,7 @@ import { CCEProfile } from './entities/cce-profile.entity';
 import { SystemConfig } from './entities/system-config.entity';
 import { FeatureFlag } from './entities/feature-flag.entity';
 import { IotDeviceProfile } from './entities/iot-device-profile.entity';
+import { HospitalStatus } from './entities/hospital-status.entity';
 
 @Global()
 @Module({
@@ -29,7 +30,8 @@ import { IotDeviceProfile } from './entities/iot-device-profile.entity';
       CCEProfile,
       SystemConfig,
       FeatureFlag,
-      IotDeviceProfile
+      IotDeviceProfile,
+      HospitalStatus
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super-secret',

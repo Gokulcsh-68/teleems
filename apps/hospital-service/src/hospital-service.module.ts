@@ -1,17 +1,19 @@
 import { Module } from '@nestjs/common';
 import { HospitalServiceController } from './hospital-service.controller';
 import { HospitalServiceService } from './hospital-service.service';
+import { HospitalOpsController } from './hospital-ops.controller';
+import { HospitalOpsService } from './hospital-ops.service';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Hospital } from '@app/common';
+import { Hospital, HospitalStatus } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Hospital]),
+    TypeOrmModule.forFeature([Hospital, HospitalStatus]),
     AuthModule,
   ],
-  controllers: [HospitalServiceController],
-  providers: [HospitalServiceService],
+  controllers: [HospitalServiceController, HospitalOpsController],
+  providers: [HospitalServiceService, HospitalOpsService],
 })
 export class HospitalServiceModule {}

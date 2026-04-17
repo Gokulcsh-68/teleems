@@ -13,6 +13,7 @@ export * from './entities/cce-profile.entity';
 export * from './entities/system-config.entity';
 export * from './entities/feature-flag.entity';
 export * from './entities/iot-device-profile.entity';
+export * from './entities/hospital-status.entity';
 export * from './guards/jwt-auth.guard';
 export * from './guards/roles.guard';
 export * from './guards/admin-ip-whitelist.guard';
