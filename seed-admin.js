@@ -47,7 +47,7 @@ async function seed() {
     const userId = crypto.randomUUID();
     await client.query(`
       INSERT INTO "user" (id, phone, email, username, password, roles, status, "failedLoginAttempts", "mfaEnabled", "forcePasswordReset", "createdAt", "updatedAt")
-      VALUES ($1, '0000000000', 'admin@teleems.com', 'admin', $2, 'CURESELECT_ADMIN', 'ACTIVE', 0, false, false, NOW(), NOW())
+      VALUES ($1, '0000000000', 'admin@teleems.com', 'admin', $2, 'CURESELECT_ADMIN', 'ACTIVE', 0, true, false, NOW(), NOW())
     `, [userId, passwordHash]);
 
     console.log("✅ Admin user created successfully!");

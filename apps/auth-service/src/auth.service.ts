@@ -944,7 +944,8 @@ export class AuthService implements OnModuleInit {
     if (query.role) {
       qb.andWhere('user.roles LIKE :role', { role: `%${query.role}%` });
     }
-    if (query.org_id) {
+    // Explicitly check for property existence to prevent bypassing filter when org_id is null/empty
+    if (query.hasOwnProperty('org_id') && query.org_id !== undefined) {
       qb.andWhere('user.organisationId = :orgId', { orgId: query.org_id });
     }
     if (query.status) {
@@ -1052,10 +1053,9 @@ export class AuthService implements OnModuleInit {
     }
 
     if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
-      // 1. Force tenant isolation
+      // 1. Force tenant isolation for Hospital staff
       targetOrgId = creator.organisationId;
       
-      // 2. Validate role scope (Hospital Admins/Doctors restricted to hospital staff roles)
       const allowedHospitalRoles = [
         'Hospital ED Doctor (ERCP)', 
         'Hospital Nurse', 
@@ -1065,7 +1065,22 @@ export class AuthService implements OnModuleInit {
       if (!allowedHospitalRoles.includes(targetRole)) {
         throw new ForbiddenException(`Hospital Administrators can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
       }
-    } else if (!isPlatformAdmin) {
+
+      if (!targetOrgId) {
+        throw new BadRequestException(`Your admin account is misconfigured (missing organisationId). Please contact a Super Admin.`);
+      }
+    } else if (isPlatformAdmin) {
+      // 2. Super Admin Flow: Must pass org_id for hospital-scoped roles
+      const hospitalRoles = [
+        'Hospital ED Doctor (ERCP)', 
+        'Hospital Nurse', 
+        'Hospital Coordinator', 
+        'Hospital Admin'
+      ];
+      if (hospitalRoles.includes(targetRole) && !targetOrgId) {
+        throw new BadRequestException(`An Organisation ID (org_id) is required when a Super Admin creates a hospital-scoped user.`);
+      }
+    } else {
       throw new ForbiddenException(`You do not have permission to create users. (Current roles: ${creator.roles.join(', ')})`);
     }
 

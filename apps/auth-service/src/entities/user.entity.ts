@@ -17,10 +17,10 @@ export class User {
   @Column({ default: 'ACTIVE' })
   status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING';
 
-  @Column({ nullable: true })
+  @Column({ name: 'organisation_id', nullable: true })
   organisationId: string;
 
-  @Column({ nullable: true })
+  @Column({ name: 'hospital_id', nullable: true })
   hospitalId: string;
 
   @Column({ type: 'jsonb', nullable: true })
