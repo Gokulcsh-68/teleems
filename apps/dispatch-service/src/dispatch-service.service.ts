@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Brackets } from 'typeorm';
 import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { Dispatch } from './entities/dispatch.entity';
@@ -15,6 +15,8 @@ import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
 import { SLAStatusDto, SLATimerStatus, SLATimerDetail } from './dto/sla-status.dto';
+import { SlaBreachQueryDto } from './dto/sla-breach-query.dto';
+import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
 import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
@@ -216,7 +218,7 @@ export class DispatchServiceService {
 
     const total_count = await queryBuilder.getCount(); // Optional: might be expensive on very large tables
 
-    return new PaginatedResponse(data, next_cursor, total_count);
+    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
   }
 
 
@@ -735,12 +737,40 @@ export class DispatchServiceService {
     };
   }
 
-  async getTimeline(id: string) {
-    const events = await this.timelineRepository.find({
-      where: { incident_id: id },
-      order: { createdAt: 'ASC' },
-    });
-    return { data: events };
+  async getTimeline(id: string, query: PaginationQueryDto) {
+    const { limit, cursor } = query;
+    const queryBuilder = this.timelineRepository.createQueryBuilder('timeline');
+    queryBuilder.where('timeline.incident_id = :id', { id });
+
+    if (cursor) {
+      const decodedCursor = decodeCursor(cursor);
+      const [cursorDate, cursorId] = decodedCursor.split('|');
+      if (cursorDate && cursorId) {
+        queryBuilder.andWhere(
+          '(timeline.createdAt > :cursorDate OR (timeline.createdAt = :cursorDate AND timeline.id > :cursorId))',
+          { cursorDate, cursorId }
+        );
+      }
+    }
+
+    queryBuilder.orderBy('timeline.createdAt', 'ASC');
+    queryBuilder.addOrderBy('timeline.id', 'ASC');
+    queryBuilder.take(limit + 1);
+
+    const incidents = await queryBuilder.getMany();
+    
+    let next_cursor: string | null = null;
+    const hasNextPage = incidents.length > limit;
+    const data = hasNextPage ? incidents.slice(0, limit) : incidents;
+
+    if (hasNextPage) {
+      const lastItem = data[data.length - 1];
+      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+    }
+
+    const total_count = await queryBuilder.getCount();
+
+    return { data, meta: { next_cursor, total_count } };
   }
 
   private getSLATargets(severity: string) {
@@ -826,6 +856,67 @@ export class DispatchServiceService {
     };
   }
 
+  async getSlaBreaches(query: SlaBreachQueryDto) {
+    const { limit, cursor, org_id, category } = query;
+    const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
+
+    // Only active incidents that haven't been dispatched yet are counted as "active dispatch breaches"
+    queryBuilder.where('incident.status IN (:...statuses)', { statuses: ['PENDING', 'ASSIGNED'] });
+
+    if (org_id) {
+      queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+    }
+    if (category) {
+      queryBuilder.andWhere('incident.category = :category', { category });
+    }
+
+    // Thresholds: CRITICAL 8m, HIGH 15m, MEDIUM 30m, LOW 60m
+    const now = new Date();
+    const criticalT = new Date(now.getTime() - 480 * 1000);
+    const highT = new Date(now.getTime() - 900 * 1000);
+    const mediumT = new Date(now.getTime() - 1800 * 1000);
+    const lowT = new Date(now.getTime() - 3600 * 1000);
+
+    queryBuilder.andWhere(
+      new Brackets(qb => {
+        qb.where("(incident.severity IN ('CRITICAL', 'RED') AND incident.createdAt < :criticalT)", { criticalT })
+          .orWhere("(incident.severity IN ('HIGH', 'YELLOW') AND incident.createdAt < :highT)", { highT })
+          .orWhere("(incident.severity IN ('MEDIUM', 'GREEN') AND incident.createdAt < :mediumT)", { mediumT })
+          .orWhere("(incident.severity = 'LOW' AND incident.createdAt < :lowT)", { lowT });
+      })
+    );
+
+    if (cursor) {
+      const decodedCursor = decodeCursor(cursor);
+      const [cursorDate, cursorId] = decodedCursor.split('|');
+      if (cursorDate && cursorId) {
+        queryBuilder.andWhere(
+          '(incident.createdAt > :cursorDate OR (incident.createdAt = :cursorDate AND incident.id > :cursorId))',
+          { cursorDate, cursorId }
+        );
+      }
+    }
+
+    queryBuilder.orderBy('incident.createdAt', 'ASC'); // Oldest breaches first
+    queryBuilder.addOrderBy('incident.id', 'ASC');
+    queryBuilder.take(limit + 1);
+
+    const incidents = await queryBuilder.getMany();
+    
+    let next_cursor: string | null = null;
+    const hasNextPage = incidents.length > limit;
+    const data = hasNextPage ? incidents.slice(0, limit) : incidents;
+
+    if (hasNextPage) {
+      const lastItem = data[data.length - 1];
+      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+    }
+
+    const total_count = await queryBuilder.getCount();
+
+    return { data, meta: { next_cursor, total_count } };
+  }
+
   async addPatient(incidentId: string, dto: BulkAddPatientsDto, context: AuditContext) {
     const incident = await this.incidentRepository.findOneBy({ id: incidentId });
     if (!incident) throw new NotFoundException('Incident not found');
@@ -870,13 +961,20 @@ export class DispatchServiceService {
     };
   }
 
-  async getPatients(incidentId: string, requestUser: any) {
+  async getPatients(incidentId: string, requestUser: any, query: OffsetPaginationQueryDto) {
+    const { limit, offset } = query;
     const incidentWrapper = await this.findOne(incidentId, requestUser);
     const patients = incidentWrapper.data.patients || [];
-    return patients.map(({ id, ...rest }) => ({
+    
+    // Slice for simple offset-based pagination on the JSONB array
+    const paginatedPatients = patients.slice(offset, offset + limit);
+    
+    const mapped = paginatedPatients.map(({ id, ...rest }) => ({
       id,
       ...rest
     }));
+
+    return new PaginatedResponse(mapped, null, patients.length, limit, mapped.length);
   }
 
   async updatePatient(incidentId: string, patientId: string, dto: UpdatePatientDto, context: AuditContext) {

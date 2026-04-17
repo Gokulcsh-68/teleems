@@ -3,6 +3,8 @@ export class PaginatedResponse<T> {
     public readonly data: T[],
     public readonly next_cursor: string | null,
     public readonly total_count: number,
+    public readonly per_page: number,
+    public readonly current_count: number,
   ) {}
 }
 

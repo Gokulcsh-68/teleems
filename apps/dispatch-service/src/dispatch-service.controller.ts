@@ -9,6 +9,8 @@ import { RecommendVehicleDto } from './dto/recommend-vehicle.dto';
 import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
+import { SlaBreachQueryDto } from './dto/sla-breach-query.dto';
+import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
@@ -47,6 +49,21 @@ export class DispatchServiceController {
     const callerIdOverride = !isPrivileged ? req.user.userId : undefined;
     
     return this.dispatchService.findAll(query, callerIdOverride);
+  }
+
+  @Get('sla-breaches')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin')
+  async getSlaBreaches(@Query() query: SlaBreachQueryDto, @Req() req: any) {
+    const isPlatformAdmin = req.user.roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    );
+
+    // Tenant Isolation: Hospital Admins can only see breaches for their own organization
+    if (!isPlatformAdmin && req.user.roles.includes('Hospital Admin') && req.user.org_id) {
+      query.org_id = req.user.org_id;
+    }
+
+    return this.dispatchService.getSlaBreaches(query);
   }
 
   @Post(':id/dispatch')
@@ -141,9 +158,9 @@ export class DispatchServiceController {
 
   @Get(':id/timeline')
   @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
-  async getTimeline(@Param('id') id: string, @Req() req: any) {
+  async getTimeline(@Param('id') id: string, @Query() query: PaginationQueryDto, @Req() req: any) {
     await this.dispatchService.findOne(id, req.user);
-    return this.dispatchService.getTimeline(id);
+    return this.dispatchService.getTimeline(id, query);
   }
 
   @Get(':id/sla')
@@ -154,8 +171,8 @@ export class DispatchServiceController {
 
   @Get(':id/audit')
   @Roles('CureSelect Admin', 'Fleet Operator')
-  async getAudit(@Param('id') id: string) {
-    return this.dispatchService.getAuditLogs(id);
+  async getAudit(@Param('id') id: string, @Query() query: PaginationQueryDto) {
+    return this.dispatchService.getAuditLogs(id, query.limit, query.cursor);
   }
 
   @Post(':id/patients')
@@ -171,8 +188,8 @@ export class DispatchServiceController {
 
   @Get(':id/patients')
   @Roles('CureSelect Admin', 'Call Centre Executive (CCE)', 'EMT / Paramedic', 'Hospital Admin', 'Fleet Operator')
-  async getPatients(@Param('id') id: string, @Req() req: any) {
-    return this.dispatchService.getPatients(id, req.user);
+  async getPatients(@Param('id') id: string, @Query() query: OffsetPaginationQueryDto, @Req() req: any) {
+    return this.dispatchService.getPatients(id, req.user, query);
   }
 
   @Patch(':id/patients/:patient_id')

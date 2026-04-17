@@ -67,7 +67,7 @@ export class AuditLogService {
     }
 
     const total_count = await this.auditRepo.count({ where: { userId } });
-    return new PaginatedResponse(data, next_cursor, total_count);
+    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
   }
 
   /**
@@ -121,6 +121,6 @@ export class AuditLogService {
     }
 
     const total_count = await qb.getCount();
-    return new PaginatedResponse(data, next_cursor, total_count);
+    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
   }
 }

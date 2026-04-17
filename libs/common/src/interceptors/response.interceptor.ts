@@ -14,6 +14,8 @@ export interface Response<T> {
     timestamp: string;
     next_cursor?: string | null;
     total_count?: number;
+    per_page?: number;
+    current_count?: number;
   };
 }
 
@@ -53,6 +55,8 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
             ...(isPaginated ? {
               next_cursor: data.next_cursor,
               total_count: data.total_count,
+              per_page: data.per_page,
+              current_count: data.current_count,
             } : {}),
           },
         };
