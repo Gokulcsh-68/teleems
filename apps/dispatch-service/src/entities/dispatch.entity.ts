@@ -1,13 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import { Incident } from './incident.entity';
 
 @Entity('dispatches')
 export class Dispatch {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column()
-  @Index()
-  incident_id: string;
 
   @Column()
   vehicle_id: string;
@@ -61,4 +58,28 @@ export class Dispatch {
 
   @Column({ type: 'varchar', nullable: true })
   epcr_draft_url: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_ift: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  origin_hospital_id: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  ift_metadata: any | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  refusal_record: any | null;
+
+  @Column({ nullable: true })
+  @Index()
+  organisationId: string;
+
+  @Column()
+  @Index()
+  incident_id: string;
+
+  @ManyToOne(() => Incident)
+  @JoinColumn({ name: 'incident_id' })
+  incident: Incident;
 }

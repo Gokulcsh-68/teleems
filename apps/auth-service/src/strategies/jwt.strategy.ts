@@ -67,7 +67,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Spec 5.1: Session timeout after 30 minutes of inactivity
     // Only enforce for web roles (Admin, Hospital, Fleet) — not for mobile CALLER role
-    const webRoles = ['CURESELECT_ADMIN', 'HOSPITAL_ADMIN', 'FLEET_MANAGER', 'HOSPITAL_STAFF'];
+    const webRoles = ['CureSelect Admin', 'CURESELECT_ADMIN', 'Hospital Admin', 'Fleet Operator', 'Hospital Coordinator', 'Hospital ED Doctor (ERCP)'];
     const userHasWebRole = user.roles.some(role => webRoles.includes(role));
     
     if (userHasWebRole && user.lastActiveAt) {

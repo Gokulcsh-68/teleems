@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TeleEMS RTVS Live Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
+        #log { background: #000; padding: 10px; height: 300px; overflow-y: scroll; border: 1px solid #444; }
+        .vital { color: #00ff00; }
+        .gcs { color: #00bfff; }
+        button { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>TeleEMS RTVS WebSocket Test</h1>
+    <div>
+        <input type="text" id="patientId" placeholder="Enter Patient UUID">
+        <button onclick="joinStream()">Join Patient Stream</button>
+    </div>
+    <p>Status: <span id="status">Disconnected</span></p>
+    <div id="log"></div>
+
+    <script>
+        // Connecting to port 3001 as the Unified API is running on that port
+        const socket = io('http://localhost:3001', {
+            transports: ['polling', 'websocket']
+        });
+
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+
+        socket.on('connect', () => {
+            console.log('Successfully connected to RTVS WebSocket Gateway');
+            status.innerText = 'Connected to RTVS';
+            status.style.color = 'green';
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('RTVS Connection Error:', err.message);
+            status.innerText = 'Connection Error: ' + err.message;
+            status.style.color = 'red';
+        });
+
+        socket.on('vitals_update', (payload) => {
+            console.log('Received Live Update:', payload);
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+            
+            if (payload.type === 'VITALS') {
+                div.className = 'vital';
+                div.innerText = `[${time}] VITALS: BP ${payload.data.bp_systolic}/${payload.data.bp_diastolic}, HR: ${payload.data.heart_rate}, O2: ${payload.data.spo2}%`;
+            } else {
+                div.className = 'gcs';
+                div.innerText = `[${time}] GCS Update: Total ${payload.data.gcs_total} (E${payload.data.gcs_eye} V${payload.data.gcs_verbal} M${payload.data.gcs_motor})`;
+            }
+            
+            log.prepend(div);
+        });
+
+        function joinStream() {
+            const patientId = document.getElementById('patientId').value;
+            console.log(`Attempting to join stream for patient: ${patientId}`);
+            socket.emit('join_patient_stream', { patient_id: patientId }, (response) => {
+                console.log('Join Response:', response);
+                const div = document.createElement('div');
+                div.innerText = `SYSTEM: Joined stream for ${patientId}`;
+                log.prepend(div);
+            });
+        }
+    </script>
+</body>
+</html>

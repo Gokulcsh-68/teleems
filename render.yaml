@@ -11,23 +11,23 @@ services:
         value: production
       - key: DB_HOST
         fromDatabase:
-          name: teleems-db
+          name: teleems-db-master
           property: host
       - key: DB_PORT
         fromDatabase:
-          name: teleems-db
+          name: teleems-db-master
           property: port
       - key: DB_USER
         fromDatabase:
-          name: teleems-db
+          name: teleems-db-master
           property: user
       - key: DB_PASSWORD
         fromDatabase:
-          name: teleems-db
+          name: teleems-db-master
           property: password
       - key: DB_NAME
         fromDatabase:
-          name: teleems-db
+          name: teleems-db-master
           property: database
       - key: REDIS_HOST
         fromService:
@@ -49,7 +49,6 @@ services:
   # The Telelink Service (Kept as separate Microservice)
   - type: web
     name: telelink-service
-
     env: node
     plan: free
     buildCommand: npm install --include=dev && npm run build:telelink
@@ -64,7 +63,7 @@ services:
     ipAllowList: []
 
 databases:
-  - name: teleems-db
-    databaseName: teleems
-    user: teleems_user
+  - name: teleems-db-master
+    databaseName: teleems_v2
+    user: teleems_admin
     plan: free

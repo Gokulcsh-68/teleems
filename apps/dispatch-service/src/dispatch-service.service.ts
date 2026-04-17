@@ -21,7 +21,7 @@ import { EscalateIncidentDto } from './dto/escalate-incident.dto';
 import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
-import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
+import { PaginatedResponse, encodeCursor, decodeCursor, MapsService } from '../../../libs/common/src';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
 
 import { AuditLogService } from '../../auth-service/src/audit-log.service';
@@ -47,6 +47,7 @@ export class DispatchServiceService {
     @InjectRepository(IncidentEscalation)
     private readonly escalationRepository: Repository<IncidentEscalation>,
     private readonly auditLogService: AuditLogService,
+    private readonly mapsService: MapsService,
   ) {}
 
   private async logSecurityAudit(
@@ -105,23 +106,49 @@ export class DispatchServiceService {
 
     if (availableVehicles.length === 0) return null;
 
-    let nearest: Vehicle | null = null;
-    let minDistance = Infinity;
-
-    for (const vehicle of availableVehicles) {
-      const distance = this.getDistance(
+    // 1. Filter to top 5 candidates by physical distance (Haversine)
+    const candidates = availableVehicles.map(vehicle => {
+      const distance = this.getHaversine(
         Number(lat), 
         Number(lon), 
         Number(vehicle.gps_lat), 
         Number(vehicle.gps_lon)
       );
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = vehicle;
+      return { vehicle, distance };
+    });
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    const topCandidates = candidates.slice(0, 5);
+
+    // 2. Get real travel time from Google for these candidates
+    let bestVehicle: Vehicle | null = topCandidates[0].vehicle;
+    let minDuration = Infinity;
+
+    for (const item of topCandidates) {
+      const routeData = await this.mapsService.getTravelTime(
+        { lat: Number(lat), lng: Number(lon) },
+        { lat: Number(item.vehicle.gps_lat), lng: Number(item.vehicle.gps_lon) }
+      );
+
+      if (routeData.duration < minDuration) {
+        minDuration = routeData.duration;
+        bestVehicle = item.vehicle;
       }
     }
 
-    return nearest;
+    return bestVehicle;
+  }
+
+  private getHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   async createIncident(dto: CreateIncidentDto, context: AuditContext) {

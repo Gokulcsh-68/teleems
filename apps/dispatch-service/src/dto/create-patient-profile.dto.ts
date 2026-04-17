@@ -31,4 +31,8 @@ export class CreatePatientProfileDto {
   @IsString()
   @IsOptional()
   photo_url?: string;
+
+  @IsString()
+  @IsOptional()
+  organisationId?: string;
 }

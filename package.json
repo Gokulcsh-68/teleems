@@ -24,15 +24,19 @@
     "start:all": "concurrently \"npm run start:dev auth-service\" \"npm run start:dev dispatch-service\" \"npm run start:dev rtvs-service\" \"npm run start:dev telelink-service\" \"npm run start:dev epcr-service\" \"npm run start:dev notification-service\" \"npm run start:dev fleet-service\" \"npm run start:dev hospital-service\" \"npm run start:dev admin-service\""
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1031.0",
     "@aws-sdk/client-sqs": "^3.1030.0",
+    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.19",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/typeorm": "^11.0.1",
+    "@nestjs/websockets": "^11.1.19",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
@@ -45,6 +49,7 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
     "typeorm": "^0.3.28"
   },

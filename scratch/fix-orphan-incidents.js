@@ -1,49 +1,34 @@
 const { Client } = require('pg');
+require('dotenv').config();
 
-const client = new Client({
-  host: 'localhost',
-  port: 5433,
-  user: 'teleems_user',
-  password: 'localpassword',
-  database: 'teleems',
-});
+async function fixOrphanIncidents() {
+  const client = new Client({
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5433'),
+    user: process.env.DB_USER || 'teleems_user',
+    password: process.env.DB_PASSWORD || 'localpassword',
+    database: process.env.DB_NAME || 'teleems',
+  });
 
-async function remediate() {
   try {
     await client.connect();
-    console.log('Connecting to database...');
+    console.log('Connected to database to fix orphan dispatches.');
 
-    // 1. Find a valid Organisation ID from an existing user
-    const userRes = await client.query('SELECT "organisationId" FROM "user" WHERE "organisationId" IS NOT NULL LIMIT 1');
-    if (userRes.rows.length === 0) {
-      console.error('No valid organization found. Please create a user with an organisationId first.');
-      return;
-    }
-    const orgId = userRes.rows[0].organisationId;
-    console.log(`Using Organisation: ${orgId}`);
+    // 1. Delete dispatches with NULL incident_id
+    const res1 = await client.query('DELETE FROM dispatches WHERE incident_id IS NULL');
+    console.log(`Deleted ${res1.rowCount} dispatches with NULL incident_id.`);
 
-    // 2. Identify orphan incidents (organisationId is null or empty)
-    const orphanRes = await client.query('SELECT id FROM incident WHERE "organisationId" IS NULL OR "organisationId" = \'\'');
-    console.log(`Found ${orphanRes.rows.length} orphan incidents.`);
+    // 2. Optional: Delete dispatches that don't have a valid UUID in incident_id if we are changing type
+    // (Postgres will fail anyway if we don't)
+    // const res2 = await client.query("DELETE FROM dispatches WHERE incident_id !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'");
+    // console.log(`Deleted ${res2.rowCount} dispatches with invalid UUID incident_id.`);
 
-    if (orphanRes.rows.length === 0) {
-        console.log('Nothing to remediate.');
-        return;
-    }
-
-    // 3. Link them to the organization
-    const ids = orphanRes.rows.map(r => r.id);
-    await client.query('UPDATE incident SET "organisationId" = $1 WHERE id = ANY($2)', [orgId, ids]);
-    
-    console.log(`\nRemediation completed successfully.`);
-    console.log(`Linked ${orphanRes.rows.length} incidents to Org: ${orgId}`);
-    console.log('You should now be able to see your trips in the list.');
-
+    console.log('Database cleanup complete.');
   } catch (err) {
-    console.error('Error during remediation:', err);
+    console.error('Error during database cleanup:', err);
   } finally {
     await client.end();
   }
 }
 
-remediate();
+fixOrphanIncidents();

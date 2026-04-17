@@ -13,8 +13,15 @@ import { PatientLoadedDto } from './dto/patient-loaded.dto';
 import { AtHospitalDto } from './dto/at-hospital.dto';
 import { CancelTripDto } from './dto/cancel-trip.dto';
 import { BreakdownDto } from './dto/breakdown.dto';
+import { CreateIftTripDto } from './dto/create-ift-trip.dto';
+import { VerifyIftDocumentsDto } from './dto/verify-ift-documents.dto';
+import { RecordRefusalDto } from './dto/record-refusal.dto';
+import { UpdateDestinationDto } from './dto/update-destination.dto';
+import { PatientProfile } from './entities/patient-profile.entity';
+import { PatientAssessment } from './entities/patient-assessment.entity';
+import { PatientIntervention } from './entities/patient-intervention.entity';
 import { TripStatus } from './enums/trip-status.enum';
-import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
+import { PaginatedResponse, encodeCursor, decodeCursor, StorageService, MapsService } from '@app/common';
 
 @Injectable()
 export class TripService {
@@ -27,6 +34,14 @@ export class TripService {
     private readonly timelineRepo: Repository<IncidentTimeline>,
     @InjectRepository(Vehicle)
     private readonly vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(PatientProfile)
+    private readonly patientRepo: Repository<PatientProfile>,
+    @InjectRepository(PatientAssessment)
+    private readonly assessmentRepo: Repository<PatientAssessment>,
+    @InjectRepository(PatientIntervention)
+    private readonly interventionRepo: Repository<PatientIntervention>,
+    private readonly storageService: StorageService,
+    private readonly mapsService: MapsService,
   ) {}
 
   private readonly validTransitions: Record<string, string[]> = {
@@ -118,7 +133,7 @@ export class TripService {
 
   async findOneTrip(id: string, requestUser: any) {
     const qb = this.dispatchRepo.createQueryBuilder('trip')
-      .innerJoin(Incident, 'incident', 'incident.id = CAST(trip.incident_id AS uuid)')
+      .innerJoinAndSelect('trip.incident', 'incident')
       .where('trip.id = :id', { id });
 
     const roles = requestUser.roles || [];
@@ -383,6 +398,334 @@ export class TripService {
       data: trip, 
       backup_request_id: `BACKUP-${trip.incident_id.split('-')[0]}` 
     };
+  }
+
+  async createIftTrip(dto: CreateIftTripDto, requestUser: any) {
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    );
+
+    const orgId = (isPlatformAdmin && dto.organisationId) 
+      ? dto.organisationId 
+      : (requestUser.organisationId || requestUser.org_id);
+
+    if (!orgId) throw new ForbiddenException('Organization context missing');
+
+    // 1. Create IFT Incident
+    const incident = this.dispatchRepo.manager.create(Incident, {
+      category: 'IFT',
+      severity: dto.urgency,
+      organisationId: orgId,
+      gps_lat: 0, // Will be updated by vehicle location
+      gps_lon: 0,
+      address: `IFT Transfer from ${dto.origin_hospital_id}`,
+      patients: [{
+        id: encodeCursor('PAT'),
+        gender: 'UNKNOWN',
+        triage_code: dto.urgency,
+      }],
+      notes: `Patient Summary: ${JSON.stringify(dto.patient_summary)}`,
+      status: 'DISPATCHED',
+    });
+    const savedIncident = await this.dispatchRepo.manager.save(Incident, incident);
+
+    // 2. Find available vehicle of requested type
+    const vehicle = await this.vehicleRepo.findOne({
+      where: { 
+        status: VehicleStatus.AVAILABLE,
+        type: dto.requested_vehicle_type,
+        organisationId: orgId
+      }
+    });
+
+    // 3. Create IFT Trip
+    const trip = this.dispatchRepo.create({
+      incident_id: savedIncident.id,
+      organisationId: orgId,
+      vehicle_id: vehicle?.identifier || 'TBD',
+      dispatched_by: requestUser.userId,
+      status: TripStatus.CREATED,
+      is_ift: true,
+      origin_hospital_id: dto.origin_hospital_id,
+      destination_hospital_id: dto.destination_hospital_id,
+      ift_metadata: {
+        patient_summary: dto.patient_summary,
+        urgency: dto.urgency,
+        checklist: [
+          { name: 'Transfer Certificate', verified: false },
+          { name: 'Discharge Summary', verified: false },
+          { name: 'Imaging Records (CD/Film)', verified: false },
+          { name: 'Patient Belongings', verified: false },
+        ]
+      }
+    });
+
+    const savedTrip = await this.dispatchRepo.save(trip);
+
+    // Timeline Log
+    const timeline = this.timelineRepo.create({
+      incident_id: savedIncident.id,
+      type: 'IFT_CREATED',
+      description: `IFT Trip created from ${dto.origin_hospital_id} to ${dto.destination_hospital_id}`,
+      user_id: requestUser.userId,
+    });
+    await this.timelineRepo.save(timeline);
+
+    return { data: savedTrip };
+  }
+
+  async getIftDocuments(id: string, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    if (!trip.is_ift) {
+      throw new ForbiddenException('This endpoint is only for IFT trips');
+    }
+
+    return { 
+      data: {
+        trip_id: trip.id,
+        documents: trip.ift_metadata?.checklist || []
+      }
+    };
+  }
+
+  async verifyIftDocuments(id: string, dto: VerifyIftDocumentsDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    if (!trip.is_ift) {
+      throw new ForbiddenException('This endpoint is only for IFT trips');
+    }
+
+    const metadata = trip.ift_metadata || {};
+    metadata.checklist = dto.documents;
+    
+    trip.ift_metadata = metadata;
+    await this.dispatchRepo.save(trip);
+
+    // Timeline Log for verification
+    const timeline = this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'IFT_DOCS_VERIFIED',
+      description: `IFT transfer documents verified by ${requestUser.userId}`,
+      user_id: requestUser.userId,
+    });
+    await this.timelineRepo.save(timeline);
+
+    return { 
+      data: {
+        trip_id: trip.id,
+        documents: trip.ift_metadata?.checklist || []
+      }
+    };
+  }
+
+  async recordRefusal(id: string, dto: RecordRefusalDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    // 1. Upload Signature to S3
+    let signatureUrl = dto.signature_image_base64;
+    if (dto.signature_image_base64.startsWith('data:')) {
+      const fileName = `${trip.incident_id}_refusal_sig.png`;
+      signatureUrl = await this.storageService.uploadBase64(
+        dto.signature_image_base64,
+        'missions/refusals/',
+        fileName
+      );
+    }
+
+    // 2. Store the Refusal Record
+    trip.refusal_record = {
+      ...dto,
+      signature_image_base64: signatureUrl, // Store URL instead of raw base64
+      recorded_at: new Date().toISOString(),
+      emt_user_id: requestUser.userId
+    };
+
+    // 2. Automate Mission Termination
+    trip.status = TripStatus.CANCELLED;
+    trip.cancellation_reason = 'Patient/Family Refusal';
+
+    await this.dispatchRepo.save(trip);
+
+    // 3. Update associated Incident
+    await this.dispatchRepo.manager.update(Incident, trip.incident_id, {
+      status: 'CANCELLED',
+      notes: `[TERMINATED] Patient/Family Refusal recorded by EMT ${requestUser.userId}`
+    });
+
+    // 4. Release Vehicle
+    if (trip.vehicle_id && trip.vehicle_id !== 'TBD') {
+      await this.vehicleRepo.update(
+        { identifier: trip.vehicle_id },
+        { status: VehicleStatus.AVAILABLE }
+      );
+    }
+
+    // 5. Audit & Timeline
+    const timeline = this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'TREATMENT_REFUSED',
+      description: `Patient/Family Refusal recorded by EMT ${requestUser.userId} at lat:${dto.gps_lat}, lon:${dto.gps_lon}`,
+      user_id: requestUser.userId,
+    });
+    await this.timelineRepo.save(timeline);
+
+    return { 
+      message: 'Refusal recorded successfully and mission terminated',
+      data: trip.refusal_record 
+    };
+  }
+
+  async getRefusalRecord(id: string, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    if (!trip.refusal_record) {
+      throw new NotFoundException('No refusal record found for this trip');
+    }
+
+    return { data: trip.refusal_record };
+  }
+
+  async getTripEta(id: string, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const vehicle = await this.vehicleRepo.findOneBy({ identifier: trip.vehicle_id });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    const hospitalCoords = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
+    const routeData = await this.mapsService.getTravelTime(
+      { lat: Number(vehicle.gps_lat), lng: Number(vehicle.gps_lon) },
+      { lat: hospitalCoords.lat, lng: hospitalCoords.lon }
+    );
+
+    return {
+      eta_seconds: routeData.duration,
+      distance_m: routeData.distance,
+      vehicle_location: {
+        lat: Number(vehicle.gps_lat),
+        lon: Number(vehicle.gps_lon),
+      }
+    };
+  }
+
+  async updateDestination(id: string, dto: UpdateDestinationDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const oldDest = trip.destination_hospital_id;
+    trip.destination_hospital_id = dto.hospital_id;
+    await this.dispatchRepo.save(trip);
+
+    // Recalculate ETA for response
+    const etaResponse = await this.getTripEta(id, requestUser);
+
+    // Audit Log
+    const timeline = this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'DESTINATION_CHANGED',
+      description: `Destination updated from ${oldDest} to ${dto.hospital_id}. Reason: ${dto.reason || 'N/A'}`,
+      user_id: requestUser.userId,
+    });
+    await this.timelineRepo.save(timeline);
+
+    return {
+      data: trip,
+      new_eta_seconds: etaResponse.eta_seconds
+    };
+  }
+
+  async getNavigationRoute(id: string, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const vehicle = await this.vehicleRepo.findOneBy({ identifier: trip.vehicle_id });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    // Determine target based on trip status
+    const isEnRouteScene = [TripStatus.DISPATCHED, TripStatus.EN_ROUTE_SCENE].includes(trip.status as TripStatus);
+    const destination = isEnRouteScene 
+        ? { lat: Number(trip.incident.gps_lat), lng: Number(trip.incident.gps_lon) }
+        : await (async () => {
+            const h = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
+            return { lat: h.lat, lng: h.lon };
+          })();
+
+    const route = await this.mapsService.getDirections(
+        { lat: Number(vehicle.gps_lat), lng: Number(vehicle.gps_lon) },
+        destination
+    );
+
+    return {
+      data: {
+        polyline: route.polyline,
+        bounds: route.bounds,
+        steps: route.steps,
+        destination_label: isEnRouteScene ? 'Scene' : 'Hospital'
+      }
+    };
+  }
+
+  async getMissionBundle(id: string, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+    const incident = trip.incident;
+
+    // 1. Get Patient Profile
+    const patient = await this.patientRepo.findOne({
+      where: { incident_id: trip.incident_id }
+    });
+
+    let clinical: any = { assessments: [], interventions: [] };
+    if (patient) {
+        // 2. Get Assessments (Vitals & GCS)
+        clinical.assessments = await this.assessmentRepo.find({
+            where: { patient_id: patient.id },
+            order: { taken_at: 'ASC' }
+        });
+
+        // 3. Get Interventions
+        clinical.interventions = await this.interventionRepo.find({
+            where: { patient_id: patient.id },
+            order: { administered_at: 'ASC' }
+        });
+    }
+
+    return {
+      data: {
+        meta: {
+          trip_id: trip.id,
+          incident_id: trip.incident_id,
+          organisation_id: trip.organisationId || incident.organisationId,
+          generated_at: new Date().toISOString()
+        },
+        operational: {
+          trip,
+          incident
+        },
+        clinical: {
+          patient,
+          assessments: clinical.assessments,
+          interventions: clinical.interventions
+        }
+      }
+    };
+  }
+
+  private getHospitalLocation(id: string): { lat: number; lon: number } {
+    // Mock Hospital Database (centered around a sample city)
+    const hospitals: Record<string, { lat: number, lon: number }> = {
+      'HOSP-001': { lat: 12.9716, lon: 77.5946 },
+      'HOSP-002': { lat: 12.9352, lon: 77.6245 },
+      'HOSP-DEFAULT': { lat: 12.9500, lon: 77.6000 }
+    };
+
+    return hospitals[id] || hospitals['HOSP-DEFAULT'];
   }
 
   private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

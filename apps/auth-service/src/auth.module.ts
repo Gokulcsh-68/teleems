@@ -6,7 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuditLogService } from './audit-log.service';
 import { User } from './entities/user.entity';
-import { AuditLog } from './entities/audit-log.entity';
+import { Organisation, AuditLog } from '@app/common';
 import { Role } from './entities/role.entity';
 import { Session } from './entities/session.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -19,7 +19,7 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, AuditLog, Role, Session]),
+    TypeOrmModule.forFeature([User, AuditLog, Role, Session, Organisation]),
     GlobalThrottlerModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

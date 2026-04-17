@@ -1,16 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehicle } from './entities/vehicle.entity';
+import { FleetOperator } from './entities/fleet-operator.entity';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
-import { PaginatedResponse, encodeCursor, decodeCursor } from '../../../libs/common/src';
+import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
+import { PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, Organisation } from '@app/common';
 
 @Injectable()
 export class FleetServiceService {
   constructor(
     @InjectRepository(Vehicle)
     private readonly vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(FleetOperator)
+    private readonly operatorRepo: Repository<FleetOperator>,
+    @InjectRepository(Organisation)
+    private readonly orgRepo: Repository<Organisation>,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async findAllVehicles(query: VehicleQueryDto, requestUser: any) {
@@ -65,14 +72,63 @@ export class FleetServiceService {
       ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
     );
 
+    const orgId = (isPlatformAdmin && dto.organisationId) ? dto.organisationId : requestUser.organisationId;
+
+    // Check Capacity (Spec 5.4)
+    const org = await this.orgRepo.findOneBy({ id: orgId });
+    if (!org) throw new NotFoundException('Organisation not found');
+
+    const currentCount = await this.vehicleRepo.count({ where: { organisationId: orgId } });
+    if (currentCount >= org.vehicle_capacity) {
+      throw new ConflictException(`Organisation '${org.name}' has reached its vehicle capacity (${org.vehicle_capacity})`);
+    }
+
     const vehicleData = {
       ...dto,
-      organisationId: (isPlatformAdmin && dto.organisationId) ? dto.organisationId : requestUser.organisationId,
+      organisationId: orgId,
     };
 
     const vehicle = this.vehicleRepo.create(vehicleData);
     const saved = await this.vehicleRepo.save(vehicle);
 
     return { data: saved };
+  }
+
+  async createOperator(dto: CreateFleetOperatorDto, adminId: string, ip: string) {
+    const operator: FleetOperator = await this.operatorRepo.save(this.operatorRepo.create(dto));
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'FLEET_OPERATOR_CREATED',
+      ipAddress: ip,
+      metadata: { operatorId: operator.id, name: operator.name },
+    });
+
+    return operator;
+  }
+
+  async findAllOperators() {
+    return this.operatorRepo.find({ order: { name: 'ASC' } });
+  }
+
+  async findOneOperator(id: string) {
+    const operator = await this.operatorRepo.findOneBy({ id });
+    if (!operator) throw new NotFoundException(`Fleet Operator with ID ${id} not found`);
+    return operator;
+  }
+
+  async updateOperator(id: string, dto: UpdateFleetOperatorDto, adminId: string, ip: string) {
+    const operator = await this.findOneOperator(id);
+    Object.assign(operator, dto);
+    await this.operatorRepo.save(operator);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'FLEET_OPERATOR_UPDATED',
+      ipAddress: ip,
+      metadata: { operatorId: id, updates: dto },
+    });
+
+    return operator;
   }
 }

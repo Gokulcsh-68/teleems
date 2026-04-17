@@ -20,6 +20,9 @@ export class User {
   @Column({ nullable: true })
   organisationId: string;
 
+  @Column({ nullable: true })
+  hospitalId: string;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
 

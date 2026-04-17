@@ -14,9 +14,22 @@ import { HospitalServiceModule } from '../../hospital-service/src/hospital-servi
 import { NotificationServiceModule } from '../../notification-service/src/notification-service.module';
 import { RtvsServiceModule } from '../../rtvs-service/src/rtvs-service.module';
 
+// Common Library
+import { 
+  Organisation, 
+  Hospital, 
+  AuditLog, 
+  SymptomMaster, 
+  IncidentCategoryMaster, 
+  InventoryItemMaster,
+  CCEProfile,
+  SystemConfig,
+  FeatureFlag,
+  IotDeviceProfile
+} from '@app/common';
+
 // Entities for global TypeORM config
 import { User } from '../../auth-service/src/entities/user.entity';
-import { AuditLog } from '../../auth-service/src/entities/audit-log.entity';
 import { Role } from '../../auth-service/src/entities/role.entity';
 import { Session } from '../../auth-service/src/entities/session.entity';
 import { Incident } from '../../dispatch-service/src/entities/incident.entity';
@@ -26,7 +39,10 @@ import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { PatientProfile } from '../../dispatch-service/src/entities/patient-profile.entity';
+import { PatientAssessment } from '../../dispatch-service/src/entities/patient-assessment.entity';
+import { PatientIntervention } from '../../dispatch-service/src/entities/patient-intervention.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
+import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.entity';
 
 @Module({
   imports: [
@@ -45,7 +61,11 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
         entities: [
           User, AuditLog, Role, Session, 
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
-          RtvsRecord, Vehicle, LocationLog
+          PatientAssessment, PatientIntervention,
+          RtvsRecord, Vehicle, LocationLog,
+          Organisation, Hospital, FleetOperator,
+          SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
+          CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile
         ],
         synchronize: true, // Auto-create tables; revert for prod migrations
       }),

@@ -5,12 +5,12 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { Session } from './entities/session.entity';
-import { AuditLogService } from './audit-log.service';
+import { AuditLogService } from '@app/common';
 import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
 import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
-import { PaginatedResponse, encodeCursor, decodeCursor } from '@app/common';
+import { PaginatedResponse, encodeCursor, decodeCursor, AuditLog } from '@app/common';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
@@ -179,6 +179,32 @@ export class AuthService implements OnModuleInit {
       lockedUntil: null as any,
       lastActiveAt: new Date(),
     });
+
+    const isAdmin = user.roles.some(r => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+
+    // Mandatory MFA Enforcement for Admins (Spec 5.1)
+    if (isAdmin && !user.mfaEnabled) {
+      const setupToken = this.jwtService.sign(
+        { sub: user.id, roles: user.roles, purpose: 'mfa_setup' },
+        { expiresIn: '15m' },
+      );
+
+      await this.auditLogService.log({
+        userId: user.id,
+        action: 'LOGIN_MFA_SETUP_REQUIRED',
+        ipAddress,
+        userAgent,
+      });
+
+      return {
+        accessToken: null,
+        refreshToken: null,
+        mfa_required: true,
+        mfa_setup_required: true,
+        mfa_session_token: setupToken,
+        user: { id: user.id, username: user.username, roles: user.roles },
+      };
+    }
 
     // Check if forced password reset is required
     if (user.forcePasswordReset) {
