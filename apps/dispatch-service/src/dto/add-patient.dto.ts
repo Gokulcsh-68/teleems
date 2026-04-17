@@ -14,7 +14,7 @@ export class AddPatientDto {
   gender: string;
 
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   triage_code: string;
 
   @IsArray()

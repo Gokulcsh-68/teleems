@@ -30,6 +30,7 @@ export class PatientDto {
   gender: string;
 
   @IsString()
+  @IsOptional()
   triage_code: string;
 
   @IsArray()

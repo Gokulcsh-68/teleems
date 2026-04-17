@@ -121,7 +121,7 @@ export class DispatchServiceService {
       patients: dto.patients.map(p => ({
         id: uuid(),
         ...p,
-        triage_code: p.triage_code.toUpperCase(),
+        triage_code: (p.triage_code || 'PENDING').toUpperCase(),
       })),
       caller_id: dto.caller_id || context.userId,
       status: 'PENDING',
@@ -751,7 +751,7 @@ export class DispatchServiceService {
       name: p.name,
       age: p.age,
       gender: p.gender,
-      triage_code: p.triage_code.toUpperCase(),
+      triage_code: (p.triage_code || 'PENDING').toUpperCase(),
       symptoms: p.symptoms || [],
     }));
 
@@ -788,7 +788,11 @@ export class DispatchServiceService {
 
   async getPatients(incidentId: string, requestUser: any) {
     const incidentWrapper = await this.findOne(incidentId, requestUser);
-    return { data: incidentWrapper.data.patients || [] };
+    const patients = incidentWrapper.data.patients || [];
+    return patients.map(({ id, ...rest }) => ({
+      id,
+      ...rest
+    }));
   }
 
   async updatePatient(incidentId: string, patientId: string, dto: UpdatePatientDto, context: AuditContext) {
@@ -820,8 +824,15 @@ export class DispatchServiceService {
       { patient_id: patientId, updates: dto }
     );
 
+    await this.logSecurityAudit(
+      context.userId,
+      'INCIDENT_PATIENT_UPDATED',
+      incident.id,
+      context,
+      { patient_id: patientId, updates: dto }
+    );
+
     return { 
-      message: 'Patient updated successfully',
       data: patient 
     };
   }
