@@ -7,7 +7,7 @@ export enum FeatureFlagScope {
 }
 
 @Entity('feature_flags')
-@Index(['name', 'scope', 'scope_id'], { unique: true })
+@Index(['name', 'scope', 'scopeId'], { unique: true })
 export class FeatureFlag {
   @PrimaryGeneratedColumn('uuid')
   id: string;
