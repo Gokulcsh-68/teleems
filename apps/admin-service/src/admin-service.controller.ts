@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Put, Body, Param, Req, UseGuards, Patch, Query } from '@nestjs/common';
 import { AdminServiceService } from './admin-service.service';
 import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
+import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { OrganisationStatus, JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
 @Controller('v1/admin')
@@ -42,5 +43,10 @@ export class AdminServiceController {
   @Post('organisations/:id/invoices')
   async createInvoice(@Param('id') id: string, @Req() req: any) {
     return this.adminService.generateInvoice(id, req.user.userId, req.ip);
+  }
+
+  @Post('register-hospital')
+  async registerHospital(@Body() dto: RegisterHospitalDto, @Req() req: any) {
+    return this.adminService.registerHospitalWithAdmin(dto, req.user, req.ip);
   }
 }

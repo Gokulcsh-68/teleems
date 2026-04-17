@@ -14,7 +14,6 @@ import {
   CreateInventoryItemDto,
   UpdateHospitalMasterDto
 } from './dto/master-data.dto';
-import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { AuthService } from '../../auth-service/src/auth.service';
 
 @Injectable()
@@ -112,37 +111,5 @@ export class MasterDataService {
     });
 
     return hospital;
-  }
-
-  // --- Unified Registration ---
-
-  async registerHospitalWithAdmin(dto: RegisterHospitalDto, creator: any, ip: string) {
-    // 1. Create the Hospital
-    const hospital = this.hospitalRepo.create(dto.hospital);
-    await this.hospitalRepo.save(hospital);
-
-    // 2. Create the Admin User for this Hospital
-    const adminUser = await this.authService.createUser({
-      ...dto.admin,
-      role: 'Hospital Admin',
-      org_id: hospital.id,
-    }, creator);
-
-    await this.auditLogService.log({
-      userId: creator.userId,
-      action: 'HOSPITAL_REGISTERED_WITH_ADMIN',
-      ipAddress: ip,
-      metadata: { hospitalId: hospital.id, adminId: adminUser.id },
-    });
-
-    return {
-      hospital,
-      admin: {
-        id: adminUser.id,
-        username: adminUser.username,
-        email: adminUser.email,
-        roles: adminUser.roles,
-      }
-    };
   }
 }

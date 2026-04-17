@@ -1,11 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { MasterDataService } from './master-data.service';
 import { 
-  CreateSymptomDto, 
-  CreateIncidentCategoryDto, 
   CreateInventoryItemDto,
-  UpdateHospitalMasterDto,
-  RegisterHospitalDto
+  UpdateHospitalMasterDto
 } from './dto/master-data.dto';
 import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
@@ -48,10 +45,5 @@ export class MasterDataController {
   @Put('hospitals/:id')
   async updateHospital(@Param('id') id: string, @Body() dto: UpdateHospitalMasterDto, @Req() req: any) {
     return this.masterDataService.updateHospitalMaster(id, dto, req.user.userId, req.ip);
-  }
-
-  @Post('register-hospital')
-  async registerHospital(@Body() dto: RegisterHospitalDto, @Req() req: any) {
-    return this.masterDataService.registerHospitalWithAdmin(dto, req.user, req.ip);
   }
 }
