@@ -342,36 +342,11 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CURESELECT_ADMIN', 'CureSelect Admin', 'Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)')
   async listUsers(@Query() query: UserQueryDto, @Req() req: any) {
-    const isPlatformAdmin = req.user.roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
-    );
-    const isHospitalAdmin = req.user.roles.some((r: string) => 
-      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
-    );
-    const isEdDoctor = req.user.roles.some((r: string) => 
-      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
-    );
-
-    // Enforce tenant isolation for Hospital Admins and ED Doctors
-    if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
-      query.org_id = req.user.organisationId;
-    } else if (!isPlatformAdmin) {
-        // If they are not platform admins, they shouldn't even be here with @Roles,
-        // but as a safety measure, pin it to their own org if they have one.
-        query.org_id = req.user.organisationId;
-    }
-
-    const result = await this.authService.findAllUsers(query);
+    const result = await this.authService.findAllUsers(query, req.user);
     return {
       message: 'Users retrieved successfully',
-      data: result.data,
-      meta: {
-        next_cursor: result.next_cursor,
-        total_count: result.total_count,
-        limit: parseInt(query.limit || '20', 10),
-      },
+      data: result,
     };
   }
 

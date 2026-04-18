@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ForbiddenException, BadRequestExcept
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
 import { Session } from './entities/session.entity';
@@ -11,7 +11,7 @@ import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
 import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
-import { PaginatedResponse, encodeCursor, decodeCursor, AuditLog } from '@app/common';
+import { PaginatedResponse, encodeCursor, decodeCursor, AuditLog, Hospital } from '@app/common';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
@@ -36,19 +36,26 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(Role) private roleRepo: Repository<Role>,
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
     private auditLogService: AuditLogService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     await this.seedRoles();
   }
 
   private async seedRoles() {
-    const count = await this.roleRepo.count();
-    if (count === 0) {
-      console.log('[SEED] No roles found in DB. Seeding initial Roles...');
-      await this.roleRepo.save(SYSTEM_ROLES);
-      console.log(`[SEED] Successfully seeded ${SYSTEM_ROLES.length} roles.`);
+    console.log('[SEED] Synchronizing system roles and permissions...');
+    for (const roleDef of SYSTEM_ROLES) {
+      let role = await this.roleRepo.findOne({ where: { name: roleDef.name } });
+      if (!role) {
+        role = this.roleRepo.create(roleDef);
+      } else {
+        // Sync permissions and scope
+        role.permissions = roleDef.permissions;
+        role.scope = roleDef.scope;
+      }
+      await this.roleRepo.save(role);
     }
+    console.log(`[SEED] Successfully synchronized ${SYSTEM_ROLES.length} roles.`);
   }
 
   // ─────────────────────────────────────────────
@@ -59,21 +66,21 @@ export class AuthService implements OnModuleInit {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpRef = Math.random().toString(36).substring(2, 10).toUpperCase();
     const expiresIn = 120; // 2 minutes as per spec 2.1
-    
-    this.otpStore.set(phone, { 
-      otp, 
+
+    this.otpStore.set(phone, {
+      otp,
       otpRef,
-      expiresAt: Date.now() + expiresIn * 1000 
+      expiresAt: Date.now() + expiresIn * 1000
     });
 
     console.log(`[OTP] ${phone} (${purpose}): ${otp} [Ref: ${otpRef}]`);
-    
-    return { 
+
+    return {
       message: 'OTP sent successfully',
       data: {
-        otp_ref: otpRef, 
+        otp_ref: otpRef,
         expires_in: expiresIn,
-        otp: process.env.NODE_ENV !== 'production' ? otp : undefined 
+        otp: process.env.NODE_ENV !== 'production' ? otp : undefined
       }
     };
   }
@@ -106,13 +113,13 @@ export class AuthService implements OnModuleInit {
     });
     await this.sessionRepo.save(session);
 
-    const payload = { 
-      sub: user.id, 
+    const payload = {
+      sub: user.id,
       roles: user.roles,
       org_id: user.organisationId,
-      sid: session.id 
+      sid: session.id
     };
-    
+
     const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
     return { accessToken, refreshToken, user };
@@ -124,7 +131,7 @@ export class AuthService implements OnModuleInit {
 
   async login(loginDto: LoginDto, ipAddress: string, userAgent: string) {
     const { username, password } = loginDto;
-    
+
     // Explicitly select password and mfaSecret since they are marked select: false
     const user = await this.userRepo.createQueryBuilder('user')
       .addSelect('user.password')
@@ -176,8 +183,8 @@ export class AuthService implements OnModuleInit {
     }
 
     // Reset failed attempts on successful password validation
-    await this.userRepo.update(user.id, { 
-      failedLoginAttempts: 0, 
+    await this.userRepo.update(user.id, {
+      failedLoginAttempts: 0,
       lockedUntil: null as any,
       lastActiveAt: new Date(),
     });
@@ -267,9 +274,9 @@ export class AuthService implements OnModuleInit {
       userAgent,
     });
 
-    return { 
-      accessToken, 
-      refreshToken, 
+    return {
+      accessToken,
+      refreshToken,
       mfa_required: false,
       force_password_reset: false,
       user: {
@@ -382,12 +389,7 @@ export class AuthService implements OnModuleInit {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return {
-      userId: user.id,
-      roles: user.roles,
-      phone: user.phone,
-      email: user.email,
-    };
+    return user;
   }
 
   /**
@@ -601,8 +603,8 @@ export class AuthService implements OnModuleInit {
     }
 
     const hashedPassword = await bcrypt.hash(dto.new_password, BCRYPT_SALT_ROUNDS);
-    await this.userRepo.update(userId, { 
-      password: hashedPassword, 
+    await this.userRepo.update(userId, {
+      password: hashedPassword,
       forcePasswordReset: false,
     });
 
@@ -662,10 +664,10 @@ export class AuthService implements OnModuleInit {
 
     return {
       message: 'If an account with that email exists, a password reset link has been sent.',
-      ...(process.env.NODE_ENV !== 'production' ? { 
+      ...(process.env.NODE_ENV !== 'production' ? {
         reset_url: resetUrl,
         otp,
-        otp_ref: otpRef 
+        otp_ref: otpRef
       } : {}),
     };
   }
@@ -711,9 +713,9 @@ export class AuthService implements OnModuleInit {
   async refreshTokens(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken);
-      const newPayload = { 
-        sub: payload.sub, 
-        roles: payload.roles || [payload.role] 
+      const newPayload = {
+        sub: payload.sub,
+        roles: payload.roles || [payload.role]
       };
       const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '3h' });
       const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
@@ -734,7 +736,7 @@ export class AuthService implements OnModuleInit {
 
     const payload = { sub: clientId, roles: ['SYSTEM'] };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
-    return { 
+    return {
       accessToken,
       expiresIn: 900 // 15 minutes as per signing option
     };
@@ -785,7 +787,7 @@ export class AuthService implements OnModuleInit {
       const allRoles = await this.roleRepo.find();
       const found = allRoles.find(r => r.name.toLowerCase() === roleName.toLowerCase());
       if (found) return found.permissions;
-      
+
       throw new BadRequestException(`Role '${roleName}' not found in the system`);
     }
     return role.permissions;
@@ -847,7 +849,7 @@ export class AuthService implements OnModuleInit {
     await this.roleRepo.save(role);
 
     await this.auditLogService.log({
-      userId: adminId, 
+      userId: adminId,
       action: 'ROLE_PERMISSIONS_UPDATED',
       ipAddress: '0.0.0.0',
       metadata: { role: roleName, permissions_count: permissions.length },
@@ -864,7 +866,7 @@ export class AuthService implements OnModuleInit {
     if (!role) {
       throw new BadRequestException(`Role '${roleName}' not found`);
     }
-    
+
     // Protection for CURESELECT_ADMIN
     if (role.name === 'CURESELECT_ADMIN') {
       throw new BadRequestException('The primary administrator role cannot be deleted');
@@ -934,31 +936,37 @@ export class AuthService implements OnModuleInit {
   /**
    * List users with cursor-based pagination and filtering.
    */
-  async findAllUsers(query: UserQueryDto): Promise<PaginatedResponse<User>> {
-    const limit = Math.min(parseInt(query.limit || '20', 10), 100);
-    const qb = this.userRepo.createQueryBuilder('user')
-      .take(limit + 1) // Fetch one extra to check for next page
-      .orderBy('user.createdAt', 'DESC')
-      .addOrderBy('user.id', 'DESC');
+  async findAllUsers(query: UserQueryDto, requester?: any): Promise<PaginatedResponse<User>> {
+    const limit = parseInt(query.limit || '20', 10);
+    const page = parseInt(query.page || '1', 10);
+    const offset = (page - 1) * limit;
+
+    const qb = this.userRepo.createQueryBuilder('user');
+
+    // Multi-tenancy Isolation (Spec 2.4)
+    if (requester) {
+      const isPlatformAdmin = requester.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+      if (!isPlatformAdmin) {
+        qb.where('user.organisation_id = :orgId', { orgId: requester.organisationId });
+      } else if (query.organisation_id) {
+        qb.where('user.organisation_id = :orgId', { orgId: query.organisation_id });
+      }
+    }
 
     if (query.role) {
-      qb.andWhere('user.roles LIKE :role', { role: `%${query.role}%` });
-    }
-    // Explicitly check for property existence to prevent bypassing filter when org_id is null/empty
-    if (query.hasOwnProperty('org_id') && query.org_id !== undefined) {
-      qb.andWhere('user.organisationId = :orgId', { orgId: query.org_id });
+      qb.andWhere(':role = ANY(user.roles)', { role: query.role });
     }
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
     }
-    if (query.email) {
-      qb.andWhere('user.email ILIKE :email', { email: `%${query.email}%` });
+    if (query.employee_id) {
+      qb.andWhere('user.employeeId = :employeeId', { employeeId: query.employee_id });
     }
-    if (query.phone) {
-      qb.andWhere('user.phone ILIKE :phone', { phone: `%${query.phone}%` });
+    if (query.department) {
+      qb.andWhere('user.department ILIKE :dept', { dept: `%${query.department}%` });
     }
-    if (query.username) {
-      qb.andWhere('user.username ILIKE :username', { username: `%${query.username}%` });
+    if (query.designation) {
+      qb.andWhere('user.designation ILIKE :desig', { desig: `%${query.designation}%` });
     }
     if (query.search) {
       qb.andWhere(
@@ -973,65 +981,86 @@ export class AuthService implements OnModuleInit {
       qb.andWhere('user.createdAt <= :dateTo', { dateTo: query.date_to });
     }
 
+    // Pagination logic
+    const total_count = await qb.getCount();
+    const total_pages = Math.ceil(total_count / limit);
+
     if (query.cursor) {
       const decoded = decodeCursor(query.cursor);
-      // Assuming cursor is "ISO_TIMESTAMP|ID"
       const [createdAtStr, id] = decoded.split('|');
       qb.andWhere('(user.createdAt < :createdAt OR (user.createdAt = :createdAt AND user.id < :id))', {
         createdAt: new Date(createdAtStr),
         id,
       });
+      qb.orderBy('user.createdAt', 'DESC').addOrderBy('user.id', 'DESC');
+      qb.limit(limit + 1);
+    } else {
+      qb.orderBy('user.createdAt', 'DESC').addOrderBy('user.id', 'DESC');
+      qb.offset(offset).limit(limit);
     }
 
     const users = await qb.getMany();
-    const hasNextPage = users.length > limit;
-    const data = hasNextPage ? users.slice(0, limit) : users;
 
     let next_cursor: string | null = null;
-    if (hasNextPage) {
-      const last = data[data.length - 1];
-      next_cursor = encodeCursor(`${last.createdAt.toISOString()}|${last.id}`);
+    let data = users;
+
+    if (query.cursor) {
+      const hasNextPage = users.length > limit;
+      data = hasNextPage ? users.slice(0, limit) : users;
+      if (hasNextPage) {
+        const last = data[data.length - 1];
+        next_cursor = encodeCursor(`${last.createdAt.toISOString()}|${last.id}`);
+      }
     }
 
-    const total_count = await qb.getCount();
-
-    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
+    return new PaginatedResponse(
+      data,
+      next_cursor,
+      total_count,
+      limit,
+      data.length,
+      page,
+      total_pages
+    );
   }
 
   /**
    * Create a new user account with tenant isolation and role normalization.
    */
-  async createUser(dto: CreateUserDto, creator: any) {
+  async createUser(dto: CreateUserDto, creator: any, manager?: EntityManager) {
     // Check for specific collisions
-    const phoneExists = await this.userRepo.findOne({ where: { phone: dto.phone } });
+    // Use transactional manager if provided for checks
+    const repo = manager ? manager.getRepository(User) : this.userRepo;
+
+    const phoneExists = await repo.findOne({ where: { phone: dto.phone } });
     if (phoneExists) {
       throw new BadRequestException(`User with phone ${dto.phone} already exists`);
     }
 
     if (dto.email) {
-      const emailExists = await this.userRepo.findOne({ where: { email: dto.email } });
+      const emailExists = await repo.findOne({ where: { email: dto.email } });
       if (emailExists) {
         throw new BadRequestException(`User with email ${dto.email} already exists`);
       }
     }
 
     const username = dto.username || dto.email?.split('@')[0] || dto.phone;
-    const usernameExists = await this.userRepo.findOne({ where: { username } });
+    const usernameExists = await repo.findOne({ where: { username } });
     if (usernameExists) {
       throw new BadRequestException(`User with username ${username} already exists`);
     }
 
     // RBAC Security (Spec 2.4/5.1) - Resilient to v4.0 Renames
-    const isPlatformAdmin = creator.roles.some((r: string) => 
+    const isPlatformAdmin = creator.roles.some((r: string) =>
       ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
     );
-    const isHospitalAdmin = creator.roles.some((r: string) => 
+    const isHospitalAdmin = creator.roles.some((r: string) =>
       ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
     );
-    const isEdDoctor = creator.roles.some((r: string) => 
+    const isEdDoctor = creator.roles.some((r: string) =>
       ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
     );
-    
+
     let targetOrgId = dto.org_id;
     let targetRole = dto.role;
 
@@ -1055,11 +1084,11 @@ export class AuthService implements OnModuleInit {
     if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
       // 1. Force tenant isolation for Hospital staff
       targetOrgId = creator.organisationId;
-      
+
       const allowedHospitalRoles = [
-        'Hospital ED Doctor (ERCP)', 
-        'Hospital Nurse', 
-        'Hospital Coordinator', 
+        'Hospital ED Doctor (ERCP)',
+        'Hospital Nurse',
+        'Hospital Coordinator',
         'Hospital Admin'
       ];
       if (!allowedHospitalRoles.includes(targetRole)) {
@@ -1072,9 +1101,9 @@ export class AuthService implements OnModuleInit {
     } else if (isPlatformAdmin) {
       // 2. Super Admin Flow: Must pass org_id for hospital-scoped roles
       const hospitalRoles = [
-        'Hospital ED Doctor (ERCP)', 
-        'Hospital Nurse', 
-        'Hospital Coordinator', 
+        'Hospital ED Doctor (ERCP)',
+        'Hospital Nurse',
+        'Hospital Coordinator',
         'Hospital Admin'
       ];
       if (hospitalRoles.includes(targetRole) && !targetOrgId) {
@@ -1089,6 +1118,14 @@ export class AuthService implements OnModuleInit {
 
     const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
+    // Automatic Employee ID generation for Hospital roles
+    let generatedEmployeeId = dto.employee_id;
+    const hospitalRoles = ['Hospital Admin', 'Hospital Coordinator', 'Hospital ED Doctor (ERCP)', 'Hospital Nurse'];
+
+    if (hospitalRoles.includes(targetRole) && !generatedEmployeeId && targetOrgId) {
+      generatedEmployeeId = await this.generateEmployeeId(targetOrgId, manager);
+    }
+
     const user = this.userRepo.create({
       phone: dto.phone,
       email: dto.email,
@@ -1098,20 +1135,25 @@ export class AuthService implements OnModuleInit {
       roles: [targetRole],
       organisationId: targetOrgId,
       metadata: dto.metadata,
+      employeeId: generatedEmployeeId,
+      department: dto.department,
+      designation: dto.designation,
       mfaEnabled: isSuperAdmin ? true : false,
       status: 'ACTIVE',
     });
 
-    await this.userRepo.save(user);
+    // Use transactional manager if provided for saving
+    const saveRepo = manager ? manager.getRepository(User) : this.userRepo;
+    const savedUser = await saveRepo.save(user);
 
     await this.auditLogService.log({
       userId: creator.userId,
       action: 'USER_CREATED',
-      ipAddress: '0.0.0.0',
-      metadata: { roles: user.roles, targetUserId: user.id, org_id: targetOrgId },
+      ipAddress: '0.0.0.0', // Placeholder
+      metadata: { roles: savedUser.roles, targetUserId: savedUser.id, org_id: targetOrgId },
     });
 
-    return user;
+    return savedUser;
   }
 
   /**
@@ -1124,13 +1166,13 @@ export class AuthService implements OnModuleInit {
     }
 
     if (requester) {
-      const isPlatformAdmin = requester.roles.some((r: string) => 
+      const isPlatformAdmin = requester.roles.some((r: string) =>
         ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
       );
       const isOwn = requester.userId === id;
 
       if (!isPlatformAdmin && !isOwn) {
-        const isHospitalLevelAdmin = requester.roles.some((r: string) => 
+        const isHospitalLevelAdmin = requester.roles.some((r: string) =>
           ['Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
         );
 
@@ -1186,7 +1228,7 @@ export class AuthService implements OnModuleInit {
           email: dto.email || 'NEVER_MATCH_123',
         })
         .getOne();
-      
+
       if (conflict) {
         throw new BadRequestException('Another user already has this phone number or email address');
       }
@@ -1231,7 +1273,7 @@ export class AuthService implements OnModuleInit {
         throw new ForbiddenException('Access denied: You can only deactivate users in your own organization');
       }
     }
-    
+
     user.status = 'INACTIVE';
     await this.userRepo.save(user);
 
@@ -1301,12 +1343,26 @@ export class AuthService implements OnModuleInit {
     }
 
     const session = await this.sessionRepo.findOneBy({ id: sessionId, userId });
-    
+
     if (!session) {
       throw new BadRequestException('Session not found or does not belong to user');
     }
 
     session.isValid = false;
     await this.sessionRepo.save(session);
+  }
+
+  private async generateEmployeeId(hospitalId: string, manager?: EntityManager): Promise<string> {
+    const mgr = manager || this.userRepo.manager;
+    const hospital = await mgr.findOne(Hospital, { where: { id: hospitalId } });
+
+    if (!hospital) return `EMP-${Date.now().toString().slice(-4)}`;
+
+    const prefix = hospital.code || hospital.name.slice(0, 3).toUpperCase();
+    const count = await mgr.count(User, { where: { organisationId: hospitalId } });
+
+    // Format: CODE-1001, CODE-1002...
+    const sequence = 1001 + count;
+    return `${prefix}-${sequence}`;
   }
 }

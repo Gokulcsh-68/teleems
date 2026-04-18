@@ -12,10 +12,14 @@ export interface Response<T> {
   meta: {
     request_id: string;
     timestamp: string;
-    next_cursor?: string | null;
-    total_count?: number;
-    per_page?: number;
-    current_count?: number;
+    pagination?: {
+      next_cursor?: string | null;
+      total_count: number;
+      per_page: number;
+      current_count: number;
+      page: number;
+      total_pages: number;
+    };
   };
 }
 
@@ -26,40 +30,47 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
     const request = httpContext.getRequest();
     const response = httpContext.getResponse();
     
-    // Use an existing X-Request-ID or generate a new one securely
     const requestId = request.headers['x-request-id'] || crypto.randomUUID();
-    
-    // Attach to the request object so the exception filter can read the identical ID if something crashes
     request.requestId = requestId;
 
     return next.handle().pipe(
       map(data => {
-        const isPaginated = data instanceof PaginatedResponse;
-        
-        // Extract optional message from data if provided, otherwise default to "Success"
+        // Default values
         let message = 'Success';
         let pureData = data;
 
+        // Extract custom message/data if wrapped in { message, data }
         if (data && typeof data === 'object' && 'message' in data && 'data' in data) {
            message = data.message;
            pureData = data.data;
         }
 
-        return {
+        // Determine if we are dealing with pagination
+        const paginatedInfo = (data instanceof PaginatedResponse) ? data : (pureData instanceof PaginatedResponse ? pureData : null);
+        const isPaginated = !!paginatedInfo;
+
+        const res: Response<T> = {
           status: response.statusCode,
           message: message,
-          data: isPaginated ? data.data : (pureData || {}),
+          data: isPaginated ? (paginatedInfo.data as any) : (pureData || {}),
           meta: {
             request_id: requestId,
             timestamp: new Date().toISOString(),
-            ...(isPaginated ? {
-              next_cursor: data.next_cursor,
-              total_count: data.total_count,
-              per_page: data.per_page,
-              current_count: data.current_count,
-            } : {}),
           },
         };
+
+        if (isPaginated) {
+          res.meta.pagination = {
+            next_cursor: paginatedInfo.next_cursor,
+            total_count: paginatedInfo.total_count,
+            per_page: paginatedInfo.per_page,
+            current_count: paginatedInfo.current_count,
+            page: paginatedInfo.page,
+            total_pages: paginatedInfo.total_pages,
+          };
+        }
+
+        return res;
       }),
     );
   }

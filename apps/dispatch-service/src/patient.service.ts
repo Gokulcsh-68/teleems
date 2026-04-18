@@ -9,8 +9,7 @@ import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { RecordVitalsDto } from './dto/record-vitals.dto';
 import { RecordGcsDto } from './dto/record-gcs.dto';
 import { RecordInterventionDto } from './dto/record-intervention.dto';
-import { AuditLogService } from '../../auth-service/src/audit-log.service';
-import { StorageService, RedisService } from '../../../libs/common/src';
+import { StorageService, RedisService, AuditLogService } from '@app/common';
 
 @Injectable()
 export class PatientService {

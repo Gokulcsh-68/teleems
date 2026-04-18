@@ -21,10 +21,8 @@ import { EscalateIncidentDto } from './dto/escalate-incident.dto';
 import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
-import { PaginatedResponse, encodeCursor, decodeCursor, MapsService } from '../../../libs/common/src';
+import { PaginatedResponse, encodeCursor, decodeCursor, MapsService, AuditLogService } from '@app/common';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
-
-import { AuditLogService } from '../../auth-service/src/audit-log.service';
 
 export interface AuditContext {
   userId: string;

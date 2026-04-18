@@ -12,6 +12,10 @@ export class CreateHospitalDto {
 
   @IsString()
   @IsOptional()
+  code?: string;
+
+  @IsString()
+  @IsOptional()
   accreditation?: string;
 
   @IsBoolean()

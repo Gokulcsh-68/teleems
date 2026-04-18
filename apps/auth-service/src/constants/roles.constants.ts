@@ -19,7 +19,16 @@ export const SYSTEM_ROLES: Role[] = [
   {
     name: 'Hospital Coordinator',
     scope: 'Hospital',
-    permissions: ['create_modify_trips', 'view_fleet_map', 'send_pre_alerts'],
+    permissions: [
+      'create_modify_trips', 
+      'view_fleet_map', 
+      'send_pre_alerts',
+      'receive_referral_notifications',
+      'manage_hospital_trips',
+      'telelink_accept_initiate',
+      'epcr_read',
+      'rtvs_view'
+    ],
   },
   {
     name: 'Hospital ED Doctor (ERCP)',

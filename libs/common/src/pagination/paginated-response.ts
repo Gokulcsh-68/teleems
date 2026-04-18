@@ -5,6 +5,8 @@ export class PaginatedResponse<T> {
     public readonly total_count: number,
     public readonly per_page: number,
     public readonly current_count: number,
+    public readonly page: number = 1,
+    public readonly total_pages: number = 1,
   ) {}
 }
 

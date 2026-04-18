@@ -28,6 +28,18 @@ export class CreateUserDto {
 
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  employee_id?: string;
+
+  @IsString()
+  @IsOptional()
+  department?: string;
+
+  @IsString()
+  @IsOptional()
+  designation?: string;
 }
 
 export class UpdateUserDto {
@@ -66,27 +78,27 @@ export class UserQueryDto {
 
   @IsOptional()
   @IsString()
-  org_id?: string;
+  organisation_id?: string;
+
+  @IsOptional()
+  @IsString()
+  search?: string; // Search by name, username, or email
+
+  @IsOptional()
+  @IsString()
+  employee_id?: string;
+
+  @IsOptional()
+  @IsString()
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  designation?: string;
 
   @IsOptional()
   @IsEnum(['ACTIVE', 'INACTIVE', 'LOCKED', 'PENDING'])
   status?: string;
-
-  @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
-  @IsString()
-  email?: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
-  @IsString()
-  username?: string;
 
   @IsOptional()
   @IsString()
@@ -98,6 +110,10 @@ export class UserQueryDto {
 
   @IsOptional()
   limit?: string;
+
+  @IsOptional()
+  @IsString()
+  page?: string;
 
   @IsOptional()
   @IsString()

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity()
 export class User {
@@ -34,6 +34,16 @@ export class User {
 
   @Column({ nullable: true, select: false })
   password: string;
+
+  @Column({ name: 'employee_id', nullable: true })
+  @Index()
+  employeeId: string;
+
+  @Column({ nullable: true })
+  department: string;
+
+  @Column({ nullable: true })
+  designation: string;
 
   // --- MFA Fields (Spec 5.1) ---
 

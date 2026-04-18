@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Put, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { MasterDataService } from './master-data.service';
 import { 
+  CreateSymptomDto, 
+  CreateIncidentCategoryDto, 
   CreateInventoryItemDto,
   UpdateHospitalMasterDto
 } from './dto/master-data.dto';

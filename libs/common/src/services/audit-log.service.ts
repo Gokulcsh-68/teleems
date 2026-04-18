@@ -46,4 +46,21 @@ export class AuditLogService {
     });
     return { logs, total };
   }
+
+  async getLogsByEntity(entityType: string, entityId: string, limit = 50, cursor?: string) {
+    const query = this.auditRepo.createQueryBuilder('log')
+      .where("log.metadata->>'entityType' = :entityType", { entityType })
+      .andWhere("log.metadata->>'entityId' = :entityId", { entityId });
+
+    if (cursor) {
+      query.andWhere('log.createdAt < :cursor', { cursor: new Date(cursor) });
+    }
+
+    const logs = await query
+      .orderBy('log.createdAt', 'DESC')
+      .take(limit)
+      .getMany();
+
+    return { data: logs, limit, cursor };
+  }
 }

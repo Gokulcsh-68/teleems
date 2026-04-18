@@ -15,6 +15,10 @@ export class Hospital {
   @Index()
   name: string;
 
+  @Column({ unique: true, nullable: true })
+  @Index()
+  code: string; // e.g. 'APO' for Apollo
+
   @Column({
     type: 'enum',
     enum: HospitalType,
