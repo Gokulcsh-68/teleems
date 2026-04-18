@@ -8,16 +8,14 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyMfaDto } from './dto/verify-mfa.dto';
 import { ForcePasswordResetDto } from './dto/force-password-reset.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user-management.dto';
+import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { IntrospectTokenDto } from './dto/introspect-token.dto';
 
-import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
-import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
-import { IpWhitelistGuard } from '../../../libs/common/src/guards/ip-whitelist.guard';
-import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
+import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
+import { IpWhitelistGuard } from './guards/ip-whitelist.guard';
 
 /**
  * Helper to extract client IP from a request (supports X-Forwarded-For proxies).
@@ -46,6 +44,21 @@ export class AuthController {
     return {
       message: 'User profile retrieved successfully',
       data: profile,
+    };
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateMe(@Body() dto: UpdateMeDto, @Req() req: any) {
+    const user = await this.authService.updateMe(
+      req.user.userId, 
+      dto, 
+      extractIp(req), 
+      req.headers['user-agent'] || 'unknown'
+    );
+    return {
+      message: 'Profile updated successfully',
+      data: user,
     };
   }
 

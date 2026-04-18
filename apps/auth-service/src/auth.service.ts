@@ -1027,7 +1027,7 @@ export class AuthService implements OnModuleInit {
   /**
    * Create a new user account with tenant isolation and role normalization.
    */
-  async createUser(dto: CreateUserDto, creator: any, manager?: EntityManager) {
+  async createUser(dto: CreateUserDto, creator: any, manager?: EntityManager): Promise<User> {
     // Check for specific collisions
     // Use transactional manager if provided for checks
     const repo = manager ? manager.getRepository(User) : this.userRepo;
@@ -1134,6 +1134,7 @@ export class AuthService implements OnModuleInit {
       password: hashedPassword,
       roles: [targetRole],
       organisationId: targetOrgId,
+      hospitalId: hospitalRoles.includes(targetRole) ? targetOrgId : undefined,
       metadata: dto.metadata,
       employeeId: generatedEmployeeId,
       department: dto.department,
@@ -1242,6 +1243,10 @@ export class AuthService implements OnModuleInit {
     if (dto.phone !== undefined) user.phone = dto.phone;
     if (dto.status !== undefined) user.status = dto.status;
     if (dto.org_id !== undefined) user.organisationId = dto.org_id;
+    if (dto.employee_id !== undefined) user.employeeId = dto.employee_id;
+    if (dto.department !== undefined) user.department = dto.department;
+    if (dto.designation !== undefined) user.designation = dto.designation;
+    
     if (dto.metadata !== undefined) {
       user.metadata = { ...(user.metadata || {}), ...dto.metadata };
     }
@@ -1253,6 +1258,37 @@ export class AuthService implements OnModuleInit {
       action: 'USER_UPDATED',
       ipAddress: '0.0.0.0',
       metadata: { updates: Object.keys(dto) },
+    });
+
+    return user;
+  }
+
+  /**
+   * Self-profile update for logged-in users.
+   */
+  async updateMe(userId: string, dto: UpdateMeDto, ipAddress: string, userAgent: string) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Restriction: Cannot change roles, org_id, status, or employee_id via self-update
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.email !== undefined) user.email = dto.email;
+    if (dto.phone !== undefined) user.phone = dto.phone;
+    
+    if (dto.metadata !== undefined) {
+      user.metadata = { ...(user.metadata || {}), ...dto.metadata };
+    }
+
+    await this.userRepo.save(user);
+
+    await this.auditLogService.log({
+      userId,
+      action: 'PROFILE_UPDATED_SELF',
+      ipAddress,
+      userAgent,
+      metadata: { updated_fields: Object.keys(dto) },
     });
 
     return user;

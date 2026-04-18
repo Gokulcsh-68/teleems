@@ -69,6 +69,35 @@ export class UpdateUserDto {
 
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  employee_id?: string;
+
+  @IsString()
+  @IsOptional()
+  department?: string;
+
+  @IsString()
+  @IsOptional()
+  designation?: string;
+}
+
+export class UpdateMeDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsPhoneNumber('IN')
+  @IsOptional()
+  phone?: string;
+
+  @IsOptional()
+  metadata?: Record<string, any>;
 }
 
 export class UserQueryDto {

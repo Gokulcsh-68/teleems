@@ -7,6 +7,14 @@ import { AllExceptionsFilter } from '../../../libs/common/src/filters/all-except
 
 async function bootstrap() {
   const app = await NestFactory.create(DispatchServiceModule);
+
+  // URL Normalization: Automatically fix double slash issues (e.g. //v1/dispatch -> /v1/dispatch)
+  app.use((req: any, res: any, next: any) => {
+    if (req.url.includes('//')) {
+      req.url = req.url.replace(/\/\/+/g, '/');
+    }
+    next();
+  });
   
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,

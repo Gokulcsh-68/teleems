@@ -11,6 +11,17 @@ async function bootstrap() {
   // Global Middleware
   app.use(cookieParser());
 
+  // URL Normalization: Automatically fix double slash issues (e.g. //v1/auth -> /v1/auth)
+  app.use((req: any, res: any, next: any) => {
+    if (req.url && req.url.includes('//')) {
+      req.url = req.url.replace(/\/\/+/g, '/');
+    }
+    if (req.originalUrl && req.originalUrl.includes('//')) {
+      req.originalUrl = req.originalUrl.replace(/\/\/+/g, '/');
+    }
+    next();
+  });
+
   // Global Pipes & Interceptors
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
