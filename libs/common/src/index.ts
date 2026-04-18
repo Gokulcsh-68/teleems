@@ -16,6 +16,7 @@ export * from './entities/iot-device-profile.entity';
 export * from './entities/hospital-status.entity';
 export * from './guards/jwt-auth.guard';
 export * from './guards/roles.guard';
+export * from './guards/ip-whitelist.guard';
 export * from './guards/admin-ip-whitelist.guard';
 export * from './decorators/roles.decorator';
 export * from './pagination/paginated-response';

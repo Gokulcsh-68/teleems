@@ -9,7 +9,7 @@ import { Session } from './entities/session.entity';
 import { AuditLogService } from '@app/common';
 import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
-import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user-management.dto';
+import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
 import { PaginatedResponse, encodeCursor, decodeCursor, AuditLog, Hospital } from '@app/common';
 import { LoginDto } from './dto/login.dto';

@@ -14,8 +14,7 @@ import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { IntrospectTokenDto } from './dto/introspect-token.dto';
 
-import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
-import { IpWhitelistGuard } from './guards/ip-whitelist.guard';
+import { JwtAuthGuard, RolesGuard, Roles, IpWhitelistGuard } from '@app/common';
 
 /**
  * Helper to extract client IP from a request (supports X-Forwarded-For proxies).
