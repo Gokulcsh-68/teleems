@@ -63,8 +63,18 @@ export class FleetServiceService {
     }
 
     const total_count = await queryBuilder.getCount();
+    const total_pages = Math.ceil(total_count / limit);
+    const currentPage = 1; // Basic offset support, can be expanded if needed
 
-    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
+    return new PaginatedResponse(
+      data, 
+      next_cursor, 
+      total_count, 
+      limit, 
+      data.length,
+      currentPage,
+      total_pages
+    );
   }
 
   async registerVehicle(dto: CreateVehicleDto, requestUser: any) {
@@ -94,8 +104,8 @@ export class FleetServiceService {
     return { data: saved };
   }
 
-  async createOperator(dto: CreateFleetOperatorDto, adminId: string, ip: string) {
-    const operator: FleetOperator = await this.operatorRepo.save(this.operatorRepo.create(dto));
+  async createOperator(dto: CreateFleetOperatorDto, adminId: string, ip: string): Promise<FleetOperator> {
+    const operator = (await this.operatorRepo.save(this.operatorRepo.create(dto))) as FleetOperator;
 
     await this.auditLogService.log({
       userId: adminId,
@@ -107,20 +117,20 @@ export class FleetServiceService {
     return operator;
   }
 
-  async findAllOperators() {
+  async findAllOperators(): Promise<FleetOperator[]> {
     return this.operatorRepo.find({ order: { name: 'ASC' } });
   }
 
-  async findOneOperator(id: string) {
+  async findOneOperator(id: string): Promise<FleetOperator> {
     const operator = await this.operatorRepo.findOneBy({ id });
     if (!operator) throw new NotFoundException(`Fleet Operator with ID ${id} not found`);
     return operator;
   }
 
-  async updateOperator(id: string, dto: UpdateFleetOperatorDto, adminId: string, ip: string) {
+  async updateOperator(id: string, dto: UpdateFleetOperatorDto, adminId: string, ip: string): Promise<FleetOperator> {
     const operator = await this.findOneOperator(id);
     Object.assign(operator, dto);
-    await this.operatorRepo.save(operator);
+    const saved = (await this.operatorRepo.save(operator)) as FleetOperator;
 
     await this.auditLogService.log({
       userId: adminId,
@@ -129,6 +139,6 @@ export class FleetServiceService {
       metadata: { operatorId: id, updates: dto },
     });
 
-    return operator;
+    return saved;
   }
 }

@@ -954,7 +954,8 @@ export class AuthService implements OnModuleInit {
     }
 
     if (query.role) {
-      qb.andWhere(':role = ANY(user.roles)', { role: query.role });
+      // For simple-array in Postgres, we convert the string to a real array for exact matching
+      qb.andWhere(':role = ANY(string_to_array(user.roles, \',\'))', { role: query.role });
     }
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
