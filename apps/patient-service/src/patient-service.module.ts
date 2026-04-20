@@ -3,7 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { 
   CommonModule, 
   PatientProfile, 
-  PatientAssessment, 
+  PatientAssessment,
+  PatientAssessmentNote,
   PatientIntervention,
   PatientCondition,
   PatientAllergy,
@@ -20,6 +21,7 @@ import { PatientService } from './patient-service.service';
     TypeOrmModule.forFeature([
       PatientProfile, 
       PatientAssessment, 
+      PatientAssessmentNote,
       PatientIntervention,
       PatientCondition,
       PatientAllergy,

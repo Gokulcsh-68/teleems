@@ -24,6 +24,7 @@ export * from './entities/fleet-operator.entity';
 export * from './pagination/paginated-response';
 export * from './entities/patient-profile.entity';
 export * from './entities/patient-assessment.entity';
+export * from './entities/patient-assessment-note.entity';
 export * from './entities/patient-intervention.entity';
 export * from './entities/patient-condition.entity';
 export * from './entities/icd-master.entity';

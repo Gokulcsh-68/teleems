@@ -29,6 +29,7 @@ import {
   IotDeviceProfile,
   PatientProfile,
   PatientAssessment,
+  PatientAssessmentNote,
   PatientIntervention,
   PatientCondition,
   IcdMaster,
@@ -72,7 +73,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
         entities: [
           User, AuditLog, Role, Session, 
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
-          PatientAssessment, PatientIntervention, PatientCondition, IcdMaster,
+          PatientAssessment, PatientAssessmentNote, PatientIntervention, PatientCondition, IcdMaster,
           PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
           AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
           RtvsRecord, Vehicle, LocationLog,

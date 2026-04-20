@@ -4,6 +4,7 @@ import { Repository, ILike } from 'typeorm';
 import { 
   PatientProfile, 
   PatientAssessment, 
+  PatientAssessmentNote,
   PatientIntervention, 
   PatientCondition,
   PatientAllergy,
@@ -24,6 +25,11 @@ import { AddConditionDto } from './dto/add-condition.dto';
 import { RecordMedicationDto } from './dto/record-medication.dto';
 import { RecordAllergyDto } from './dto/record-allergy.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
+import { 
+  CreateClinicalAssessmentDto, 
+  UpdateClinicalAssessmentDto, 
+  CreateAssessmentNoteDto 
+} from './dto/clinical-assessment.dto';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -33,6 +39,8 @@ export class PatientService {
     private readonly patientRepo: Repository<PatientProfile>,
     @InjectRepository(PatientAssessment)
     private readonly assessmentRepo: Repository<PatientAssessment>,
+    @InjectRepository(PatientAssessmentNote)
+    private readonly noteRepo: Repository<PatientAssessmentNote>,
     @InjectRepository(PatientIntervention)
     private readonly interventionRepo: Repository<PatientIntervention>,
     @InjectRepository(PatientCondition)
@@ -134,6 +142,158 @@ export class PatientService {
       });
     } catch (e) {
       console.error('Audit Log failed:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  // --- Spec 5.3: Clinical Assessment ---
+
+  async recordAssessment(patientId: string, dto: CreateClinicalAssessmentDto, reqUser: any, ip: string) {
+    const patient = await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser.userId || 'SYSTEM';
+
+    const assessment = this.assessmentRepo.create({
+      patient_id: patientId,
+      recorded_by_id: recordedBy,
+      taken_at: dto.taken_at ? new Date(dto.taken_at) : new Date(),
+      // Neurological GCS
+      gcs_eye: dto.gcs?.eye,
+      gcs_verbal: dto.gcs?.verbal,
+      gcs_motor: dto.gcs?.motor,
+      gcs_total: dto.gcs ? (dto.gcs.eye + dto.gcs.verbal + dto.gcs.motor) : null,
+      avpu: dto.avpu,
+      // Pupils
+      pupil_left_size: dto.pupils?.left?.size,
+      pupil_left_reactivity: dto.pupils?.left?.reactivity,
+      pupil_right_size: dto.pupils?.right?.size,
+      pupil_right_reactivity: dto.pupils?.right?.reactivity,
+      // Triage & CC
+      triage_code: dto.triage_code,
+      chief_complaint: dto.chief_complaint,
+      // HPI
+      hpi_onset: dto.hpi?.onset,
+      hpi_duration: dto.hpi?.duration,
+      hpi_character: dto.hpi?.character,
+      hpi_severity: dto.hpi?.severity,
+      hpi_radiation: dto.hpi?.radiation,
+      hpi_associated_symptoms: dto.hpi?.associated_symptoms,
+      trauma_json: dto.trauma_json,
+      type: 'CLINICAL'
+    });
+
+    const saved = await this.assessmentRepo.save(assessment);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_ASSESSMENT_RECORDED',
+        ipAddress: ip,
+        metadata: { patientId, assessmentId: saved.id },
+      });
+    } catch (e) {
+      console.error('Audit Log failed for clinical assessment:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  async getAssessments(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    
+    const assessments = await this.assessmentRepo.find({
+      where: { patient_id: patientId },
+      order: { taken_at: 'DESC' },
+      relations: ['notes']
+    });
+
+    return { data: assessments };
+  }
+
+  async getLatestAssessment(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const latest = await this.assessmentRepo.findOne({
+      where: { patient_id: patientId },
+      order: { taken_at: 'DESC' },
+      relations: ['notes']
+    });
+
+    return { data: latest };
+  }
+
+  async updateAssessment(assessmentId: string, dto: UpdateClinicalAssessmentDto, reqUser: any, ip: string) {
+    const assessment = await this.assessmentRepo.findOneBy({ id: assessmentId });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+    
+    await this.findOneWithIsolation(assessment.patient_id, reqUser);
+
+    if (dto.gcs) {
+      assessment.gcs_eye = dto.gcs.eye;
+      assessment.gcs_verbal = dto.gcs.verbal;
+      assessment.gcs_motor = dto.gcs.motor;
+      assessment.gcs_total = dto.gcs.eye + dto.gcs.verbal + dto.gcs.motor;
+    }
+
+    if (dto.pupils) {
+      assessment.pupil_left_size = dto.pupils.left.size;
+      assessment.pupil_left_reactivity = dto.pupils.left.reactivity;
+      assessment.pupil_right_size = dto.pupils.right.size;
+      assessment.pupil_right_reactivity = dto.pupils.right.reactivity;
+    }
+
+    if (dto.hpi) {
+      assessment.hpi_onset = dto.hpi.onset ?? assessment.hpi_onset;
+      assessment.hpi_duration = dto.hpi.duration ?? assessment.hpi_duration;
+      assessment.hpi_character = dto.hpi.character ?? assessment.hpi_character;
+      assessment.hpi_severity = dto.hpi.severity ?? assessment.hpi_severity;
+      assessment.hpi_radiation = dto.hpi.radiation ?? assessment.hpi_radiation;
+      assessment.hpi_associated_symptoms = dto.hpi.associated_symptoms ?? assessment.hpi_associated_symptoms;
+    }
+
+    if (dto.avpu) assessment.avpu = dto.avpu;
+    if (dto.triage_code) assessment.triage_code = dto.triage_code;
+    if (dto.chief_complaint) assessment.chief_complaint = dto.chief_complaint;
+    if (dto.trauma_json) assessment.trauma_json = dto.trauma_json;
+
+    const saved = await this.assessmentRepo.save(assessment);
+
+    try {
+      await this.auditLogService.log({
+        userId: reqUser.userId,
+        action: 'PATIENT_ASSESSMENT_UPDATED',
+        ipAddress: ip,
+        metadata: { assessmentId, patientId: assessment.patient_id },
+      });
+    } catch (e) {
+      console.error('Audit Log failed for clinical assessment update:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  async addAssessmentNote(assessmentId: string, dto: CreateAssessmentNoteDto, reqUser: any, ip: string) {
+    const assessment = await this.assessmentRepo.findOneBy({ id: assessmentId });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const note = this.noteRepo.create({
+      assessment_id: assessmentId,
+      note_text: dto.note_text,
+      source: dto.source,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+    });
+
+    const saved = await this.noteRepo.save(note);
+
+    try {
+      await this.auditLogService.log({
+        userId: reqUser.userId,
+        action: 'PATIENT_ASSESSMENT_NOTE_ADDED',
+        ipAddress: ip,
+        metadata: { assessmentId, noteId: saved.id },
+      });
+    } catch (e) {
+      console.error('Audit Log failed for assessment note:', e.message);
     }
 
     return { data: saved };

@@ -12,6 +12,11 @@ import { AddConditionDto } from './dto/add-condition.dto';
 import { RecordMedicationDto } from './dto/record-medication.dto';
 import { RecordAllergyDto } from './dto/record-allergy.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
+import { 
+  CreateClinicalAssessmentDto, 
+  UpdateClinicalAssessmentDto, 
+  CreateAssessmentNoteDto 
+} from './dto/clinical-assessment.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 
 @Controller('v1/patients')
@@ -135,5 +140,45 @@ export class PatientController {
   @Roles('EMT / Paramedic', 'Hospital Admin', 'Fleet Operator', 'CureSelect Admin')
   async getClinicalHistory(@Param('id') id: string, @Req() req: any) {
     return this.patientService.getClinicalHistory(id, req.user);
+  }
+
+  // --- Spec 5.3: Clinical Assessment ---
+
+  @Post(':id/assessments')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordAssessment(@Param('id') id: string, @Body() dto: CreateClinicalAssessmentDto, @Req() req: any) {
+    return this.patientService.recordAssessment(id, dto, req.user, req.ip);
+  }
+
+  @Get(':id/assessments')
+  @Roles('EMT / Paramedic', 'Hospital Admin', 'CureSelect Admin')
+  async listAssessments(@Param('id') id: string, @Req() req: any) {
+    return this.patientService.getAssessments(id, req.user);
+  }
+
+  @Get(':id/assessments/latest')
+  @Roles('EMT / Paramedic', 'Hospital Admin', 'CureSelect Admin')
+  async getLatestAssessment(@Param('id') id: string, @Req() req: any) {
+    return this.patientService.getLatestAssessment(id, req.user);
+  }
+
+  @Patch(':id/assessments/:assessmentId')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async updateAssessment(
+    @Param('assessmentId') assessmentId: string,
+    @Body() dto: UpdateClinicalAssessmentDto,
+    @Req() req: any
+  ) {
+    return this.patientService.updateAssessment(assessmentId, dto, req.user, req.ip);
+  }
+
+  @Post(':id/assessments/:assessmentId/notes')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async addNote(
+    @Param('assessmentId') assessmentId: string,
+    @Body() dto: CreateAssessmentNoteDto,
+    @Req() req: any
+  ) {
+    return this.patientService.addAssessmentNote(assessmentId, dto, req.user, req.ip);
   }
 }
