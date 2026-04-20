@@ -18,6 +18,7 @@ import { PatientServiceModule } from '../../patient-service/src/patient-service.
 import { 
   Organisation, 
   Hospital, 
+  Department,
   AuditLog, 
   SymptomMaster, 
   IncidentCategoryMaster, 
@@ -38,7 +39,8 @@ import {
   AllergyMaster,
   MedicationMaster,
   SurgeryMaster,
-  HospitalisationMaster
+  HospitalisationMaster,
+  FleetOperator
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -52,7 +54,6 @@ import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
-import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.entity';
 
 @Module({
   imports: [
@@ -75,7 +76,7 @@ import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.e
           PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
           AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
           RtvsRecord, Vehicle, LocationLog,
-          Organisation, Hospital, FleetOperator,
+          Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile
         ],

@@ -22,7 +22,8 @@ import {
   AllergyMaster,
   MedicationMaster,
   SurgeryMaster,
-  HospitalisationMaster
+  HospitalisationMaster,
+  FleetOperator
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
@@ -42,7 +43,8 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       AllergyMaster,
       MedicationMaster,
       SurgeryMaster,
-      HospitalisationMaster
+      HospitalisationMaster,
+      FleetOperator
     ]),
     AuthModule,
   ],

@@ -1,18 +1,22 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsEmail } from 'class-validator';
-import { OrganisationStatus, SubscriptionPlan } from '@app/common';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsNumber, Min } from 'class-validator';
+import { SubscriptionPlan, OrganisationStatus } from '@app/common';
 
-export class CreateOrganisationDto {
+export class CreateFleetOrganisationDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
   @IsString()
   @IsOptional()
-  registration_number?: string;
+  status?: OrganisationStatus;
 
   @IsString()
   @IsOptional()
   gstin?: string;
+
+  @IsString()
+  @IsOptional()
+  reg_number?: string;
 
   @IsString()
   @IsOptional()
@@ -32,6 +36,10 @@ export class CreateOrganisationDto {
 
   @IsString()
   @IsOptional()
+  country?: string;
+
+  @IsString()
+  @IsOptional()
   contact_name?: string;
 
   @IsString()
@@ -42,7 +50,7 @@ export class CreateOrganisationDto {
   @IsOptional()
   contact_phone?: string;
 
-  @IsEmail()
+  @IsString()
   @IsOptional()
   contact_email?: string;
 
@@ -51,19 +59,7 @@ export class CreateOrganisationDto {
   subscription_plan?: SubscriptionPlan;
 
   @IsNumber()
+  @Min(1)
   @IsOptional()
   vehicle_capacity?: number;
-
-  @IsOptional()
-  metadata?: any;
-}
-
-export class UpdateOrganisationDto extends CreateOrganisationDto {
-  @IsString()
-  @IsOptional()
-  declare name: string;
-
-  @IsEnum(OrganisationStatus)
-  @IsOptional()
-  status?: OrganisationStatus;
 }

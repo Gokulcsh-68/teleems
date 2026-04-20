@@ -4,6 +4,7 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
+import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 
 @Controller('v1/fleet')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -44,5 +45,11 @@ export class FleetServiceController {
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
   async updateOperator(@Param('id') id: string, @Body() dto: UpdateFleetOperatorDto, @Req() req: any) {
     return this.fleetService.updateOperator(id, dto, req.user.userId, req.ip);
+  }
+ 
+  @Post('organisations')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
+  async createOrganisation(@Body() dto: CreateFleetOrganisationDto, @Req() req: any) {
+    return this.fleetService.createOrganisation(dto, req.user.userId, req.ip);
   }
 }

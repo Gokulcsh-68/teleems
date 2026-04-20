@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from 'typeorm';
+import { Department } from './department.entity';
 
 export enum HospitalType {
   GOVERNMENT = 'GOVERNMENT',
@@ -86,4 +87,7 @@ export class Hospital {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
+
+  @OneToMany(() => Department, (department) => department.hospital)
+  departments: Department[];
 }

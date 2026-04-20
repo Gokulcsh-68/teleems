@@ -4,8 +4,7 @@ import { FleetServiceController } from './fleet-service.controller';
 import { FleetServiceService } from './fleet-service.service';
 import { Vehicle } from './entities/vehicle.entity';
 import { LocationLog } from './entities/location-log.entity';
-import { FleetOperator } from './entities/fleet-operator.entity';
-import { Organisation } from '@app/common';
+import { FleetOperator, Organisation } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
 @Module({
