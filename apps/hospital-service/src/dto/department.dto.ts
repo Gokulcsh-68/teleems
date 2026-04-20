@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateDepartmentDto {
@@ -22,6 +22,10 @@ export class CreateDepartmentDto {
   @IsString()
   @IsNotEmpty()
   hospitalId: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class UpdateDepartmentDto {
@@ -41,6 +45,10 @@ export class UpdateDepartmentDto {
   @IsString()
   @IsOptional()
   contactPhone?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class DepartmentQueryDto {
@@ -61,4 +69,9 @@ export class DepartmentQueryDto {
   @IsOptional()
   @Type(() => Number)
   limit?: number = 10;
+
+  @IsBoolean()
+  @IsOptional()
+  @Type(() => Boolean)
+  isActive?: boolean;
 }
