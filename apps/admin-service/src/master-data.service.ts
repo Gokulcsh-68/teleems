@@ -11,12 +11,19 @@ import {
   MedicationMaster,
   SurgeryMaster,
   HospitalisationMaster,
+  ChiefComplaintMaster,
+  InterventionMaster,
+  MedicationRouteMaster,
   AuditLogService,
   COMMON_ICD10_CODES,
   COMMON_ALLERGENS,
   COMMON_MEDICATIONS,
   COMMON_SURGERIES,
   COMMON_HOSPITALISATION_REASONS,
+  COMMON_CHIEF_COMPLAINTS,
+  COMMON_INTERVENTIONS,
+  COMMON_MEDICATION_ROUTES,
+  COMMON_ACUTE_MEDICATIONS,
   PaginatedResponse
 } from '@app/common';
 import {
@@ -28,7 +35,10 @@ import {
   CreateAllergenDto,
   CreateMedicationDto,
   CreateSurgeryDto,
-  CreateHospitalisationReasonDto
+  CreateHospitalisationReasonDto,
+  CreateChiefComplaintDto,
+  CreateInterventionMasterDto,
+  CreateMedicationRouteDto
 } from './dto/master-data.dto';
 import { ILike } from 'typeorm';
 import { AuthService } from '../../auth-service/src/auth.service';
@@ -54,6 +64,12 @@ export class MasterDataService {
     private readonly surgeryRepo: Repository<SurgeryMaster>,
     @InjectRepository(HospitalisationMaster)
     private readonly hospitalisationRepo: Repository<HospitalisationMaster>,
+    @InjectRepository(MedicationRouteMaster)
+    private readonly routeRepo: Repository<MedicationRouteMaster>,
+    @InjectRepository(ChiefComplaintMaster)
+    private readonly complaintRepo: Repository<ChiefComplaintMaster>,
+    @InjectRepository(InterventionMaster)
+    private readonly interventionMasterRepo: Repository<InterventionMaster>,
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
   ) { }
@@ -64,6 +80,10 @@ export class MasterDataService {
     await this.seedMedications();
     await this.seedSurgeries();
     await this.seedHospitalisations();
+    await this.seedChiefComplaints();
+    await this.seedInterventionMasters();
+    await this.seedAcuteMedications();
+    await this.seedMedicationRoutes();
   }
 
   private async seedIcdCodes() {
@@ -650,5 +670,221 @@ export class MasterDataService {
     });
 
     return reason;
+  }
+
+  // --- Chief Complaint Master ---
+
+  private async seedChiefComplaints() {
+    console.log('[SEED] Synchronizing Chief Complaint Master Registry...');
+    let count = 0;
+    for (const def of COMMON_CHIEF_COMPLAINTS) {
+      const existing = await this.complaintRepo.findOneBy({ name: def.name });
+      if (!existing) {
+        await this.complaintRepo.save(this.complaintRepo.create(def));
+        count++;
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new chief complaints.`);
+  }
+
+  async findAllChiefComplaints(query: MasterQueryDto) {
+    const { page = 1, limit = 50, search, isActive } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) where.name = ILike(`%${search}%`);
+    if (isActive !== undefined) where.isActive = isActive;
+
+    const [data, total] = await this.complaintRepo.findAndCount({
+      where,
+      order: { isCommon: 'DESC', name: 'ASC' },
+      take: limit,
+      skip,
+    });
+
+    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+  }
+
+  async createChiefComplaint(dto: CreateChiefComplaintDto, adminId: string, ip: string) {
+    const existing = await this.complaintRepo.findOneBy({ name: dto.name });
+    if (existing) throw new ConflictException('Chief complaint already exists');
+
+    const complaint = this.complaintRepo.create(dto);
+    await this.complaintRepo.save(complaint);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CHIEF_COMPLAINT_CREATED',
+      ipAddress: ip,
+      metadata: { complaintId: complaint.id, name: dto.name },
+    });
+
+    return complaint;
+  }
+
+  async toggleChiefComplaintStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+    const complaint = await this.complaintRepo.findOneBy({ id });
+    if (!complaint) throw new NotFoundException('Chief complaint not found');
+
+    complaint.isActive = isActive;
+    await this.complaintRepo.save(complaint);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CHIEF_COMPLAINT_STATUS_UPDATED',
+      ipAddress: ip,
+      metadata: { id, isActive },
+    });
+
+    return complaint;
+  }
+
+  // --- Intervention Master ---
+
+  private async seedInterventionMasters() {
+    console.log('[SEED] Synchronizing Intervention Master Registry...');
+    let count = 0;
+    for (const def of COMMON_INTERVENTIONS) {
+      const existing = await this.interventionMasterRepo.findOneBy({ name: def.name });
+      if (!existing) {
+        await this.interventionMasterRepo.save(this.interventionMasterRepo.create(def));
+        count++;
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new interventions.`);
+  }
+
+  async findAllInterventionMasters(query: MasterQueryDto) {
+    const { page = 1, limit = 50, search, isActive } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) where.name = ILike(`%${search}%`);
+    if (isActive !== undefined) where.isActive = isActive;
+
+    const [data, total] = await this.interventionMasterRepo.findAndCount({
+      where,
+      order: { isCommon: 'DESC', name: 'ASC' },
+      take: limit,
+      skip,
+    });
+
+    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+  }
+
+  async createInterventionMaster(dto: CreateInterventionMasterDto, adminId: string, ip: string) {
+    const existing = await this.interventionMasterRepo.findOneBy({ name: dto.name });
+    if (existing) throw new ConflictException('Intervention already exists');
+
+    const intervention = this.interventionMasterRepo.create(dto);
+    await this.interventionMasterRepo.save(intervention);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_INTERVENTION_CREATED',
+      ipAddress: ip,
+      metadata: { id: intervention.id, name: dto.name },
+    });
+
+    return intervention;
+  }
+
+  async toggleInterventionMasterStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+    const intervention = await this.interventionMasterRepo.findOneBy({ id });
+    if (!intervention) throw new NotFoundException('Intervention master not found');
+
+    intervention.isActive = isActive;
+    await this.interventionMasterRepo.save(intervention);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_INTERVENTION_STATUS_UPDATED',
+      ipAddress: ip,
+      metadata: { id, isActive },
+    });
+
+    return intervention;
+  }
+
+  // --- Medication Route Master ---
+
+  private async seedMedicationRoutes() {
+    console.log('[SEED] Synchronizing Medication Route Master Registry...');
+    let count = 0;
+    for (const def of COMMON_MEDICATION_ROUTES) {
+      const existing = await this.routeRepo.findOneBy({ code: def.code });
+      if (!existing) {
+        await this.routeRepo.save(this.routeRepo.create(def));
+        count++;
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new medication routes.`);
+  }
+
+  async findAllMedicationRoutes(query: MasterQueryDto) {
+    const { page = 1, limit = 50, search, isActive } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) where.name = ILike(`%${search}%`);
+    if (isActive !== undefined) where.isActive = isActive;
+
+    const [data, total] = await this.routeRepo.findAndCount({
+      where,
+      order: { isCommon: 'DESC', name: 'ASC' },
+      take: limit,
+      skip,
+    });
+
+    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+  }
+
+  async createMedicationRoute(dto: CreateMedicationRouteDto, adminId: string, ip: string) {
+    const existing = await this.routeRepo.findOneBy({ code: dto.code });
+    if (existing) throw new ConflictException(`Medication route with code '${dto.code}' already exists`);
+
+    const route = this.routeRepo.create(dto);
+    await this.routeRepo.save(route);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_MEDICATION_ROUTE_CREATED',
+      ipAddress: ip,
+      metadata: { routeId: route.id, code: route.code },
+    });
+
+    return route;
+  }
+
+  async toggleMedicationRouteStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+    const route = await this.routeRepo.findOneBy({ id });
+    if (!route) throw new NotFoundException('Medication route not found');
+
+    route.isActive = isActive;
+    await this.routeRepo.save(route);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_MEDICATION_ROUTE_STATUS_UPDATED',
+      ipAddress: ip,
+      metadata: { id, isActive },
+    });
+
+    return route;
+  }
+
+  // --- Acute Medication Seeding ---
+
+  private async seedAcuteMedications() {
+    console.log('[SEED] Synchronizing Acute Care Medication Registry...');
+    let count = 0;
+    for (const def of COMMON_ACUTE_MEDICATIONS) {
+      const existing = await this.medicationRepo.findOneBy({ name: def.name });
+      if (!existing) {
+        await this.medicationRepo.save(this.medicationRepo.create(def));
+        count++;
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new acute care medications.`);
   }
 }

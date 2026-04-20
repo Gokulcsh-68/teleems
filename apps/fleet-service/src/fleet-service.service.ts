@@ -7,13 +7,14 @@ import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-oper
 import { 
   PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, 
   Organisation, FleetOperator, Vehicle, VehicleStatus, Station, StaffProfile, StaffType, StaffStatus,
-  DutyShift, DutyShiftStatus, InventoryItem, VehicleInventory, InventoryCategory,
-  DutyRoster, ShiftType
+  DutyShift, DutyShiftStatus, InventoryItemMaster, VehicleInventory,
+  DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType
 } from '@app/common';
+import { DataSource } from 'typeorm';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto } from './dto/inventory.dto';
 import { CreateRosterDto, RosterQueryDto } from './dto/roster.dto';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../auth-service/src/entities/user.entity';
@@ -36,15 +37,18 @@ export class FleetServiceService {
     private readonly dutyShiftRepo: Repository<DutyShift>,
     @InjectRepository(DutyRoster)
     private readonly rosterRepo: Repository<DutyRoster>,
-    @InjectRepository(InventoryItem)
-    private readonly inventoryItemRepo: Repository<InventoryItem>,
+    @InjectRepository(InventoryItemMaster)
+    private readonly inventoryItemRepo: Repository<InventoryItemMaster>,
     @InjectRepository(VehicleInventory)
     private readonly vehicleInventoryRepo: Repository<VehicleInventory>,
+    @InjectRepository(InventoryLog)
+    private readonly inventoryLogRepo: Repository<InventoryLog>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
     private readonly auditLogService: AuditLogService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAllVehicles(query: VehicleQueryDto, requestUser: any) {
@@ -701,65 +705,217 @@ export class FleetServiceService {
     // In a real env, check orgId here for multi-tenant isolation
     
     const inventory = await this.vehicleInventoryRepo.find({
-      where: { vehicleId },
-      relations: ['item'],
-      order: { item: { category: 'ASC', name: 'ASC' } }
+      where: { vehicle_id: vehicleId },
+      relations: ['item_master'],
+      order: { item_master: { category: 'ASC', name: 'ASC' } }
     });
     return { data: inventory };
   }
 
   async updateVehicleInventory(vehicleId: string, dto: UpdateVehicleInventoryDto, requestUser: any) {
-    const vehicle = await this.vehicleRepo.findOneBy({ id: vehicleId });
-    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const item = await this.inventoryItemRepo.findOneBy({ id: dto.itemId });
-    if (!item) throw new NotFoundException('Inventory item not found');
+    try {
+      const vehicle = await queryRunner.manager.findOne(Vehicle, { where: { id: vehicleId } });
+      if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    let inventory = await this.vehicleInventoryRepo.findOneBy({ 
-      vehicleId, 
-      itemId: dto.itemId 
-    });
+      const item = await queryRunner.manager.findOne(InventoryItemMaster, { where: { id: dto.itemId } });
+      if (!item) throw new NotFoundException('Inventory item not found');
 
-    if (inventory) {
-      inventory.currentQuantity = dto.quantity;
-      if (dto.minRequired !== undefined) inventory.minRequiredQuantity = dto.minRequired;
-      inventory.lastRestockedAt = new Date();
-    } else {
-      inventory = this.vehicleInventoryRepo.create({
-        vehicleId,
-        itemId: dto.itemId,
-        currentQuantity: dto.quantity,
-        minRequiredQuantity: dto.minRequired || 0,
-        lastRestockedAt: new Date()
+      let inventory = await queryRunner.manager.findOne(VehicleInventory, { 
+        where: { vehicle_id: vehicleId, inventory_item_id: dto.itemId } 
       });
-    }
 
-    const saved = await this.vehicleInventoryRepo.save(inventory);
-    return { data: saved };
+      const previousQty = inventory ? inventory.quantity : 0;
+      let newQty: number;
+
+      // Handle relative "consumption" or absolute "quantity"
+      if (dto.consumed !== undefined) {
+        newQty = previousQty - dto.consumed;
+      } else if (dto.quantity !== undefined) {
+        newQty = dto.quantity;
+      } else {
+        throw new BadRequestException('Either "quantity" or "consumed" must be provided');
+      }
+
+      if (inventory) {
+        inventory.quantity = newQty;
+        if (dto.minRequired !== undefined) inventory.min_required_quantity = dto.minRequired;
+        inventory.last_replenished_at = new Date();
+      } else {
+        inventory = queryRunner.manager.create(VehicleInventory, {
+          vehicle_id: vehicleId,
+          inventory_item_id: dto.itemId,
+          quantity: newQty,
+          min_required_quantity: dto.minRequired || 0,
+          last_replenished_at: new Date()
+        });
+      }
+
+      const savedInventory = await queryRunner.manager.save(inventory);
+
+      // Create Audit Log
+      const log = queryRunner.manager.create(InventoryLog, {
+        vehicle_id: vehicleId,
+        inventory_item_id: dto.itemId,
+        previous_quantity: previousQty,
+        new_quantity: newQty,
+        change_amount: newQty - previousQty,
+        log_type: dto.consumed ? InventoryLogType.USAGE : InventoryLogType.CORRECTION,
+        performed_by_id: requestUser.id || requestUser.userId,
+        reason: dto.reason || (dto.consumed ? 'Item Usage' : 'Manual Update')
+      });
+      await queryRunner.manager.save(log);
+
+      await queryRunner.commitTransaction();
+      return { data: savedInventory };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      console.error('[INVENTORY_UPDATE_ERROR]', err);
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async bulkUpdateInventory(dto: BulkUpdateInventoryDto, requestUser: any) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const results: VehicleInventory[] = [];
+      for (const itemDto of dto.items) {
+        let inventory = await queryRunner.manager.findOne(VehicleInventory, {
+          where: { vehicle_id: dto.vehicleId, inventory_item_id: itemDto.itemId }
+        });
+
+        const previousQty = inventory ? inventory.quantity : 0;
+        let newQty = itemDto.quantity;
+
+        // Handle relative consumption in bulk
+        if (itemDto.consumed !== undefined) {
+          newQty = previousQty - itemDto.consumed;
+        } else if (newQty === undefined) {
+          // Skip if neither quantity nor consumed is provided for this specific item
+          continue;
+        }
+
+        if (inventory) {
+          inventory.quantity = newQty;
+          if (itemDto.minRequired !== undefined) inventory.min_required_quantity = itemDto.minRequired;
+          inventory.last_replenished_at = new Date();
+        } else {
+          inventory = queryRunner.manager.create(VehicleInventory, {
+            vehicle_id: dto.vehicleId,
+            inventory_item_id: itemDto.itemId,
+            quantity: newQty,
+            min_required_quantity: itemDto.minRequired || 0,
+            last_replenished_at: new Date()
+          });
+        }
+
+        const saved = await queryRunner.manager.save(inventory);
+        results.push(saved);
+
+        // Audit Log for each item
+        const log = queryRunner.manager.create(InventoryLog, {
+          vehicle_id: dto.vehicleId,
+          inventory_item_id: itemDto.itemId,
+          previous_quantity: previousQty,
+          new_quantity: newQty,
+          change_amount: newQty - previousQty,
+          log_type: itemDto.consumed ? InventoryLogType.USAGE : InventoryLogType.RESTOCK,
+          performed_by_id: requestUser.id || requestUser.userId,
+          reason: dto.reason || (itemDto.consumed ? 'Bulk Usage' : 'Bulk Sync')
+        });
+        await queryRunner.manager.save(log);
+      }
+
+      await queryRunner.commitTransaction();
+      return { data: results };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      console.error('[BULK_INVENTORY_ERROR]', err);
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getInventoryLogs(vehicleId: string) {
+    const logs = await this.inventoryLogRepo.find({
+      where: { vehicle_id: vehicleId },
+      relations: ['item_master'],
+      order: { createdAt: 'DESC' },
+      take: 50
+    });
+    return { data: logs };
+  }
+
+  async getLowStockReport(requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+
+    const items = await this.vehicleInventoryRepo.createQueryBuilder('vi')
+      .leftJoinAndSelect('vi.vehicle', 'vehicle')
+      .leftJoinAndSelect('vi.item_master', 'item')
+      .where('vi.quantity < vi.min_required_quantity')
+      .andWhere('vehicle.organisationId = :orgId', { orgId })
+      .orderBy('vehicle.registration_number', 'ASC')
+      .getMany();
+
+    return { data: items };
   }
 
   /**
    * Helper to seed basic inventory if empty
    */
   async seedDefaultInventory() {
-    const count = await this.inventoryItemRepo.count();
-    if (count > 0) return { message: 'Inventory already seeded' };
+    // Find or create missing items from the defaults list
 
     const defaults = [
-      { name: 'Oxygen Cylinder (10L)', category: InventoryCategory.EQUIPMENT, unit: 'Liters' },
-      { name: 'Oxygen Cylinder (2L)', category: InventoryCategory.EQUIPMENT, unit: 'Liters' },
-      { name: 'Stretcher - Main', category: InventoryCategory.EQUIPMENT, unit: 'Pieces' },
-      { name: 'Stretcher - Scoop', category: InventoryCategory.EQUIPMENT, unit: 'Pieces' },
-      { name: 'First Aid Kit - Level 1', category: InventoryCategory.CONSUMABLE, unit: 'Packets' },
-      { name: 'N95 Masks', category: InventoryCategory.SAFETY, unit: 'Pieces' },
-      { name: 'Disposable Gloves', category: InventoryCategory.SAFETY, unit: 'Boxes' },
-      { name: 'Defibrillator Pad', category: InventoryCategory.CONSUMABLE, unit: 'Sets' }
+      // Oxygen & Airway
+      { name: 'Oxygen Cylinder (10L)', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Liters' },
+      { name: 'Oxygen Cylinder (2L)', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Liters' },
+      { name: 'Bag Valve Mask (BVM) - Adult', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Sets' },
+      { name: 'Suction Machine (Portable)', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Pieces' },
+      
+      // Monitoring & Diagnostics
+      { name: 'Multiparameter Monitor', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Pieces' },
+      { name: 'Pulse Oximeter (Handheld)', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Pieces' },
+      { name: 'Digital Thermometer', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Pieces' },
+      { name: 'BP Apparatus (Manual)', category: InventoryItemCategory.MEDICAL_DEVICE, unit_of_measure: 'Sets' },
+      
+      // Trauma & Support
+      { name: 'Stretcher - Main', category: InventoryItemCategory.REUSABLE, unit_of_measure: 'Pieces' },
+      { name: 'Stretcher - Scoop', category: InventoryItemCategory.REUSABLE, unit_of_measure: 'Pieces' },
+      { name: 'Cervical Collar (Adjustable)', category: InventoryItemCategory.REUSABLE, unit_of_measure: 'Pieces' },
+      { name: 'Spine Board with Straps', category: InventoryItemCategory.REUSABLE, unit_of_measure: 'Sets' },
+      { name: 'Splint Set (Air/Vac)', category: InventoryItemCategory.REUSABLE, unit_of_measure: 'Sets' },
+      
+      // Consumables & Disposables
+      { name: 'First Aid Kit - Level 1', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Packets' },
+      { name: 'N95 Masks', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Pieces' },
+      { name: 'Disposable Gloves', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Boxes' },
+      { name: 'Defibrillator Pad (Adult)', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Sets' },
+      { name: 'IV Starter Kit', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Sets' },
+      { name: 'Normal Saline (500ml)', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Bottles' },
+      { name: 'Adhesive Bandages (Assorted)', category: InventoryItemCategory.DISPOSABLE, unit_of_measure: 'Boxes' }
     ];
 
-    const entities = this.inventoryItemRepo.create(defaults);
-    await this.inventoryItemRepo.save(entities);
+    let count = 0;
+    for (const item of defaults) {
+      const exists = await this.inventoryItemRepo.findOneBy({ name: item.name });
+      if (!exists) {
+        const entity = this.inventoryItemRepo.create(item);
+        await this.inventoryItemRepo.save(entity);
+        count++;
+      }
+    }
 
-    return { message: 'Default inventory seeded successfully', count: entities.length };
+    return { message: 'Default inventory expansion complete', added: count, total: defaults.length };
   }
 
   // --- Roster Management (Step 6 of Phase 1) ---

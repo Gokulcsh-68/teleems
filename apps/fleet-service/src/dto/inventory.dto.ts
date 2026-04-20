@@ -1,14 +1,14 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsUUID } from 'class-validator';
-import { InventoryCategory } from '@app/common';
+import { InventoryItemCategory } from '@app/common';
 
 export class CreateInventoryItemDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsEnum(InventoryCategory)
+  @IsEnum(InventoryItemCategory)
   @IsOptional()
-  category?: InventoryCategory;
+  category?: InventoryItemCategory;
 
   @IsString()
   @IsOptional()
@@ -25,10 +25,36 @@ export class UpdateVehicleInventoryDto {
   itemId: string;
 
   @IsNumber()
-  @IsNotEmpty()
-  quantity: number;
+  @IsOptional()
+  quantity?: number;
 
   @IsNumber()
   @IsOptional()
   minRequired?: number;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+
+  @IsNumber()
+  @IsOptional()
+  consumed?: number;
+}
+
+export class BulkUpdateInventoryDto {
+  @IsUUID()
+  @IsOptional()
+  vehicleId?: string;
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+
+  @IsNotEmpty()
+  items: {
+    itemId: string;
+    quantity?: number;
+    minRequired?: number;
+    consumed?: number;
+  }[];
 }

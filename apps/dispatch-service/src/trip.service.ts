@@ -1,8 +1,6 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Dispatch } from './entities/dispatch.entity';
-import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { Vehicle, VehicleStatus } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
@@ -25,7 +23,9 @@ import {
   encodeCursor, 
   decodeCursor, 
   StorageService, 
-  MapsService 
+  MapsService,
+  Incident,
+  Dispatch
 } from '@app/common';
 
 import { TripStatus } from './enums/trip-status.enum';
@@ -699,7 +699,7 @@ export class TripService {
         // 3. Get Interventions
         clinical.interventions = await this.interventionRepo.find({
             where: { patient_id: patient.id },
-            order: { administered_at: 'ASC' }
+            order: { timestamp: 'ASC' }
         });
     }
 

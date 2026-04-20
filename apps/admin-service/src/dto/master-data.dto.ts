@@ -147,6 +147,42 @@ export class MasterQueryDto {
   isActive?: boolean;
 }
 
+export class CreateChiefComplaintDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsEnum(['RED', 'YELLOW', 'GREEN', 'BLACK'])
+  @IsOptional()
+  default_triage?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
+export class CreateInterventionMasterDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  requires_specialized_logging?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
 export class CreateMedicationDto {
   @IsString()
   @IsNotEmpty()
@@ -208,6 +244,20 @@ export class CreateAllergenDto {
   @IsString()
   @IsOptional()
   category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
+export class CreateMedicationRouteDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  code: string;
 
   @IsBoolean()
   @IsOptional()

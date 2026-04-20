@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { Incident } from './incident.entity';
+import { Incident } from '@app/common';
 
 @Entity('incident_escalations')
 export class IncidentEscalation {

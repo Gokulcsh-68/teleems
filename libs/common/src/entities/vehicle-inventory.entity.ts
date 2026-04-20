@@ -1,40 +1,41 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { Vehicle } from './vehicle.entity';
-import { InventoryItem } from './inventory-item.entity';
+import { InventoryItemMaster } from './inventory-item-master.entity';
 
-@Entity('vehicle_inventories')
+@Entity('vehicle_inventory')
+@Index(['vehicle_id', 'inventory_item_id'], { unique: true })
 export class VehicleInventory {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ name: 'vehicle_id', type: 'uuid' })
   @Index()
-  vehicleId: string;
+  vehicle_id: string;
 
   @ManyToOne(() => Vehicle)
   @JoinColumn({ name: 'vehicle_id' })
   vehicle: Vehicle;
 
-  @Column({ name: 'item_id', type: 'uuid' })
+  @Column({ name: 'inventory_item_id', type: 'uuid' })
   @Index()
-  itemId: string;
+  inventory_item_id: string;
 
-  @ManyToOne(() => InventoryItem)
-  @JoinColumn({ name: 'item_id' })
-  item: InventoryItem;
-
-  @Column({ type: 'float', default: 0 })
-  currentQuantity: number;
+  @ManyToOne(() => InventoryItemMaster)
+  @JoinColumn({ name: 'inventory_item_id' })
+  item_master: InventoryItemMaster;
 
   @Column({ type: 'float', default: 0 })
-  minRequiredQuantity: number;
+  quantity: number;
+
+  @Column({ type: 'float', default: 0 })
+  min_required_quantity: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  lastRestockedAt: Date;
+  last_replenished_at: Date;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
 }

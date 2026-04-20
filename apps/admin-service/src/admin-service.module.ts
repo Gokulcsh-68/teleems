@@ -23,6 +23,9 @@ import {
   MedicationMaster,
   SurgeryMaster,
   HospitalisationMaster,
+  MedicationRouteMaster,
+  ChiefComplaintMaster,
+  InterventionMaster,
   FleetOperator
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
@@ -44,6 +47,9 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       MedicationMaster,
       SurgeryMaster,
       HospitalisationMaster,
+      MedicationRouteMaster,
+      ChiefComplaintMaster,
+      InterventionMaster,
       FleetOperator
     ]),
     AuthModule,

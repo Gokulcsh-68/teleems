@@ -6,14 +6,14 @@ import { TripController } from './trip.controller';
 import { DispatchController } from './dispatch.controller';
 import { DispatchServiceService } from './dispatch-service.service';
 import { TripService } from './trip.service';
-import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
-import { Dispatch } from './entities/dispatch.entity';
 import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { 
   PatientProfile, 
   PatientAssessment, 
   PatientIntervention,
+  Incident,
+  Dispatch,
   Vehicle
 } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';

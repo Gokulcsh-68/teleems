@@ -9,7 +9,7 @@ import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto } from './dto/inventory.dto';
 import { CreateRosterDto } from './dto/roster.dto';
 import { StaffType } from '@app/common';
 
@@ -165,21 +165,41 @@ export class FleetServiceController {
   }
 
   @Get('inventory/master')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
   async getMasterInventory() {
     return this.fleetService.getMasterInventory();
   }
 
-  @Get('vehicles/:id/inventory')
+  @Get('inventory/reports/low-stock')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async getLowStockReport(@Req() req: any) {
+    return this.fleetService.getLowStockReport(req.user);
+  }
+
+  @Get('vehicles/:id/inventory')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
   async getVehicleInventory(@Param('id') id: string, @Req() req: any) {
     return this.fleetService.getVehicleInventory(id, req.user);
   }
 
   @Patch('vehicles/:id/inventory')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
   async updateVehicleInventory(@Param('id') id: string, @Body() dto: UpdateVehicleInventoryDto, @Req() req: any) {
     return this.fleetService.updateVehicleInventory(id, dto, req.user);
+  }
+
+  @Post('vehicles/:id/inventory/bulk')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  async bulkUpdateInventory(@Param('id') id: string, @Body() dto: BulkUpdateInventoryDto, @Req() req: any) {
+    // Ensure the URL param ID matches the body ID
+    dto.vehicleId = id;
+    return this.fleetService.bulkUpdateInventory(dto, req.user);
+  }
+
+  @Get('vehicles/:id/inventory/logs')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  async getInventoryLogs(@Param('id') id: string) {
+    return this.fleetService.getInventoryLogs(id);
   }
 
   // --- Roster Endpoints (Step 6) ---

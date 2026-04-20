@@ -10,7 +10,10 @@ import {
   PatientAllergy,
   PatientMedication,
   PatientSurgery,
-  PatientHospitalisation
+  PatientHospitalisation,
+  PatientMedicationLog,
+  VehicleInventory,
+  Dispatch
 } from '@app/common';
 import { PatientController } from './patient-service.controller';
 import { PatientService } from './patient-service.service';
@@ -27,7 +30,10 @@ import { PatientService } from './patient-service.service';
       PatientAllergy,
       PatientMedication,
       PatientSurgery,
-      PatientHospitalisation
+      PatientHospitalisation,
+      PatientMedicationLog,
+      VehicleInventory,
+      Dispatch
     ]),
   ],
   controllers: [PatientController],

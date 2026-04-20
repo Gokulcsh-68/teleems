@@ -3,7 +3,12 @@ import { PatientService } from './patient-service.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { RecordVitalsDto } from './dto/record-vitals.dto';
 import { RecordGcsDto } from './dto/record-gcs.dto';
-import { RecordInterventionDto } from './dto/record-intervention.dto';
+import { 
+  CreateInterventionDto, 
+  RecordCprDto, 
+  RecordDefibDto, 
+  RecordIntubationDto 
+} from './dto/clinical-intervention.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { FullUpdatePatientDto } from './dto/full-update-patient.dto';
 import { MrnLookupDto } from './dto/mrn-lookup.dto';
@@ -11,6 +16,7 @@ import { AbhaLookupDto } from './dto/abha-lookup.dto';
 import { AddConditionDto } from './dto/add-condition.dto';
 import { RecordMedicationDto } from './dto/record-medication.dto';
 import { RecordAllergyDto } from './dto/record-allergy.dto';
+import { LogMedicationDto } from './dto/medication-administration.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { 
   CreateClinicalAssessmentDto, 
@@ -79,6 +85,29 @@ export class PatientController {
     return this.patientService.findByIncident(incidentId);
   }
 
+  @Post(':id/medications')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async administerMedication(@Param('id') id: string, @Body() dto: LogMedicationDto, @Req() req: any) {
+    return this.patientService.administerMedication(id, dto, req.user, req.ip);
+  }
+
+  @Get(':id/medications')
+  @Roles('EMT / Paramedic', 'Hospital Admin', 'CureSelect Admin')
+  async getMedicationLogs(@Param('id') id: string, @Req() req: any) {
+    return this.patientService.getMedicationLogs(id, req.user);
+  }
+
+  @Delete(':id/medications/:medLogId')
+  @HttpCode(204)
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async deleteMedicationLog(
+    @Param('id') id: string,
+    @Param('medLogId') medLogId: string,
+    @Req() req: any
+  ) {
+    return this.patientService.deleteMedicationLog(id, medLogId, req.user, req.ip);
+  }
+
   @Post(':id/vitals')
   @Roles('EMT / Paramedic', 'CureSelect Admin')
   async recordVitals(@Param('id') id: string, @Body() dto: RecordVitalsDto, @Req() req: any) {
@@ -93,8 +122,43 @@ export class PatientController {
 
   @Post(':id/interventions')
   @Roles('EMT / Paramedic', 'CureSelect Admin')
-  async recordIntervention(@Param('id') id: string, @Body() dto: RecordInterventionDto, @Req() req: any) {
+  async recordIntervention(@Param('id') id: string, @Body() dto: CreateInterventionDto, @Req() req: any) {
     return this.patientService.recordIntervention(id, dto, req.user, req.ip);
+  }
+
+  @Post(':id/interventions/cpr')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordCpr(@Param('id') id: string, @Body() dto: RecordCprDto, @Req() req: any) {
+    return this.patientService.recordCpr(id, dto, req.user, req.ip);
+  }
+
+  @Post(':id/interventions/defibrillation')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordDefib(@Param('id') id: string, @Body() dto: RecordDefibDto, @Req() req: any) {
+    return this.patientService.recordDefibrillation(id, dto, req.user, req.ip);
+  }
+
+  @Post(':id/interventions/intubation')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordIntubation(@Param('id') id: string, @Body() dto: RecordIntubationDto, @Req() req: any) {
+    return this.patientService.recordIntubation(id, dto, req.user, req.ip);
+  }
+
+  @Get(':id/interventions')
+  @Roles('EMT / Paramedic', 'Hospital Admin', 'CureSelect Admin')
+  async getInterventions(@Param('id') id: string, @Req() req: any) {
+    return this.patientService.getInterventions(id, req.user);
+  }
+
+  @Delete(':id/interventions/:interventionId')
+  @HttpCode(204)
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async deleteIntervention(
+    @Param('id') id: string, 
+    @Param('interventionId') interventionId: string, 
+    @Req() req: any
+  ) {
+    return this.patientService.deleteIntervention(id, interventionId, req.user, req.ip);
   }
 
   @Post(':id/medical-history')
