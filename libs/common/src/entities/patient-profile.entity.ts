@@ -1,16 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
-import { Incident } from './incident.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
 
 @Entity('patient_profiles')
 export class PatientProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   @Index()
   organisationId: string;
 
-  @Column()
+  @Column({ nullable: true })
   @Index()
   incident_id: string;
 
@@ -36,13 +35,24 @@ export class PatientProfile {
   @Column({ nullable: true })
   photo_url: string;
 
+  @Column({ nullable: true })
+  mrn: string;
+
+  @Column({ nullable: true })
+  abha_id: string;
+
+  @Column({ nullable: true })
+  phone: string;
+
+  @Column({ nullable: true })
+  informer_name: string;
+
+  @Column({ nullable: true })
+  informer_relation: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
-
-  @ManyToOne(() => Incident)
-  @JoinColumn({ name: 'incident_id' })
-  incident: Incident;
 }

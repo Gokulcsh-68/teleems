@@ -17,7 +17,12 @@ import {
   CCEProfile,
   SystemConfig,
   FeatureFlag,
-  IotDeviceProfile
+  IotDeviceProfile,
+  IcdMaster,
+  AllergyMaster,
+  MedicationMaster,
+  SurgeryMaster,
+  HospitalisationMaster
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
@@ -32,7 +37,12 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       CCEProfile,
       SystemConfig,
       FeatureFlag,
-      IotDeviceProfile
+      IotDeviceProfile,
+      IcdMaster,
+      AllergyMaster,
+      MedicationMaster,
+      SurgeryMaster,
+      HospitalisationMaster
     ]),
     AuthModule,
   ],

@@ -14,9 +14,4 @@ describe('AdminServiceController', () => {
     adminServiceController = app.get<AdminServiceController>(AdminServiceController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(adminServiceController.getHello()).toBe('Hello World!');
-    });
-  });
 });

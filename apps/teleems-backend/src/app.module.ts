@@ -13,8 +13,8 @@ import { FleetServiceModule } from '../../fleet-service/src/fleet-service.module
 import { HospitalServiceModule } from '../../hospital-service/src/hospital-service.module';
 import { NotificationServiceModule } from '../../notification-service/src/notification-service.module';
 import { RtvsServiceModule } from '../../rtvs-service/src/rtvs-service.module';
+import { PatientServiceModule } from '../../patient-service/src/patient-service.module';
 
-// Common Library
 import { 
   Organisation, 
   Hospital, 
@@ -25,7 +25,20 @@ import {
   CCEProfile,
   SystemConfig,
   FeatureFlag,
-  IotDeviceProfile
+  IotDeviceProfile,
+  PatientProfile,
+  PatientAssessment,
+  PatientIntervention,
+  PatientCondition,
+  IcdMaster,
+  PatientAllergy,
+  PatientMedication,
+  PatientSurgery,
+  PatientHospitalisation,
+  AllergyMaster,
+  MedicationMaster,
+  SurgeryMaster,
+  HospitalisationMaster
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -38,9 +51,6 @@ import { Dispatch } from '../../dispatch-service/src/entities/dispatch.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
-import { PatientProfile } from '../../dispatch-service/src/entities/patient-profile.entity';
-import { PatientAssessment } from '../../dispatch-service/src/entities/patient-assessment.entity';
-import { PatientIntervention } from '../../dispatch-service/src/entities/patient-intervention.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
 import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.entity';
 
@@ -61,7 +71,9 @@ import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.e
         entities: [
           User, AuditLog, Role, Session, 
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
-          PatientAssessment, PatientIntervention,
+          PatientAssessment, PatientIntervention, PatientCondition, IcdMaster,
+          PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
+          AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
           RtvsRecord, Vehicle, LocationLog,
           Organisation, Hospital, FleetOperator,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
@@ -78,6 +90,7 @@ import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.e
     HospitalServiceModule,
     NotificationServiceModule,
     RtvsServiceModule,
+    PatientServiceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
