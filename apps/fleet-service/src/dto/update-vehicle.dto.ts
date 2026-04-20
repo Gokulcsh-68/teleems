@@ -1,10 +1,10 @@
-import { IsString, IsEnum, IsNumber, IsOptional, IsNotEmpty, Min, Max, IsBoolean } from 'class-validator';
+import { IsString, IsEnum, IsNumber, IsOptional, Min, Max, IsBoolean } from 'class-validator';
 import { VehicleStatus, VehicleType, OwnershipType } from '@app/common';
 
-export class CreateVehicleDto {
+export class UpdateVehicleDto {
   @IsString()
-  @IsNotEmpty()
-  registration_number: string;
+  @IsOptional()
+  registration_number?: string;
 
   @IsString()
   @IsOptional()

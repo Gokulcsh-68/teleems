@@ -15,7 +15,7 @@ import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { PatientAssessment } from './entities/patient-assessment.entity';
 import { PatientIntervention } from './entities/patient-intervention.entity';
-import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
+import { Vehicle } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthModule } from '../../auth-service/src/auth.module';

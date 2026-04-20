@@ -27,7 +27,8 @@ import {
   SystemConfig,
   FeatureFlag,
   IotDeviceProfile,
-  FleetOperator
+  FleetOperator,
+  Vehicle
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -38,7 +39,6 @@ import { Incident } from '../../dispatch-service/src/entities/incident.entity';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
 import { Dispatch } from '../../dispatch-service/src/entities/dispatch.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
-import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { PatientProfile } from '../../dispatch-service/src/entities/patient-profile.entity';
 import { PatientAssessment } from '../../dispatch-service/src/entities/patient-assessment.entity';

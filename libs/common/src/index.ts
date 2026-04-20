@@ -21,4 +21,5 @@ export * from './guards/ip-whitelist.guard';
 export * from './guards/admin-ip-whitelist.guard';
 export * from './decorators/roles.decorator';
 export * from './entities/fleet-operator.entity';
+export * from './entities/vehicle.entity';
 export * from './pagination/paginated-response';

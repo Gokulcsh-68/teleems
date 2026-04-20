@@ -1,13 +1,12 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Vehicle } from './entities/vehicle.entity';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
 import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
 import { 
   PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, 
-  Organisation, FleetOperator 
+  Organisation, FleetOperator, Vehicle 
 } from '@app/common';
 
 @Injectable()
@@ -23,12 +22,22 @@ export class FleetServiceService {
   ) {}
 
   async findAllVehicles(query: VehicleQueryDto, requestUser: any) {
-    const { status, type, limit = 50, cursor } = query;
+    const { 
+      status, type, vehicle_type, registration_number, 
+      brand, model, limit = 50, cursor 
+    } = query;
     const isPlatformAdmin = requestUser.roles?.some((r: string) => 
       ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
     );
 
     const queryBuilder = this.vehicleRepo.createQueryBuilder('vehicle');
+    
+    // Default: Only show active vehicles (Super Admin can override)
+    if (!isPlatformAdmin) {
+      queryBuilder.andWhere('vehicle.isActive = :isActive', { isActive: true });
+    } else if (query.show_inactive !== 'true') {
+      queryBuilder.andWhere('vehicle.isActive = :isActive', { isActive: true });
+    }
 
     // Tenant Isolation
     if (!isPlatformAdmin) {
@@ -39,7 +48,22 @@ export class FleetServiceService {
 
     // Filters
     if (status) queryBuilder.andWhere('vehicle.status = :status', { status });
-    if (type) queryBuilder.andWhere('vehicle.type = :type', { type });
+    
+    // Support both 'type' and 'vehicle_type' from query params
+    const vType = vehicle_type || type;
+    if (vType) queryBuilder.andWhere('vehicle.vehicle_type = :vType', { vType });
+
+    if (registration_number) {
+      queryBuilder.andWhere('vehicle.registration_number ILIKE :reg', { reg: `%${registration_number}%` });
+    }
+
+    if (brand) {
+      queryBuilder.andWhere('vehicle.brand ILIKE :brand', { brand: `%${brand}%` });
+    }
+
+    if (model) {
+      queryBuilder.andWhere('vehicle.model ILIKE :model', { model: `%${model}%` });
+    }
 
     // Pagination
     if (cursor) {
@@ -80,30 +104,80 @@ export class FleetServiceService {
   }
 
   async registerVehicle(dto: CreateVehicleDto, requestUser: any) {
-    const isPlatformAdmin = requestUser.roles?.some((r: string) => 
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
       ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
     );
 
-    const orgId = (isPlatformAdmin && dto.organisationId) ? dto.organisationId : requestUser.organisationId;
+    const orgId = (isPlatformAdmin && dto.organisationId) 
+      ? dto.organisationId 
+      : (requestUser.org_id || requestUser.organisationId);
+
+    if (!orgId) {
+      throw new ConflictException('Organisation ID is required for vehicle registration');
+    }
+
+    // Check for duplicate registration
+    const existing = await this.vehicleRepo.findOneBy({ registration_number: dto.registration_number });
+    if (existing) {
+      throw new ConflictException(`Vehicle with registration number '${dto.registration_number}' already exists`);
+    }
 
     // Check Capacity (Spec 5.4)
     const org = await this.orgRepo.findOneBy({ id: orgId });
     if (!org) throw new NotFoundException('Organisation not found');
 
     const currentCount = await this.vehicleRepo.count({ where: { organisationId: orgId } });
-    if (currentCount >= org.vehicle_capacity) {
+    if (currentCount >= (org.vehicle_capacity || 10)) {
       throw new ConflictException(`Organisation '${org.name}' has reached its vehicle capacity (${org.vehicle_capacity})`);
     }
 
-    const vehicleData = {
+    const vehicle = this.vehicleRepo.create({
       ...dto,
       organisationId: orgId,
-    };
-
-    const vehicle = this.vehicleRepo.create(vehicleData);
+    });
+    
     const saved = await this.vehicleRepo.save(vehicle);
 
     return { data: saved };
+  }
+
+  async updateVehicle(id: string, dto: any, requestUser: any) {
+    const vehicle = await this.vehicleRepo.findOneBy({ id });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    const isPlatformAdmin = requestUser.roles?.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+    );
+
+    // Tenant Isolation
+    if (!isPlatformAdmin && vehicle.organisationId !== requestUser.organisationId) {
+      throw new ForbiddenException('Access denied: You can only update vehicles in your own organization');
+    }
+
+    Object.assign(vehicle, dto);
+    const saved = await this.vehicleRepo.save(vehicle);
+    return { data: saved };
+  }
+
+  async deleteVehicle(id: string, requestUser: any) {
+    const vehicle = await this.vehicleRepo.findOneBy({ id });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    const isPlatformAdmin = requestUser.roles?.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+    );
+
+    // Tenant Isolation
+    if (!isPlatformAdmin && vehicle.organisationId !== requestUser.organisationId) {
+      throw new ForbiddenException('Access denied: You can only delete vehicles in your own organization');
+    }
+
+    // Soft Delete
+    vehicle.isActive = false;
+    await this.vehicleRepo.save(vehicle);
+
+    return { message: 'Vehicle soft-deleted successfully' };
   }
 
   async createOperator(dto: CreateFleetOperatorDto, adminId: string, ip: string): Promise<FleetOperator> {

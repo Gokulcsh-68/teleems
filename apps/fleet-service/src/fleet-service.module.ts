@@ -2,9 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FleetServiceController } from './fleet-service.controller';
 import { FleetServiceService } from './fleet-service.service';
-import { Vehicle } from './entities/vehicle.entity';
+import { FleetOperator, Organisation, Vehicle } from '@app/common';
 import { LocationLog } from './entities/location-log.entity';
-import { FleetOperator, Organisation } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
 @Module({
