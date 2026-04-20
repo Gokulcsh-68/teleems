@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateDepartmentDto {
   @IsString()
@@ -50,4 +51,14 @@ export class DepartmentQueryDto {
   @IsString()
   @IsOptional()
   search?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 10;
 }

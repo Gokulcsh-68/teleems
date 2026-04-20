@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { Department, Hospital, AuditLogService } from '@app/common';
+import { Department, Hospital, AuditLogService, PaginatedResponse } from '@app/common';
 import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentQueryDto } from './dto/department.dto';
 
 @Injectable()
@@ -39,7 +39,7 @@ export class DepartmentService {
   }
 
   async findAll(query: DepartmentQueryDto) {
-    const { hospitalId, search } = query;
+    const { hospitalId, search, page = 1, limit = 10 } = query;
     const where: any = {};
 
     if (hospitalId) {
@@ -48,14 +48,25 @@ export class DepartmentService {
 
     if (search) {
       where.name = Like(`%${search}%`);
-      // You can also search by headOfDepartment if needed
     }
 
-    return this.departmentRepo.find({
+    const [data, total] = await this.departmentRepo.findAndCount({
       where,
       order: { name: 'ASC' },
       relations: ['hospital'],
+      skip: (page - 1) * limit,
+      take: limit,
     });
+
+    return new PaginatedResponse(
+      data,
+      null, // cursor
+      total,
+      limit,
+      data.length,
+      page,
+      Math.ceil(total / limit)
+    );
   }
 
   async findOne(id: string) {
