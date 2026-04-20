@@ -58,7 +58,7 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
       useClass: DynamicRateLimitGuard,
     }
   ],
-  exports: [AuthService, JwtModule, AuditLogService],
+  exports: [AuthService, JwtModule, AuditLogService, TypeOrmModule],
 })
 export class AuthModule {}
 

@@ -42,7 +42,16 @@ import {
   SurgeryMaster,
   HospitalisationMaster,
   FleetOperator,
-  Vehicle
+  Vehicle,
+  Station,
+  StaffProfile,
+  StaffType,
+  StaffStatus,
+  DutyShift,
+  DutyShiftStatus,
+  InventoryItem,
+  VehicleInventory,
+  DutyRoster
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -76,9 +85,10 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           PatientAssessment, PatientAssessmentNote, PatientIntervention, PatientCondition, IcdMaster,
           PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
           AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
-          RtvsRecord, Vehicle, LocationLog,
+          RtvsRecord, Vehicle, LocationLog, Station, StaffProfile, DutyShift,
           Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
+          InventoryItem, VehicleInventory, DutyRoster,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile
         ],
         synchronize: true, // Auto-create tables; revert for prod migrations
