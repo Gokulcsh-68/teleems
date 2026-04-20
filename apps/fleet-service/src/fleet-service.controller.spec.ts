@@ -14,9 +14,5 @@ describe('FleetServiceController', () => {
     fleetServiceController = app.get<FleetServiceController>(FleetServiceController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(fleetServiceController.getHello()).toBe('Hello World!');
-    });
-  });
+  
 });

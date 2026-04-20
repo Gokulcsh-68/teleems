@@ -13,8 +13,8 @@ import { FleetServiceModule } from '../../fleet-service/src/fleet-service.module
 import { HospitalServiceModule } from '../../hospital-service/src/hospital-service.module';
 import { NotificationServiceModule } from '../../notification-service/src/notification-service.module';
 import { RtvsServiceModule } from '../../rtvs-service/src/rtvs-service.module';
+import { PatientServiceModule } from '../../patient-service/src/patient-service.module';
 
-// Common Library
 import { 
   Organisation, 
   Hospital, 
@@ -27,6 +27,20 @@ import {
   SystemConfig,
   FeatureFlag,
   IotDeviceProfile,
+  PatientProfile,
+  PatientAssessment,
+  PatientAssessmentNote,
+  PatientIntervention,
+  PatientCondition,
+  IcdMaster,
+  PatientAllergy,
+  PatientMedication,
+  PatientSurgery,
+  PatientHospitalisation,
+  AllergyMaster,
+  MedicationMaster,
+  SurgeryMaster,
+  HospitalisationMaster,
   FleetOperator,
   Vehicle
 } from '@app/common';
@@ -40,9 +54,6 @@ import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-t
 import { Dispatch } from '../../dispatch-service/src/entities/dispatch.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
-import { PatientProfile } from '../../dispatch-service/src/entities/patient-profile.entity';
-import { PatientAssessment } from '../../dispatch-service/src/entities/patient-assessment.entity';
-import { PatientIntervention } from '../../dispatch-service/src/entities/patient-intervention.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
 
 @Module({
@@ -62,7 +73,9 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
         entities: [
           User, AuditLog, Role, Session, 
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
-          PatientAssessment, PatientIntervention,
+          PatientAssessment, PatientAssessmentNote, PatientIntervention, PatientCondition, IcdMaster,
+          PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
+          AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
           RtvsRecord, Vehicle, LocationLog,
           Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
@@ -79,6 +92,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
     HospitalServiceModule,
     NotificationServiceModule,
     RtvsServiceModule,
+    PatientServiceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

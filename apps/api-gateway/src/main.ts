@@ -21,6 +21,8 @@ async function bootstrap() {
   const authUrl = ensureHttp(process.env.AUTH_SERVICE_URL || 'http://localhost:3001');
   const dispatchUrl = ensureHttp(process.env.DISPATCH_SERVICE_URL || 'http://localhost:3002');
   
+  const patientUrl = ensureHttp(process.env.PATIENT_SERVICE_URL || 'http://localhost:3010');
+  
   const rewriteSlashes = (path: string) => path.replace(/\/\/+/g, '/');
 
   // Proxy for Auth Service
@@ -43,11 +45,11 @@ async function bootstrap() {
     }),
   );
 
-  // Proxy for Patient Service (Integrated in Dispatch Service)
+  // Proxy for Patient Service
   app.use(
     ['/v1/patients', '//v1/patients'],
     createProxyMiddleware({
-      target: dispatchUrl,
+      target: patientUrl,
       changeOrigin: true,
       pathRewrite: rewriteSlashes,
     }),

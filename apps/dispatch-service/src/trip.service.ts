@@ -17,11 +17,18 @@ import { CreateIftTripDto } from './dto/create-ift-trip.dto';
 import { VerifyIftDocumentsDto } from './dto/verify-ift-documents.dto';
 import { RecordRefusalDto } from './dto/record-refusal.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
-import { PatientProfile } from './entities/patient-profile.entity';
-import { PatientAssessment } from './entities/patient-assessment.entity';
-import { PatientIntervention } from './entities/patient-intervention.entity';
+import { 
+  PatientProfile, 
+  PatientAssessment, 
+  PatientIntervention,
+  PaginatedResponse, 
+  encodeCursor, 
+  decodeCursor, 
+  StorageService, 
+  MapsService 
+} from '@app/common';
+
 import { TripStatus } from './enums/trip-status.enum';
-import { PaginatedResponse, encodeCursor, decodeCursor, StorageService, MapsService } from '@app/common';
 
 @Injectable()
 export class TripService {

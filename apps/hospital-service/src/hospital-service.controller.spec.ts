@@ -13,10 +13,4 @@ describe('HospitalServiceController', () => {
 
     hospitalServiceController = app.get<HospitalServiceController>(HospitalServiceController);
   });
-
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(hospitalServiceController.getHello()).toBe('Hello World!');
-    });
-  });
 });

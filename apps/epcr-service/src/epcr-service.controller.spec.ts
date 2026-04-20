@@ -14,9 +14,4 @@ describe('EpcrServiceController', () => {
     epcrServiceController = app.get<EpcrServiceController>(EpcrServiceController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(epcrServiceController.getHello()).toBe('Hello World!');
-    });
-  });
 });

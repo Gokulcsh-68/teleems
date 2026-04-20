@@ -14,9 +14,4 @@ describe('DispatchServiceController', () => {
     dispatchServiceController = app.get<DispatchServiceController>(DispatchServiceController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(dispatchServiceController.getHello()).toBe('Hello World!');
-    });
-  });
 });

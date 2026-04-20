@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsBoolean, IsNumber, IsArray } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { SymptomSeverity, InventoryItemCategory, HospitalType } from '@app/common';
 
 export class CreateSymptomDto {
@@ -116,4 +117,100 @@ export class UpdateHospitalMasterDto {
   @IsOptional()
   specialties?: string[];
 }
+export class MasterQueryDto {
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  page?: number = 1;
+
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  limit?: number = 50;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+}
+
+export class CreateMedicationDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsString()
+  @IsOptional()
+  default_route?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  common_dosages?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
+export class CreateSurgeryDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
+export class CreateHospitalisationReasonDto {
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
 export * from './register-hospital.dto';
+
+export class CreateAllergenDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsOptional()
+  category?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+

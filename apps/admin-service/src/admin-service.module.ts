@@ -18,6 +18,11 @@ import {
   SystemConfig,
   FeatureFlag,
   IotDeviceProfile,
+  IcdMaster,
+  AllergyMaster,
+  MedicationMaster,
+  SurgeryMaster,
+  HospitalisationMaster,
   FleetOperator
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
@@ -34,6 +39,11 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       SystemConfig,
       FeatureFlag,
       IotDeviceProfile,
+      IcdMaster,
+      AllergyMaster,
+      MedicationMaster,
+      SurgeryMaster,
+      HospitalisationMaster,
       FleetOperator
     ]),
     AuthModule,
