@@ -17,7 +17,8 @@ import {
   CCEProfile,
   SystemConfig,
   FeatureFlag,
-  IotDeviceProfile
+  IotDeviceProfile,
+  FleetOperator
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
@@ -32,7 +33,8 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       CCEProfile,
       SystemConfig,
       FeatureFlag,
-      IotDeviceProfile
+      IotDeviceProfile,
+      FleetOperator
     ]),
     AuthModule,
   ],

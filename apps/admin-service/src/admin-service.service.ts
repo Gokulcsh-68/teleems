@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Organisation, OrganisationStatus, SubscriptionPlan, AuditLogService, Hospital } from '@app/common';
+import { Organisation, OrganisationStatus, SubscriptionPlan, AuditLogService, Hospital, FleetOperator } from '@app/common';
 import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
+import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
 import { AuthService } from '../../auth-service/src/auth.service';
 
 @Injectable()
@@ -155,6 +156,62 @@ export class AdminServiceService {
           id: adminUser.id,
           username: adminUser.username,
           employee_id: adminUser.employeeId,
+          email: adminUser.email,
+          roles: adminUser.roles,
+        }
+      };
+    });
+  }
+
+  async registerFleetOperatorWithAdmin(dto: RegisterFleetOperatorDto, creator: any, ip: string) {
+    return await this.dataSource.transaction(async (manager) => {
+      // 1. Create Organisation (using flattened fields)
+      const orgData: any = {
+        ...dto.organisation,
+        registration_number: dto.organisation.reg_number,
+        country: dto.organisation.country || 'India',
+      };
+      
+      const org = manager.create(Organisation, orgData);
+      const savedOrg = await manager.save(org);
+
+      // 2. Create Fleet Operator Profile
+      const operatorProfile = manager.create(FleetOperator, {
+        name: savedOrg.name,
+        organisationId: savedOrg.id,
+        contact_person: savedOrg.contact_name,
+        contact_phone: savedOrg.contact_phone,
+        address: savedOrg.address,
+        vehicle_count_cap: dto.organisation.vehicle_capacity || 10,
+        status: 'ACTIVE'
+      });
+      const savedOperator = await manager.save(operatorProfile);
+
+      // 3. Create Admin User (with fallbacks if admin details are missing)
+      const adminUser = await this.authService.createUser({
+        name: dto.admin.name || savedOrg.contact_name || savedOrg.name,
+        email: dto.admin.email || savedOrg.contact_email,
+        phone: dto.admin.phone || savedOrg.contact_phone,
+        username: dto.admin.username,
+        password: dto.admin.password,
+        role: 'Fleet Operator',
+        org_id: savedOrg.id,
+      }, creator, manager);
+
+      await this.auditLogService.log({
+        userId: creator.userId,
+        action: 'FLEET_OPERATOR_REGISTERED',
+        ipAddress: ip,
+        metadata: { orgId: savedOrg.id, operatorId: savedOperator.id, adminId: adminUser.id },
+      });
+
+      return {
+        organisation: savedOrg,
+        operator: savedOperator,
+        admin: {
+          id: adminUser.id,
+          username: adminUser.username,
+          phone: adminUser.phone,
           email: adminUser.email,
           roles: adminUser.roles,
         }

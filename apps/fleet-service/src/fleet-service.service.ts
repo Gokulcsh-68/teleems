@@ -2,11 +2,13 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vehicle } from './entities/vehicle.entity';
-import { FleetOperator } from './entities/fleet-operator.entity';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
 import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
-import { PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, Organisation } from '@app/common';
+import { 
+  PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, 
+  Organisation, FleetOperator 
+} from '@app/common';
 
 @Injectable()
 export class FleetServiceService {
@@ -140,5 +142,25 @@ export class FleetServiceService {
     });
 
     return saved;
+  }
+
+  async createOrganisation(dto: any, adminId: string, ip: string) {
+    const orgData = {
+      ...dto,
+      registration_number: dto.reg_number,
+      country: dto.country || 'India',
+    };
+
+    const org = this.orgRepo.create(orgData);
+    const saved = (await this.orgRepo.save(org)) as any;
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'FLEET_ORGANISATION_CREATED',
+      ipAddress: ip,
+      metadata: { orgId: saved.id, name: saved.name },
+    });
+
+    return { data: saved };
   }
 }

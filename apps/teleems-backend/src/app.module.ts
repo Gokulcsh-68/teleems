@@ -26,7 +26,8 @@ import {
   CCEProfile,
   SystemConfig,
   FeatureFlag,
-  IotDeviceProfile
+  IotDeviceProfile,
+  FleetOperator
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -43,7 +44,6 @@ import { PatientProfile } from '../../dispatch-service/src/entities/patient-prof
 import { PatientAssessment } from '../../dispatch-service/src/entities/patient-assessment.entity';
 import { PatientIntervention } from '../../dispatch-service/src/entities/patient-intervention.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
-import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.entity';
 
 @Module({
   imports: [

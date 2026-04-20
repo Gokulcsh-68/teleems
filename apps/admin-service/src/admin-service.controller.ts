@@ -2,6 +2,7 @@ import { Controller, Post, Get, Put, Body, Param, Req, UseGuards, Patch, Query }
 import { AdminServiceService } from './admin-service.service';
 import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
+import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
 import { OrganisationStatus, JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
 @Controller('v1/admin')
@@ -48,5 +49,10 @@ export class AdminServiceController {
   @Post('register-hospital')
   async registerHospital(@Body() dto: RegisterHospitalDto, @Req() req: any) {
     return this.adminService.registerHospitalWithAdmin(dto, req.user, req.ip);
+  }
+
+  @Post('register-fleet-operator')
+  async registerFleetOperator(@Body() dto: RegisterFleetOperatorDto, @Req() req: any) {
+    return this.adminService.registerFleetOperatorWithAdmin(dto, req.user, req.ip);
   }
 }
