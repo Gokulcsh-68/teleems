@@ -9,7 +9,10 @@ import {
   CreateAllergenDto,
   CreateMedicationDto,
   CreateSurgeryDto,
-  CreateHospitalisationReasonDto
+  CreateHospitalisationReasonDto,
+  CreateChiefComplaintDto,
+  CreateInterventionMasterDto,
+  CreateMedicationRouteDto
 } from './dto/master-data.dto';
 import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
@@ -178,6 +181,78 @@ export class MasterDataController {
     @Req() req: any
   ) {
     const result = await this.masterDataService.toggleHospitalisationStatus(id, isActive, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  // --- Chief Complaint Master ---
+
+  @Get('chief-complaints')
+  async findAllChiefComplaints(@Query() query: MasterQueryDto) {
+    const result = await this.masterDataService.findAllChiefComplaints(query);
+    return { data: result };
+  }
+
+  @Post('chief-complaints')
+  async createChiefComplaint(@Body() dto: CreateChiefComplaintDto, @Req() req: any) {
+    const result = await this.masterDataService.createChiefComplaint(dto, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  @Patch('chief-complaints/:id/status')
+  async toggleChiefComplaintStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+    @Req() req: any
+  ) {
+    const result = await this.masterDataService.toggleChiefComplaintStatus(id, isActive, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  // --- Intervention Master ---
+
+  @Get('interventions')
+  async findAllInterventionMasters(@Query() query: MasterQueryDto) {
+    const result = await this.masterDataService.findAllInterventionMasters(query);
+    return { data: result };
+  }
+
+  @Post('interventions')
+  async createInterventionMaster(@Body() dto: CreateInterventionMasterDto, @Req() req: any) {
+    const result = await this.masterDataService.createInterventionMaster(dto, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  @Patch('interventions/:id/status')
+  async toggleInterventionMasterStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+    @Req() req: any
+  ) {
+    const result = await this.masterDataService.toggleInterventionMasterStatus(id, isActive, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  // --- Medication Route Master ---
+
+  @Get('medication-routes')
+  async findAllMedicationRoutes(@Query() query: MasterQueryDto) {
+    const result = await this.masterDataService.findAllMedicationRoutes(query);
+    return { data: result };
+  }
+
+  @Post('medication-routes')
+  async createMedicationRoute(@Body() dto: CreateMedicationRouteDto, @Req() req: any) {
+    const result = await this.masterDataService.createMedicationRoute(dto, req.user.userId, req.ip);
+    return { data: result };
+  }
+
+  @Patch('medication-routes/:id/status')
+  async toggleMedicationRouteStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+    @Req() req: any
+  ) {
+    const result = await this.masterDataService.toggleMedicationRouteStatus(id, isActive, req.user.userId, req.ip);
     return { data: result };
   }
 }

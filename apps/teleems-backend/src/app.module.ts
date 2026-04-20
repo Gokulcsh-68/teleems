@@ -41,6 +41,13 @@ import {
   MedicationMaster,
   SurgeryMaster,
   HospitalisationMaster,
+  PatientMedicationLog,
+  VehicleInventory,
+  MedicationRouteMaster,
+  ChiefComplaintMaster,
+  InterventionMaster,
+  Incident,
+  Dispatch,
   FleetOperator
 } from '@app/common';
 
@@ -48,9 +55,7 @@ import {
 import { User } from '../../auth-service/src/entities/user.entity';
 import { Role } from '../../auth-service/src/entities/role.entity';
 import { Session } from '../../auth-service/src/entities/session.entity';
-import { Incident } from '../../dispatch-service/src/entities/incident.entity';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
-import { Dispatch } from '../../dispatch-service/src/entities/dispatch.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
@@ -76,6 +81,8 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           PatientAssessment, PatientAssessmentNote, PatientIntervention, PatientCondition, IcdMaster,
           PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
           AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
+          PatientMedicationLog, VehicleInventory, MedicationRouteMaster,
+          ChiefComplaintMaster, InterventionMaster,
           RtvsRecord, Vehicle, LocationLog,
           Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,

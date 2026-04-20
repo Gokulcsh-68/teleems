@@ -11,18 +11,27 @@ import {
   PatientMedication,
   PatientSurgery,
   PatientHospitalisation,
+  PatientMedicationLog,
+  VehicleInventory,
+  Dispatch,
   AuditLogService 
 } from '@app/common';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { RecordVitalsDto } from './dto/record-vitals.dto';
 import { RecordGcsDto } from './dto/record-gcs.dto';
-import { RecordInterventionDto } from './dto/record-intervention.dto';
+import { 
+  CreateInterventionDto, 
+  RecordCprDto, 
+  RecordDefibDto, 
+  RecordIntubationDto 
+} from './dto/clinical-intervention.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { FullUpdatePatientDto } from './dto/full-update-patient.dto';
 import { MrnLookupDto } from './dto/mrn-lookup.dto';
 import { AbhaLookupDto } from './dto/abha-lookup.dto';
 import { AddConditionDto } from './dto/add-condition.dto';
 import { RecordMedicationDto } from './dto/record-medication.dto';
+import { LogMedicationDto } from './dto/medication-administration.dto';
 import { RecordAllergyDto } from './dto/record-allergy.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
 import { 
@@ -53,6 +62,12 @@ export class PatientService {
     private readonly surgeryRepo: Repository<PatientSurgery>,
     @InjectRepository(PatientHospitalisation)
     private readonly hospitalisationRepo: Repository<PatientHospitalisation>,
+    @InjectRepository(PatientMedicationLog)
+    private readonly medLogRepo: Repository<PatientMedicationLog>,
+    @InjectRepository(VehicleInventory)
+    private readonly vehicleInventoryRepo: Repository<VehicleInventory>,
+    @InjectRepository(Dispatch)
+    private readonly dispatchRepo: Repository<Dispatch>,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
   ) {}
@@ -324,29 +339,92 @@ export class PatientService {
     return { data: condition };
   }
 
-  async recordMedication(patientId: string, dto: RecordMedicationDto, reqUser: any, ip: string) {
+  async administerMedication(patientId: string, dto: LogMedicationDto, reqUser: any, ip: string) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
-    const medication = this.medicationRepo.create({
-      ...dto,
+    // 1. Record the medication administration
+    const log = this.medLogRepo.create({
       patient_id: patientId,
-      recorded_by_id: recordedBy
+      drug_name: dto.drug_name,
+      dose_mg: dto.dose_mg,
+      route: dto.route,
+      time: dto.time ? new Date(dto.time) : new Date(),
+      recorded_by_id: recordedBy,
+      inventory_item_id: dto.inventory_item_id,
     });
-    await this.medicationRepo.save(medication);
+    const savedLog = await this.medLogRepo.save(log);
+
+    // 2. Inventory Deduction Logic
+    if (dto.inventory_item_id) {
+      try {
+        // Attempt to find the active vehicle for this incident/EMT
+        // We find the active dispatch for the patient's current (last) incident
+        const latestDispatch = await this.dispatchRepo.findOne({
+          where: { emt_id: recordedBy, status: 'TRANSPORTING' }, // Or just active status
+          order: { dispatched_at: 'DESC' }
+        });
+
+        if (latestDispatch) {
+          const vehicleId = latestDispatch.vehicle_id;
+          const inventory = await this.vehicleInventoryRepo.findOneBy({
+            vehicle_id: vehicleId,
+            inventory_item_id: dto.inventory_item_id,
+          });
+
+          if (inventory && inventory.quantity > 0) {
+            inventory.quantity -= 1;
+            await this.vehicleInventoryRepo.save(inventory);
+            
+            await this.auditLogService.log({
+              userId: recordedBy,
+              action: 'VEHICLE_INVENTORY_DEDUCTED',
+              ipAddress: ip || '0.0.0.0',
+              metadata: { vehicleId, itemId: dto.inventory_item_id, remaining: inventory.quantity },
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Inventory deduction failed, but medication log saved:', e.message);
+      }
+    }
 
     try {
       await this.auditLogService.log({
         userId: recordedBy,
-        action: 'PATIENT_MEDICATION_RECORDED',
+        action: 'PATIENT_MEDICATION_ADMINISTERED',
         ipAddress: ip || '0.0.0.0',
-        metadata: { patientId, name: dto.name, dose: dto.dose, route: dto.route },
+        metadata: { patientId, drugName: dto.drug_name, dose: dto.dose_mg },
       });
     } catch (e) {
-      console.error('Failed to log audit for medication recording', e);
+      console.error('Audit Log failed:', e.message);
     }
 
-    return { data: medication };
+    return { data: savedLog };
+  }
+
+  async getMedicationLogs(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const logs = await this.medLogRepo.find({
+      where: { patient_id: patientId },
+      order: { time: 'DESC' },
+    });
+    return { data: logs };
+  }
+
+  async deleteMedicationLog(patientId: string, logId: string, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const log = await this.medLogRepo.findOneBy({ id: logId, patient_id: patientId });
+    if (!log) throw new NotFoundException('Medication log not found');
+
+    await this.medLogRepo.remove(log);
+
+    await this.auditLogService.log({
+      userId: reqUser.userId || 'SYSTEM',
+      action: 'PATIENT_MEDICATION_LOG_DELETED',
+      ipAddress: ip || '0.0.0.0',
+      metadata: { patientId, logId, drugName: log.drug_name },
+    });
   }
 
   async recordAllergy(patientId: string, dto: RecordAllergyDto, reqUser: any, ip: string) {
@@ -410,26 +488,143 @@ export class PatientService {
     });
   }
 
-  async recordIntervention(patientId: string, dto: RecordInterventionDto, reqUser: any, ip: string) {
-    const patient = await this.findOneWithIsolation(patientId, reqUser);
+  async getInterventions(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    
+    const interventions = await this.interventionRepo.find({
+      where: { patient_id: patientId },
+      order: { timestamp: 'DESC' },
+    });
+
+    return { data: interventions };
+  }
+
+  async deleteIntervention(patientId: string, interventionId: string, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const intervention = await this.interventionRepo.findOneBy({ id: interventionId, patient_id: patientId });
+    if (!intervention) throw new NotFoundException('Intervention not found');
+
+    await this.interventionRepo.remove(intervention);
+
+    try {
+      await this.auditLogService.log({
+        userId: reqUser?.userId || 'SYSTEM',
+        action: 'PATIENT_INTERVENTION_DELETED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, interventionId, type: intervention.type },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+  }
+
+  async recordIntervention(patientId: string, dto: CreateInterventionDto, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
 
     const intervention = this.interventionRepo.create({
       patient_id: patientId,
       type: dto.type,
       description: dto.description,
       dosage: dto.dosage,
-      administered_at: dto.administered_at ? new Date(dto.administered_at) : new Date(),
-      recorded_by_id: reqUser?.userId || 'SYSTEM',
+      detail_json: dto.detail_json,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+      recorded_by_id: recordedBy,
     });
 
     const saved = await this.interventionRepo.save(intervention);
 
     try {
       await this.auditLogService.log({
-        userId: reqUser?.userId || 'SYSTEM',
+        userId: recordedBy,
         action: 'PATIENT_INTERVENTION_RECORDED',
         ipAddress: ip || '0.0.0.0',
         metadata: { patientId, interventionId: saved.id, type: dto.type },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  async recordCpr(patientId: string, dto: RecordCprDto, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    const intervention = this.interventionRepo.create({
+      patient_id: patientId,
+      type: 'CPR',
+      detail_json: dto,
+      timestamp: new Date(dto.start_time),
+      recorded_by_id: recordedBy,
+    });
+
+    const saved = await this.interventionRepo.save(intervention);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_CPR_LOGGED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, interventionId: saved.id },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  async recordDefibrillation(patientId: string, dto: RecordDefibDto, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    const intervention = this.interventionRepo.create({
+      patient_id: patientId,
+      type: 'DEFIB',
+      detail_json: dto,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+      recorded_by_id: recordedBy,
+    });
+
+    const saved = await this.interventionRepo.save(intervention);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_DEFIB_LOGGED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, interventionId: saved.id },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+
+    return { data: saved };
+  }
+
+  async recordIntubation(patientId: string, dto: RecordIntubationDto, reqUser: any, ip: string) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    const intervention = this.interventionRepo.create({
+      patient_id: patientId,
+      type: 'INTUBATION',
+      detail_json: dto,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+      recorded_by_id: recordedBy,
+    });
+
+    const saved = await this.interventionRepo.save(intervention);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_INTUBATION_LOGGED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, interventionId: saved.id },
       });
     } catch (e) {
       console.error('Audit Log failed:', e.message);
@@ -499,7 +694,7 @@ export class PatientService {
 
     const interventions = await this.interventionRepo.find({
       where: { patient_id: patientId },
-      order: { administered_at: 'DESC' },
+      order: { timestamp: 'DESC' },
     });
 
     return {

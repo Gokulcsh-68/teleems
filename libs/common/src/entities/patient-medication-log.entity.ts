@@ -1,8 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { PatientProfile } from './patient-profile.entity';
 
-@Entity('patient_interventions')
-export class PatientIntervention {
+@Entity('patient_medication_logs')
+export class PatientMedicationLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -11,22 +11,23 @@ export class PatientIntervention {
   patient_id: string;
 
   @Column()
-  type: 'CPR' | 'DEFIB' | 'IV_ACCESS' | 'INTUBATION' | 'OXYGEN' | 'SPLINT' | 'TOURNIQUET' | 'CATHETER' | 'OTHER' | string;
-
-  @Column({ type: 'text', nullable: true })
-  description: string;
+  @Index()
+  drug_name: string;
 
   @Column({ nullable: true })
-  dosage: string;
+  dose_mg: string;
 
-  @Column({ type: 'jsonb', nullable: true })
-  detail_json: any;
+  @Column({ nullable: true })
+  route: string; // IV, IM, PO, SL, INH, NASAL, etc.
 
   @Column({ type: 'timestamptz' })
-  timestamp: Date;
+  time: Date;
 
   @Column()
-  recorded_by_id: string;
+  recorded_by_id: string; // EMT ID
+
+  @Column({ type: 'uuid', nullable: true })
+  inventory_item_id: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

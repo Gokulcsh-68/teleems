@@ -1,9 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
-import { Incident } from './entities/incident.entity';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
-import { Dispatch } from './entities/dispatch.entity';
 import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
@@ -21,7 +19,15 @@ import { EscalateIncidentDto } from './dto/escalate-incident.dto';
 import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
-import { PaginatedResponse, encodeCursor, decodeCursor, MapsService, AuditLogService } from '@app/common';
+import { 
+  PaginatedResponse, 
+  encodeCursor, 
+  decodeCursor, 
+  MapsService, 
+  AuditLogService,
+  Incident,
+  Dispatch
+} from '@app/common';
 import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
 
 export interface AuditContext {

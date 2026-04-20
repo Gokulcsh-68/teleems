@@ -15,5 +15,5 @@ export class RecordInterventionDto {
 
   @IsDateString()
   @IsOptional()
-  administered_at?: string;
+  timestamp?: string;
 }
