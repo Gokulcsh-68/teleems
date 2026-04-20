@@ -18,6 +18,7 @@ import { RtvsServiceModule } from '../../rtvs-service/src/rtvs-service.module';
 import { 
   Organisation, 
   Hospital, 
+  Department,
   AuditLog, 
   SymptomMaster, 
   IncidentCategoryMaster, 
@@ -63,7 +64,7 @@ import { FleetOperator } from '../../fleet-service/src/entities/fleet-operator.e
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
           PatientAssessment, PatientIntervention,
           RtvsRecord, Vehicle, LocationLog,
-          Organisation, Hospital, FleetOperator,
+          Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile
         ],

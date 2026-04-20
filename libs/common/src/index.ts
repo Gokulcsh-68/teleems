@@ -6,6 +6,7 @@ export * from './storage.service';
 export * from './entities/organisation.entity';
 export * from './entities/audit-log.entity';
 export * from './entities/hospital.entity';
+export * from './entities/department.entity';
 export * from './entities/symptom-master.entity';
 export * from './entities/incident-category-master.entity';
 export * from './entities/inventory-item-master.entity';
