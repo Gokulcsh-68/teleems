@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
-import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
+import { Vehicle, VehicleStatus } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { TripQueryDto } from './dto/trip-query.dto';
 import { UpdateTripStatusDto } from './dto/update-trip-status.dto';
@@ -224,7 +224,7 @@ export class TripService {
     await this.dispatchRepo.save(trip);
 
     // 4. Update Vehicle Status & Location
-    const vehicle = await this.vehicleRepo.findOne({ where: { identifier: trip.vehicle_id } });
+    const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id } });
     if (vehicle) {
       if (dto.status === TripStatus.HANDOFF_COMPLETE || dto.status === TripStatus.CANCELLED) {
         vehicle.status = VehicleStatus.AVAILABLE;
@@ -441,7 +441,7 @@ export class TripService {
     const vehicle = await this.vehicleRepo.findOne({
       where: { 
         status: VehicleStatus.AVAILABLE,
-        type: dto.requested_vehicle_type,
+        vehicle_type: dto.requested_vehicle_type as any,
         organisationId: orgId
       }
     });
@@ -450,7 +450,7 @@ export class TripService {
     const trip = this.dispatchRepo.create({
       incident_id: savedIncident.id,
       organisationId: orgId,
-      vehicle_id: vehicle?.identifier || 'TBD',
+      vehicle_id: vehicle?.registration_number || 'TBD',
       dispatched_by: requestUser.userId,
       status: TripStatus.CREATED,
       is_ift: true,
@@ -567,7 +567,7 @@ export class TripService {
     // 4. Release Vehicle
     if (trip.vehicle_id && trip.vehicle_id !== 'TBD') {
       await this.vehicleRepo.update(
-        { identifier: trip.vehicle_id },
+        { registration_number: trip.vehicle_id },
         { status: VehicleStatus.AVAILABLE }
       );
     }
@@ -602,7 +602,7 @@ export class TripService {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
-    const vehicle = await this.vehicleRepo.findOneBy({ identifier: trip.vehicle_id });
+    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     const hospitalCoords = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
@@ -651,7 +651,7 @@ export class TripService {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
-    const vehicle = await this.vehicleRepo.findOneBy({ identifier: trip.vehicle_id });
+    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     // Determine target based on trip status

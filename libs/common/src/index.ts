@@ -21,6 +21,7 @@ export * from './guards/ip-whitelist.guard';
 export * from './guards/admin-ip-whitelist.guard';
 export * from './decorators/roles.decorator';
 export * from './entities/fleet-operator.entity';
+export * from './entities/vehicle.entity';
 export * from './pagination/paginated-response';
 export * from './entities/patient-profile.entity';
 export * from './entities/patient-assessment.entity';

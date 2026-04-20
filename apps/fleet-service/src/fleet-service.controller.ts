@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Query, Req, UseGuards, Param, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, UseGuards, Param, Put, Patch, Delete } from '@nestjs/common';
 import { FleetServiceService } from './fleet-service.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
+import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
@@ -11,16 +12,28 @@ import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 export class FleetServiceController {
   constructor(private readonly fleetService: FleetServiceService) {}
 
-  @Get()
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Get('vehicles')
+  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)')
   async findAll(@Query() query: VehicleQueryDto, @Req() req: any) {
     return this.fleetService.findAllVehicles(query, req.user);
   }
 
-  @Post()
-  @Roles('Hospital Admin', 'CureSelect Admin')
+  @Post('vehicles')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
   async register(@Body() dto: CreateVehicleDto, @Req() req: any) {
     return this.fleetService.registerVehicle(dto, req.user);
+  }
+
+  @Patch('vehicles/:id')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async update(@Param('id') id: string, @Body() dto: UpdateVehicleDto, @Req() req: any) {
+    return this.fleetService.updateVehicle(id, dto, req.user);
+  }
+
+  @Delete('vehicles/:id')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async remove(@Param('id') id: string, @Req() req: any) {
+    return this.fleetService.deleteVehicle(id, req.user);
   }
 
   @Get('operators')

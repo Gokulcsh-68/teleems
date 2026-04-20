@@ -13,9 +13,9 @@ import {
   PatientAssessment, 
   PatientIntervention,
   Incident,
-  Dispatch
+  Dispatch,
+  Vehicle
 } from '@app/common';
-import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthModule } from '../../auth-service/src/auth.module';

@@ -48,7 +48,8 @@ import {
   InterventionMaster,
   Incident,
   Dispatch,
-  FleetOperator
+  FleetOperator,
+  Vehicle
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -57,7 +58,6 @@ import { Role } from '../../auth-service/src/entities/role.entity';
 import { Session } from '../../auth-service/src/entities/session.entity';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
-import { Vehicle } from '../../fleet-service/src/entities/vehicle.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { IncidentEscalation } from '../../dispatch-service/src/entities/incident-escalation.entity';
 

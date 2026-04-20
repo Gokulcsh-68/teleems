@@ -23,6 +23,10 @@ export class Department {
   @Index()
   hospitalId: string;
 
+  @Column({ default: true })
+  @Index()
+  isActive: boolean;
+
   @ManyToOne(() => Hospital, (hospital) => hospital.departments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'hospital_id' })
   hospital: Hospital;

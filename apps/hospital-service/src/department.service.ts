@@ -39,11 +39,15 @@ export class DepartmentService {
   }
 
   async findAll(query: DepartmentQueryDto) {
-    const { hospitalId, search, page = 1, limit = 10 } = query;
+    const { hospitalId, isActive, search, page = 1, limit = 10 } = query;
     const where: any = {};
 
     if (hospitalId) {
       where.hospitalId = hospitalId;
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
     }
 
     if (search) {

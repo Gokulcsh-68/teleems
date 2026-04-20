@@ -26,9 +26,10 @@ import {
   MapsService, 
   AuditLogService,
   Incident,
-  Dispatch
+  Dispatch,
+  Vehicle,
+  VehicleStatus
 } from '@app/common';
-import { Vehicle, VehicleStatus } from '../../fleet-service/src/entities/vehicle.entity';
 
 export interface AuditContext {
   userId: string;
@@ -424,7 +425,7 @@ export class DispatchServiceService {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
-    const vehicle = await this.vehicleRepository.findOneBy({ identifier: dto.vehicle_id });
+    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.vehicle_id });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
     
     if (vehicle.status !== VehicleStatus.AVAILABLE) {
@@ -479,12 +480,12 @@ export class DispatchServiceService {
     let eta: number;
 
     if (isManualOverride) {
-      targetVehicle = await this.vehicleRepository.findOneBy({ identifier: dto.manual_vehicle_id! });
+      targetVehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.manual_vehicle_id! });
       if (!targetVehicle) throw new NotFoundException('Selected vehicle not found');
       if (targetVehicle.status !== VehicleStatus.AVAILABLE) {
         throw new BadRequestException(`Vehicle '${dto.manual_vehicle_id}' is not available.`);
       }
-      vehicleId = targetVehicle.identifier;
+      vehicleId = targetVehicle.registration_number;
       // Simulated ETA for manually selected vehicle (distance based)
       const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
       eta = Math.floor((dist / 30) * 3600); // 30km/h avg speed
@@ -493,7 +494,7 @@ export class DispatchServiceService {
       if (!targetVehicle) {
         throw new BadRequestException('No available ambulances found in the system for auto-assignment.');
       }
-      vehicleId = targetVehicle.identifier;
+      vehicleId = targetVehicle.registration_number;
       const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
       eta = Math.floor((dist / 30) * 3600);
     }
@@ -575,14 +576,14 @@ export class DispatchServiceService {
     }
 
     // 2. Identify and release the old vehicle
-    const oldVehicle = await this.vehicleRepository.findOneBy({ identifier: currentDispatch.vehicle_id });
+    const oldVehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id });
     if (oldVehicle) {
       oldVehicle.status = VehicleStatus.AVAILABLE;
       await this.vehicleRepository.save(oldVehicle);
     }
 
     // 3. Identify and lock the new vehicle
-    const newVehicle = await this.vehicleRepository.findOneBy({ identifier: dto.new_vehicle_id });
+    const newVehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.new_vehicle_id });
     if (!newVehicle) throw new NotFoundException(`New vehicle '${dto.new_vehicle_id}' not found.`);
     if (newVehicle.status !== VehicleStatus.AVAILABLE) {
       throw new BadRequestException(`Vehicle '${dto.new_vehicle_id}' is not available.`);
@@ -647,7 +648,7 @@ export class DispatchServiceService {
     }
 
     // 2. Release current vehicle
-    const vehicle = await this.vehicleRepository.findOneBy({ identifier: currentDispatch.vehicle_id });
+    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id });
     if (vehicle) {
       vehicle.status = VehicleStatus.AVAILABLE;
       await this.vehicleRepository.save(vehicle);
@@ -671,7 +672,7 @@ export class DispatchServiceService {
       });
 
       const backupVehicle = availableVehicles
-        .filter(v => v.identifier !== cancelledVehicleId)
+        .filter(v => v.registration_number !== cancelledVehicleId)
         .map(v => ({ v, dist: this.getDistance(incident.gps_lat, incident.gps_lon, v.gps_lat, v.gps_lon) }))
         .sort((a, b) => a.dist - b.dist)[0]?.v;
 
@@ -696,7 +697,7 @@ export class DispatchServiceService {
 
         const backupDispatch = new Dispatch();
         backupDispatch.incident_id = incident.id;
-        backupDispatch.vehicle_id = backupVehicle.identifier;
+        backupDispatch.vehicle_id = backupVehicle.registration_number;
         backupDispatch.dispatched_by = context.userId;
         backupDispatch.status = 'DISPATCHED';
         
@@ -707,7 +708,7 @@ export class DispatchServiceService {
         backupDispatch.override_reason = `BACKUP for ${cancelledVehicleId}`;
         await this.dispatchRepository.save(backupDispatch);
 
-        incident.assigned_vehicle = backupVehicle.identifier;
+        incident.assigned_vehicle = backupVehicle.registration_number;
         incident.status = 'DISPATCHED';
         incident.eta_seconds = eta;
         await this.incidentRepository.save(incident);
@@ -715,9 +716,9 @@ export class DispatchServiceService {
         await this.logTimelineEvent(
           incident.id,
           'BACKUP_DISPATCHED',
-          `Dispatch for ${cancelledVehicleId} cancelled. Backup unit ${backupVehicle.identifier} dispatched.`,
+          `Dispatch for ${cancelledVehicleId} cancelled. Backup unit ${backupVehicle.registration_number} dispatched.`,
           context.userId,
-          { reason: dto.reason, backup_vehicle: backupVehicle.identifier }
+          { reason: dto.reason, backup_vehicle: backupVehicle.registration_number }
         );
         
         responseData = { data: backupDispatch };
@@ -789,8 +790,8 @@ export class DispatchServiceService {
 
       return {
         id: vehicle.id,
-        identifier: vehicle.identifier,
-        type: vehicle.type,
+        identifier: vehicle.registration_number,
+        type: vehicle.vehicle_type,
         distance_km: parseFloat(distance.toFixed(2)),
         eta_seconds: eta,
         gps_lat: vehicle.gps_lat,
