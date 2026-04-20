@@ -1,10 +1,14 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsNumber, Min } from 'class-validator';
-import { SubscriptionPlan } from '@app/common';
+import { SubscriptionPlan, OrganisationStatus } from '@app/common';
 
 export class CreateFleetOrganisationDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @IsString()
+  @IsOptional()
+  status?: OrganisationStatus;
 
   @IsString()
   @IsOptional()

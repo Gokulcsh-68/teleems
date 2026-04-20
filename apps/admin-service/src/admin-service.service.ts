@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Organisation, OrganisationStatus, SubscriptionPlan, AuditLogService, Hospital, FleetOperator } from '@app/common';
 import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
+import { FleetOperatorQueryDto } from './dto/fleet-operator-query.dto';
 import { AuthService } from '../../auth-service/src/auth.service';
+import { Like } from 'typeorm';
+import { PaginatedResponse } from '@app/common';
 
 @Injectable()
 export class AdminServiceService {
@@ -14,6 +17,8 @@ export class AdminServiceService {
     private readonly orgRepo: Repository<Organisation>,
     @InjectRepository(Hospital)
     private readonly hospitalRepo: Repository<Hospital>,
+    @InjectRepository(FleetOperator)
+    private readonly fleetOperatorRepo: Repository<FleetOperator>,
     private readonly dataSource: DataSource,
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
@@ -62,6 +67,36 @@ export class AdminServiceService {
     return org;
   }
 
+  async updateFleetOperatorDetails(id: string, dto: UpdateOrganisationDto, user: any, ip: string) {
+    const roles = user.roles || [];
+    const isSuperAdmin = roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const userOrgId = user.org_id || user.organisationId;
+
+    // Security Check: If not Super Admin, can only update own organisation
+    if (!isSuperAdmin) {
+      if (id !== userOrgId) {
+        throw new ForbiddenException('You are not authorized to update this fleet operator record');
+      }
+    }
+
+    const updatedOrg = await this.updateOrganisation(id, dto, user.userId, ip);
+
+    // Sync changes to FleetOperator profile(s)
+    const fleetOps = await this.fleetOperatorRepo.find({ where: { organisationId: id } });
+    for (const op of fleetOps) {
+      if (dto.name) op.name = dto.name;
+      if (dto.address) op.address = dto.address;
+      if (dto.contact_name) op.contact_person = dto.contact_name;
+      if (dto.contact_phone) op.contact_phone = dto.contact_phone;
+      if (dto.vehicle_capacity) op.vehicle_count_cap = dto.vehicle_capacity;
+      if (dto.status) op.status = dto.status as any;
+      
+      await this.fleetOperatorRepo.save(op);
+    }
+
+    return updatedOrg;
+  }
+
   async setOrganisationStatus(id: string, status: OrganisationStatus, adminId: string, ip: string) {
     const org = await this.findOneOrganisation(id);
     org.status = status;
@@ -79,6 +114,34 @@ export class AdminServiceService {
 
   async getGlobalAuditLogs(limit: number, offset: number) {
     return this.auditLogService.getAllLogs(limit, offset);
+  }
+
+  async findAllFleetOperators(query: FleetOperatorQueryDto, user: any) {
+    const { search, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) {
+      where.name = Like(`%${search}%`);
+    }
+
+    // Role-based filtering:
+    const roles = user.roles || [];
+    const isSuperAdmin = roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    
+    if (roles.includes('Fleet Operator') && !isSuperAdmin) {
+      where.organisationId = user.org_id || user.organisationId;
+    }
+
+    const [items, total] = await this.fleetOperatorRepo.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip,
+    });
+
+    const totalPages = Math.ceil(total / limit);
+    return new PaginatedResponse(items, null, total, limit, items.length, page, totalPages);
   }
 
   async generateInvoice(orgId: string, adminId: string, ip: string) {
@@ -183,7 +246,7 @@ export class AdminServiceService {
         contact_phone: savedOrg.contact_phone,
         address: savedOrg.address,
         vehicle_count_cap: dto.organisation.vehicle_capacity || 10,
-        status: 'ACTIVE'
+        status: savedOrg.status as any || 'ACTIVE'
       });
       const savedOperator = await manager.save(operatorProfile);
 

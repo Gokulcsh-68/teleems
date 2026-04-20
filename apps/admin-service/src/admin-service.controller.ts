@@ -3,6 +3,7 @@ import { AdminServiceService } from './admin-service.service';
 import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
+import { FleetOperatorQueryDto } from './dto/fleet-operator-query.dto';
 import { OrganisationStatus, JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
 
 @Controller('v1/admin')
@@ -39,6 +40,19 @@ export class AdminServiceController {
   @Get('audit-logs')
   async getGlobalLogs(@Query('limit') limit = 50, @Query('offset') offset = 0) {
     return this.adminService.getGlobalAuditLogs(+limit, +offset);
+  }
+
+  @Get('fleet-operators')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async listFleetOperators(@Query() query: FleetOperatorQueryDto, @Req() req: any) {
+    return this.adminService.findAllFleetOperators(query, req.user);
+  }
+
+  @Put('fleet-operators/:id')
+  @Patch('fleet-operators/:id')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async updateFleetOperator(@Param('id') id: string, @Body() dto: UpdateOrganisationDto, @Req() req: any) {
+    return this.adminService.updateFleetOperatorDetails(id, dto, req.user, req.ip);
   }
 
   @Post('organisations/:id/invoices')

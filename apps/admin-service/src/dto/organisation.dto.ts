@@ -59,6 +59,10 @@ export class CreateOrganisationDto {
 }
 
 export class UpdateOrganisationDto extends CreateOrganisationDto {
+  @IsString()
+  @IsOptional()
+  declare name: string;
+
   @IsEnum(OrganisationStatus)
   @IsOptional()
   status?: OrganisationStatus;
