@@ -51,7 +51,7 @@ export class TripController {
   }
 
   @Put(':id/status/start')
-  @Roles('Pilot', 'Ambulance Pilot (Driver)', 'CureSelect Admin')
+  @Roles('Pilot', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'CureSelect Admin')
   async startTrip(@Param('id') id: string, @Body() dto: StartTripDto, @Req() req: any) {
     return this.tripService.startTrip(id, dto, req.user);
   }
@@ -75,7 +75,7 @@ export class TripController {
   }
 
   @Put(':id/status/handoff')
-  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  @Roles('Pilot', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'CureSelect Admin')
   async markHandoff(@Param('id') id: string, @Body() dto: StartTripDto, @Req() req: any) {
     return this.tripService.markHandoff(id, dto, req.user);
   }

@@ -89,8 +89,8 @@ export class DispatchServiceController {
 
   @Get(':id/dispatch')
   @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic')
-  async getActiveDispatch(@Param('id') id: string) {
-    return this.dispatchService.getActiveDispatch(id);
+  async getActiveDispatch(@Param('id') id: string, @Req() req: any) {
+    return this.dispatchService.getActiveDispatch(id, req.user);
   }
 
   @Put(':id/dispatch/reassign')

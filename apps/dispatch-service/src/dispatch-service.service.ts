@@ -30,7 +30,8 @@ import {
   Vehicle,
   VehicleStatus,
   DutyShift,
-  VehicleInventory
+  VehicleInventory,
+  StaffProfile
 } from '@app/common';
 
 export interface AuditContext {
@@ -57,9 +58,16 @@ export class DispatchServiceService {
     private readonly dutyShiftRepository: Repository<DutyShift>,
     @InjectRepository(VehicleInventory)
     private readonly inventoryRepository: Repository<VehicleInventory>,
+    @InjectRepository(StaffProfile)
+    private readonly staffProfileRepository: Repository<StaffProfile>,
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
   ) {}
+
+  private async getStaffProfileId(userId: string): Promise<string | null> {
+    const profile = await this.staffProfileRepository.findOneBy({ userId });
+    return profile ? profile.id : null;
+  }
 
   private async logSecurityAudit(
     userId: string,
@@ -1025,7 +1033,7 @@ export class DispatchServiceService {
     return responseData;
   }
 
-  async getActiveDispatch(incidentId: string) {
+  async getActiveDispatch(incidentId: string, requestUser: any) {
     const dispatch = await this.dispatchRepository.findOne({
       where: { incident_id: incidentId },
       order: { dispatched_at: 'DESC' }
@@ -1033,6 +1041,32 @@ export class DispatchServiceService {
 
     if (!dispatch) {
       throw new NotFoundException(`No dispatch records found for incident ${incidentId}`);
+    }
+
+    // RBAC & Personal Isolation
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    );
+
+    if (!isPlatformAdmin) {
+      const orgId = requestUser.organisationId || requestUser.org_id;
+
+      // 1. Hospital Admin / Fleet Operator isolation (by organization)
+      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+        if (dispatch.organisationId && orgId && dispatch.organisationId !== orgId) {
+          throw new ForbiddenException('Access denied: Dispatch belongs to another organization');
+        }
+      } 
+      // 2. Personal Isolation for Crew (Pilot / EMT)
+      else if (roles.includes('Ambulance Pilot (Driver)') || roles.includes('EMT / Paramedic')) {
+        const staffId = await this.getStaffProfileId(requestUser.userId);
+        if (!staffId || (dispatch.driver_id !== staffId && dispatch.emt_id !== staffId)) {
+          throw new ForbiddenException('Access denied: You are not assigned to this dispatch');
+        }
+      } else {
+        throw new ForbiddenException('Access denied: Insufficient permissions to view dispatch details');
+      }
     }
 
     return { data: dispatch };

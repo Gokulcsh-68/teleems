@@ -255,6 +255,33 @@ export class TripService {
     trip.status = dto.status;
     await this.dispatchRepo.save(trip);
 
+    // --- SYNC INCIDENT STATUS ---
+    let incidentStatus: string | null = null;
+    switch (dto.status) {
+      case TripStatus.EN_ROUTE_SCENE:
+        incidentStatus = 'EN_ROUTE';
+        break;
+      case TripStatus.AT_SCENE:
+        incidentStatus = 'ON_SCENE';
+        break;
+      case TripStatus.PATIENT_LOADED:
+      case TripStatus.EN_ROUTE_HOSPITAL:
+        incidentStatus = 'TRANSPORTING';
+        break;
+      case TripStatus.AT_HOSPITAL:
+        incidentStatus = 'AT_HOSPITAL';
+        break;
+      case TripStatus.HANDOFF_COMPLETE:
+        incidentStatus = 'COMPLETED';
+        break;
+    }
+
+    if (incidentStatus && trip.incident_id) {
+      await this.dispatchRepo.manager.update(Incident, trip.incident_id, {
+        status: incidentStatus
+      });
+    }
+
     // 4. Update Vehicle Status & Location
     const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id! } });
     if (vehicle) {
@@ -302,8 +329,11 @@ export class TripService {
       .where('trip.id = :id', { id });
 
     const roles = requestUser.roles || [];
-    if (!(roles.includes('Pilot') || roles.includes('CureSelect Admin'))) {
-      throw new ForbiddenException('Only Pilots can start a trip');
+    const isCrew = roles.some(r => ['Pilot', 'Ambulance Pilot (Driver)', 'EMT / Paramedic'].includes(r));
+    const isAdmin = roles.some(r => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+
+    if (!isCrew && !isAdmin) {
+      throw new ForbiddenException('Only assigned crew members or admins can start a trip');
     }
 
     const trip = await qb.getOne();
