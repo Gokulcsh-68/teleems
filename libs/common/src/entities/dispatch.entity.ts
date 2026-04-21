@@ -17,11 +17,11 @@ export class Dispatch {
 
   @Column({ type: 'uuid', nullable: true })
   @Index()
-  driver_id: string;
+  driver_id: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   @Index()
-  emt_id: string;
+  emt_id: string | null;
 
   @Column({ type: 'int', nullable: true })
   eta_seconds: number | null;

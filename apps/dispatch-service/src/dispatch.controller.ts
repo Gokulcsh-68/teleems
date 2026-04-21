@@ -11,8 +11,24 @@ export class DispatchController {
   constructor(private readonly dispatchService: DispatchServiceService) {}
 
   @Post('recommend')
-  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL')
+  @Roles('CCE', 'CURESELECT_ADMIN', 'HOSPITAL', 'Call Centre Executive (CCE)', 'Hospital Admin')
   async recommendVehicles(@Body() dto: RecommendVehicleDto) {
     return this.dispatchService.recommendVehicles(dto);
+  }
+
+  @Post(':id/accept')
+  @Roles('DRIVER', 'EMT', 'DOCTOR', 'CURESELECT_ADMIN', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
+  async acceptDispatch(@Param('id') id: string, @Req() req: any) {
+    return this.dispatchService.acceptDispatch(id, req.user);
+  }
+
+  @Post(':id/reject')
+  @Roles('DRIVER', 'EMT', 'DOCTOR', 'CURESELECT_ADMIN', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
+  async rejectDispatch(
+    @Param('id') id: string, 
+    @Body() body: { reason?: string }, 
+    @Req() req: any
+  ) {
+    return this.dispatchService.rejectDispatch(id, body.reason || 'Not specified', req.user);
   }
 }

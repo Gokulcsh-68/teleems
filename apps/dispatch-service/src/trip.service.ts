@@ -16,8 +16,8 @@ import { VerifyIftDocumentsDto } from './dto/verify-ift-documents.dto';
 import { RecordRefusalDto } from './dto/record-refusal.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
 import { 
-  PatientProfile, 
-  PatientAssessment, 
+  PatientProfile,
+  PatientAssessment,
   PatientIntervention,
   PaginatedResponse, 
   encodeCursor, 
@@ -25,7 +25,8 @@ import {
   StorageService, 
   MapsService,
   Incident,
-  Dispatch
+  Dispatch,
+  StaffProfile
 } from '@app/common';
 
 import { TripStatus } from './enums/trip-status.enum';
@@ -47,9 +48,16 @@ export class TripService {
     private readonly assessmentRepo: Repository<PatientAssessment>,
     @InjectRepository(PatientIntervention)
     private readonly interventionRepo: Repository<PatientIntervention>,
+    @InjectRepository(StaffProfile)
+    private readonly staffProfileRepo: Repository<StaffProfile>,
     private readonly storageService: StorageService,
     private readonly mapsService: MapsService,
   ) {}
+
+  private async getStaffProfileId(userId: string): Promise<string | null> {
+    const profile = await this.staffProfileRepo.findOneBy({ userId });
+    return profile ? profile.id : null;
+  }
 
   private readonly validTransitions: Record<string, string[]> = {
     [TripStatus.CREATED]: [TripStatus.DISPATCHED],
@@ -92,6 +100,12 @@ export class TripService {
 
       if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
         qb.andWhere('incident.organisationId = :orgId', { orgId });
+      } else if (roles.includes('Pilot') || roles.includes('Ambulance Pilot (Driver)') || roles.includes('EMT / Paramedic')) {
+        const staffId = await this.getStaffProfileId(requestUser.userId);
+        if (!staffId) {
+          throw new ForbiddenException('Staff profile not found for current user');
+        }
+        qb.andWhere('(trip.driver_id = :staffId OR trip.emt_id = :staffId)', { staffId });
       } else {
         throw new ForbiddenException('Insufficient permissions to view trips');
       }
@@ -139,9 +153,14 @@ export class TripService {
   }
 
   async findOneTrip(id: string, requestUser: any) {
-    const qb = this.dispatchRepo.createQueryBuilder('trip')
-      .innerJoinAndSelect('trip.incident', 'incident')
-      .where('trip.id = :id', { id });
+    const trip = await this.dispatchRepo.findOne({
+      where: { id },
+      relations: ['incident']
+    });
+
+    if (!trip) {
+      throw new NotFoundException('Trip not found');
+    }
 
     const roles = requestUser.roles || [];
     const isPlatformAdmin = roles.some((r: string) => 
@@ -149,16 +168,29 @@ export class TripService {
     );
 
     if (!isPlatformAdmin) {
+      const orgId = requestUser.organisationId || requestUser.org_id;
+      const incidentOrgId = trip.incident?.organisationId;
+
       if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
-        qb.andWhere('incident.organisationId = :orgId', { orgId: requestUser.organisationId });
+        // Organization-level check for admins
+        if (incidentOrgId && orgId && incidentOrgId !== orgId) {
+          throw new ForbiddenException('Insufficient permissions to view this trip (Organization mismatch)');
+        }
+      } else if (roles.includes('Pilot') || roles.includes('Ambulance Pilot (Driver)')) {
+        // Personal check for Pilots
+        const staffId = await this.getStaffProfileId(requestUser.userId);
+        if (trip.driver_id !== staffId) {
+          throw new ForbiddenException('Insufficient permissions to view this trip (You are not the assigned driver)');
+        }
+      } else if (roles.includes('EMT / Paramedic')) {
+        // Personal check for EMTs
+        const staffId = await this.getStaffProfileId(requestUser.userId);
+        if (trip.emt_id !== staffId) {
+          throw new ForbiddenException('Insufficient permissions to view this trip (You are not the assigned EMT)');
+        }
       } else {
         throw new ForbiddenException('Insufficient permissions to view this trip');
       }
-    }
-
-    const trip = await qb.getOne();
-    if (!trip) {
-      throw new NotFoundException('Trip not found or access denied');
     }
 
     return { data: trip };
@@ -224,7 +256,7 @@ export class TripService {
     await this.dispatchRepo.save(trip);
 
     // 4. Update Vehicle Status & Location
-    const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id } });
+    const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id! } });
     if (vehicle) {
       if (dto.status === TripStatus.HANDOFF_COMPLETE || dto.status === TripStatus.CANCELLED) {
         vehicle.status = VehicleStatus.AVAILABLE;
@@ -241,7 +273,7 @@ export class TripService {
 
     // 5. Log GPS Point
     const log = this.locationRepo.create({
-      vehicle_id: trip.vehicle_id,
+      vehicle_id: trip.vehicle_id!,
       latitude: dto.gps_lat,
       longitude: dto.gps_lon,
       speed: dto.speed || 0,
@@ -602,7 +634,7 @@ export class TripService {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
-    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id });
+    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id! });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     const hospitalCoords = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
@@ -651,7 +683,7 @@ export class TripService {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
-    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id });
+    const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id! });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     // Determine target based on trip status

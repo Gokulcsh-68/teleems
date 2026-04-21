@@ -108,10 +108,29 @@ export class FleetServiceService {
     queryBuilder.take(limit + 1);
 
     const vehicles = await queryBuilder.getMany();
+
+    // Fetch active shifts for the org to map to vehicles (Prevents N+1)
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    const activeShifts = await this.dutyShiftRepo.createQueryBuilder('shift')
+      .leftJoinAndMapOne('shift.driver', StaffProfile, 'driver', 'driver.id = shift.driverId')
+      .leftJoinAndMapOne('driver.user', User, 'driverUser', 'driverUser.id = driver.userId')
+      .leftJoinAndMapOne('shift.staff', StaffProfile, 'staff', 'staff.id = shift.staffId')
+      .leftJoinAndMapOne('staff.user', User, 'staffUser', 'staffUser.id = staff.userId')
+      .where('shift.organisationId = :orgId', { orgId })
+      .andWhere('shift.status = :status', { status: DutyShiftStatus.ON_DUTY })
+      .getMany();
+
+    // Map shifts to vehicles
+    const shiftMap = new Map(activeShifts.map(s => [s.vehicleId, s]));
+    
+    const dataWithShifts = vehicles.map(v => ({
+      ...v,
+      activeShift: shiftMap.get(v.id) || null
+    }));
     
     let next_cursor: string | null = null;
     const hasNextPage = vehicles.length > limit;
-    const data = hasNextPage ? vehicles.slice(0, limit) : vehicles;
+    const data = hasNextPage ? dataWithShifts.slice(0, limit) : dataWithShifts;
 
     if (hasNextPage) {
       const lastItem = data[data.length - 1];
@@ -186,7 +205,7 @@ export class FleetServiceService {
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     const isPlatformAdmin = requestUser.roles?.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
     );
 
     // Tenant Isolation
@@ -194,7 +213,22 @@ export class FleetServiceService {
       throw new ForbiddenException('Access denied: You can only view vehicles in your own organization');
     }
 
-    return { data: vehicle };
+    // Fetch active duty shift with crew details
+    const activeShift = await this.dutyShiftRepo.createQueryBuilder('shift')
+      .leftJoinAndMapOne('shift.driver', StaffProfile, 'driver', 'driver.id = shift.driverId')
+      .leftJoinAndMapOne('driver.user', User, 'driverUser', 'driverUser.id = driver.userId')
+      .leftJoinAndMapOne('shift.staff', StaffProfile, 'staff', 'staff.id = shift.staffId')
+      .leftJoinAndMapOne('staff.user', User, 'staffUser', 'staffUser.id = staff.userId')
+      .where('shift.vehicleId = :vehicleId', { vehicleId: id })
+      .andWhere('shift.status = :status', { status: DutyShiftStatus.ON_DUTY })
+      .getOne();
+
+    return { 
+      data: {
+        ...vehicle,
+        activeShift: activeShift || null
+      }
+    };
   }
 
   async updateVehicle(id: string, dto: any, requestUser: any) {
@@ -658,10 +692,12 @@ export class FleetServiceService {
     await this.dutyShiftRepo.save(shift);
 
     // 2. Update Vehicle Status
-    const vehicle = await this.vehicleRepo.findOneBy({ id: shift.vehicleId });
-    if (vehicle) {
-      vehicle.status = VehicleStatus.OFFLINE;
-      await this.vehicleRepo.save(vehicle);
+    if (shift.vehicleId) {
+      const vehicle = await this.vehicleRepo.findOneBy({ id: shift.vehicleId });
+      if (vehicle) {
+        vehicle.status = VehicleStatus.OFFLINE;
+        await this.vehicleRepo.save(vehicle);
+      }
     }
 
     return { message: 'Shift completed successfully', data: shift };
@@ -680,6 +716,113 @@ export class FleetServiceService {
     });
 
     return { data };
+  }
+
+  /**
+   * SELF-SERVICE: Start Duty for the logged in staff member.
+   * Allows them to join as Driver or EMT on a specific vehicle.
+   */
+  async startDutySelf(vehicleId: string, requestUser: any) {
+    const userId = requestUser.id || requestUser.userId;
+    const orgId = requestUser.organisationId || requestUser.org_id;
+
+    // 1. Get Staff Profile
+    const profile = await this.staffProfileRepo.findOneBy({ userId });
+    if (!profile) throw new NotFoundException('Your staff profile was not found. Please contact admin.');
+
+    // 2. Validate Vehicle
+    const vehicle = await this.vehicleRepo.findOneBy({ id: vehicleId });
+    if (!vehicle) throw new NotFoundException('Ambulance not found');
+    if (vehicle.organisationId !== orgId) throw new ForbiddenException('Access denied');
+
+    // 3. Prevent double duty
+    const existingUserShift = await this.dutyShiftRepo.findOne({
+      where: [
+        { driverId: profile.id, status: DutyShiftStatus.ON_DUTY },
+        { staffId: profile.id, status: DutyShiftStatus.ON_DUTY }
+      ]
+    });
+    if (existingUserShift) throw new ConflictException('You are already on an active shift elsewhere');
+
+    // 4. Find or Create Vehicle Shift
+    let shift = await this.dutyShiftRepo.findOneBy({ 
+      vehicleId, 
+      status: DutyShiftStatus.ON_DUTY 
+    });
+
+    if (!shift) {
+      // Create new shift starting with this user
+      shift = this.dutyShiftRepo.create({
+        vehicleId,
+        organisationId: orgId,
+        startTime: new Date(),
+        status: DutyShiftStatus.ON_DUTY,
+        driverId: profile.type === StaffType.DRIVER ? profile.id : null,
+        staffId: (profile.type === StaffType.EMT || profile.type === StaffType.DOCTOR) ? profile.id : null,
+      });
+    } else {
+      // Join existing shift
+      if (profile.type === StaffType.DRIVER) {
+        if (shift.driverId) throw new ConflictException('This vehicle already has a driver on duty');
+        shift.driverId = profile.id;
+      } else if (profile.type === StaffType.EMT || profile.type === StaffType.DOCTOR) {
+        if (shift.staffId) throw new ConflictException('This vehicle already has a medical staff on duty');
+        shift.staffId = profile.id;
+      } else {
+        throw new BadRequestException('Your staff type is not allowed to join a duty shift');
+      }
+    }
+
+    const savedShift = await this.dutyShiftRepo.save(shift);
+
+    // 5. Update Vehicle Status
+    // Vehicle is only AVAILABLE if it has BOTH a driver and medical staff
+    if (savedShift.driverId && savedShift.staffId) {
+      if (vehicle.status !== VehicleStatus.BUSY) {
+         vehicle.status = VehicleStatus.AVAILABLE;
+         await this.vehicleRepo.save(vehicle);
+      }
+    }
+
+    return { message: 'Duty started successfully', data: savedShift };
+  }
+
+  /**
+   * SELF-SERVICE: End Duty for the logged in staff member.
+   * Finds their current active shift and completes it.
+   */
+  async endDutySelf(requestUser: any) {
+    const userId = requestUser.id || requestUser.userId;
+
+    // 1. Get Staff Profile
+    const profile = await this.staffProfileRepo.findOneBy({ userId });
+    if (!profile) throw new NotFoundException('Staff profile not found');
+
+    // 2. Find their active shift
+    const shift = await this.dutyShiftRepo.findOne({
+      where: [
+        { driverId: profile.id, status: DutyShiftStatus.ON_DUTY },
+        { staffId: profile.id, status: DutyShiftStatus.ON_DUTY }
+      ],
+      relations: ['vehicle']
+    });
+
+    if (!shift) throw new NotFoundException('You do not have an active duty shift');
+
+    // 3. Close Shift
+    shift.status = DutyShiftStatus.COMPLETED;
+    shift.endTime = new Date();
+    await this.dutyShiftRepo.save(shift);
+
+    // 4. Update Vehicle Status
+    // If ANY member of the crew leaves, the vehicle is no longer AVAILABLE
+    const vehicle = shift.vehicle;
+    if (vehicle && vehicle.status !== VehicleStatus.BUSY) {
+      vehicle.status = VehicleStatus.OFFLINE;
+      await this.vehicleRepo.save(vehicle);
+    }
+
+    return { message: 'Duty ended successfully', data: shift };
   }
 
   // --- Inventory Management (Step 5 of Phase 1) ---

@@ -14,8 +14,11 @@ import {
   PatientIntervention,
   Incident,
   Dispatch,
-  Vehicle
+  Vehicle,
+  StaffProfile
 } from '@app/common';
+import { DutyShift } from '@app/common';
+import { VehicleInventory } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthModule } from '../../auth-service/src/auth.module';
@@ -26,7 +29,7 @@ import { CommonModule } from '../../../libs/common/src';
     TypeOrmModule.forFeature([
       Incident, IncidentTimeline, Dispatch, IncidentEscalation, 
       PatientProfile, PatientAssessment, PatientIntervention,
-      Vehicle, LocationLog
+      Vehicle, LocationLog, DutyShift, VehicleInventory, StaffProfile
     ]),
     AuthModule,
     CommonModule,

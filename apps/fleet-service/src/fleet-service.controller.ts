@@ -138,6 +138,18 @@ export class FleetServiceController {
     return this.fleetService.startShift(dto, req.user);
   }
 
+  @Post('duty/start-self')
+  @Roles('Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor', 'Hospital ED Doctor (ERCP)', 'CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async startDutySelf(@Body() dto: { vehicleId: string }, @Req() req: any) {
+    return this.fleetService.startDutySelf(dto.vehicleId, req.user);
+  }
+
+  @Post('duty/end-self')
+  @Roles('Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor', 'Hospital ED Doctor (ERCP)', 'CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async endDutySelf(@Req() req: any) {
+    return this.fleetService.endDutySelf(req.user);
+  }
+
   @Post('shifts/end/:id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
   async endShift(@Param('id') id: string, @Body() dto: EndShiftDto, @Req() req: any) {

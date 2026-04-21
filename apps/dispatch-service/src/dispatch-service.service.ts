@@ -28,7 +28,9 @@ import {
   Incident,
   Dispatch,
   Vehicle,
-  VehicleStatus
+  VehicleStatus,
+  DutyShift,
+  VehicleInventory
 } from '@app/common';
 
 export interface AuditContext {
@@ -51,6 +53,10 @@ export class DispatchServiceService {
     private readonly vehicleRepository: Repository<Vehicle>,
     @InjectRepository(IncidentEscalation)
     private readonly escalationRepository: Repository<IncidentEscalation>,
+    @InjectRepository(DutyShift)
+    private readonly dutyShiftRepository: Repository<DutyShift>,
+    @InjectRepository(VehicleInventory)
+    private readonly inventoryRepository: Repository<VehicleInventory>,
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
   ) {}
@@ -102,6 +108,79 @@ export class DispatchServiceService {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km
+  }
+
+  /**
+   * New Fleet-Aware search logic (Sequential Dispatch).
+   * Finds the best ambulance that is AVAILABLE, has an ACTIVE SHIFT, 
+   * and is NOT in the excluded list (already rejected).
+   */
+  private async findNextBestAmbulance(
+    lat: number, 
+    lon: number, 
+    excludeVehicleIds: string[] = []
+  ): Promise<{ vehicle: Vehicle; duration: number } | null> {
+    // 1. Find all active shifts (crews that are currently on duty)
+    // CRITICAL: We only consider shifts that have BOTH a driver and a medical staff (EMT/Doctor)
+    const activeShifts = await this.dutyShiftRepository.find({
+      where: { status: 'ON_DUTY' as any },
+      relations: ['vehicle']
+    });
+
+    if (activeShifts.length === 0) return null;
+
+    // 2. Identify unique available vehicles with active FULL crews
+    const candidateVehicles = activeShifts
+      .filter(s => s && s.driverId && s.staffId && s.vehicle) // Safely check for vehicle relation
+      .map(s => s.vehicle)
+      .filter(v => 
+        v && // Double safety check for the vehicle object
+        v.status === VehicleStatus.AVAILABLE && 
+        !excludeVehicleIds.includes(v.id) &&
+        !excludeVehicleIds.includes(v.registration_number)
+      );
+
+    if (candidateVehicles.length === 0) return null;
+
+    // 3. Proximity Search (Haversine)
+    const candidates = candidateVehicles.map(vehicle => {
+      const distance = this.getHaversine(
+        Number(lat), 
+        Number(lon), 
+        Number(vehicle.gps_lat), 
+        Number(vehicle.gps_lon)
+      );
+      return { vehicle, distance };
+    });
+
+    candidates.sort((a, b) => a.distance - b.distance);
+    const topCandidates = candidates.slice(0, 5);
+
+    // 4. Travel Time Search
+    let bestVehicle: Vehicle | null = topCandidates[0].vehicle;
+    let minDuration = Infinity;
+
+    for (const item of topCandidates) {
+      try {
+        const routeData = await this.mapsService.getTravelTime(
+          { lat: Number(lat), lng: Number(lon) },
+          { lat: Number(item.vehicle.gps_lat), lng: Number(item.vehicle.gps_lon) }
+        );
+
+        if (routeData.duration < minDuration) {
+          minDuration = routeData.duration;
+          bestVehicle = item.vehicle;
+        }
+      } catch (err) {
+        // Fallback to haversine if maps fail
+        if (item.distance < minDuration) {
+          minDuration = item.distance;
+          bestVehicle = item.vehicle;
+        }
+      }
+    }
+
+    return bestVehicle ? { vehicle: bestVehicle, duration: minDuration } : null;
   }
 
   private async findNearestVehicle(lat: number, lon: number): Promise<Vehicle | null> {
@@ -188,10 +267,36 @@ export class DispatchServiceService {
       { category: incident.category, severity: incident.severity }
     );
 
+    // --- AUTOMATED TRIGGER: Start Auto-Assignment immediately ---
+    let assigned_vehicle: string | null = null;
+    let eta_seconds: number | null = null;
+
+    try {
+      const autoAssignResult = await this.startAutoAssignment(incident.id, context);
+      if (autoAssignResult && autoAssignResult.data) {
+        assigned_vehicle = autoAssignResult.data.vehicle_id;
+        eta_seconds = autoAssignResult.data.eta_seconds;
+        
+        // Reload incident to get latest status and assignment fields
+        const latest = await this.incidentRepository.findOne({
+          where: { id: incident.id }
+        });
+        if (latest) {
+          return {
+            data: latest,
+            assigned_vehicle,
+            eta_seconds,
+          };
+        }
+      }
+    } catch (err) {
+      console.log(`Auto-assignment skipped or failed for incident ${incident.id}: ${err.message}`);
+    }
+
     return {
       data: incident,
-      assigned_vehicle: null,
-      eta_seconds: null,
+      assigned_vehicle,
+      eta_seconds,
     };
   }
 
@@ -576,7 +681,7 @@ export class DispatchServiceService {
     }
 
     // 2. Identify and release the old vehicle
-    const oldVehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id });
+    const oldVehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id! });
     if (oldVehicle) {
       oldVehicle.status = VehicleStatus.AVAILABLE;
       await this.vehicleRepository.save(oldVehicle);
@@ -624,13 +729,182 @@ export class DispatchServiceService {
 
     await this.logSecurityAudit(
       context.userId,
-      'INCIDENT_REASSIGNED',
-      incident.id,
+      'INCIDENT_VEHICLE_REASSIGNED',
+      id,
       context,
-      { old_vehicle: oldVehicleId, new_vehicle: dto.new_vehicle_id, reason: dto.reason }
+      { old_vehicle: oldVehicleId, new_vehicle: dto.new_vehicle_id }
     );
 
     return { data: currentDispatch };
+  }
+
+  // --- NEW: Sequential Auto-Assignment (Phase 3) ---
+
+  async startAutoAssignment(incidentId: string, context: AuditContext) {
+    const incident = await this.incidentRepository.findOneBy({ id: incidentId });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    // 1. Get exclusion list (who has already rejected this incident?)
+    const previousDispatches = await this.dispatchRepository.find({
+      where: { incident_id: incidentId, status: 'REJECTED' }
+    });
+    const excludeIds = previousDispatches.map(d => d.vehicle_id).filter(id => !!id);
+
+    // 2. Find Next Best Ambulance
+    const target = await this.findNextBestAmbulance(
+      incident.gps_lat, 
+      incident.gps_lon, 
+      excludeIds
+    );
+
+    if (!target) {
+      await this.logTimelineEvent(
+        incident.id,
+        'AUTO_ASSIGN_FAILED',
+        'No available crewed ambulances found for auto-assignment.',
+        context.userId
+      );
+      throw new BadRequestException('No available crewed ambulances found.');
+    }
+
+    const { vehicle: targetVehicle, duration } = target;
+
+    // 3. Find the Active Shift to get Driver/EMT IDs
+    const activeShift = await this.dutyShiftRepository.findOne({
+      where: { 
+        vehicleId: targetVehicle.id, 
+        status: 'ON_DUTY' as any 
+      }
+    });
+
+    // --- LOCK VEHICLE: Mark as BUSY immediately to prevent double assignment ---
+    targetVehicle.status = VehicleStatus.BUSY;
+    await this.vehicleRepository.save(targetVehicle);
+
+    // 4. Create PENDING Dispatch
+    const dispatch = this.dispatchRepository.create({
+      incident_id: incidentId,
+      vehicle_id: targetVehicle.registration_number,
+      dispatched_by: context.userId || 'SYSTEM',
+      status: 'PENDING_ACCEPTANCE',
+      driver_id: activeShift?.driverId,
+      emt_id: activeShift?.staffId,
+      organisationId: incident.organisationId,
+      eta_seconds: duration
+    });
+
+    const savedDispatch = await this.dispatchRepository.save(dispatch);
+
+    // 5. Update Incident Status & Assignment
+    incident.status = 'AUTO_ASSIGNING';
+    incident.assigned_vehicle = targetVehicle.registration_number;
+    incident.eta_seconds = duration;
+    await this.incidentRepository.save(incident);
+
+    // 6. Log Events
+    await this.logTimelineEvent(
+      incident.id,
+      'AUTO_ASSIGN_INITIATED',
+      `Auto-assignment sent to ${targetVehicle.registration_number}. Waiting for acceptance.`,
+      context.userId,
+      { vehicle_id: targetVehicle.registration_number }
+    );
+
+    return { data: savedDispatch };
+  }
+
+  async acceptDispatch(dispatchId: string, requestUser: any) {
+    const dispatch = await this.dispatchRepository.findOne({
+      where: { id: dispatchId },
+      relations: ['incident']
+    });
+
+    if (!dispatch) throw new NotFoundException('Dispatch request not found');
+    if (dispatch.status !== 'PENDING_ACCEPTANCE') {
+      throw new BadRequestException(`Cannot accept dispatch with status ${dispatch.status}`);
+    }
+
+    // 1. Update Dispatch Status
+    dispatch.status = 'DISPATCHED';
+    await this.dispatchRepository.save(dispatch);
+
+    // 2. Update Incident Status
+    const incident = dispatch.incident;
+    incident.status = 'ASSIGNED';
+    incident.assigned_vehicle = dispatch.vehicle_id;
+    await this.incidentRepository.save(incident);
+
+    // 3. Update Vehicle Status
+    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: dispatch.vehicle_id! });
+    if (vehicle) {
+      vehicle.status = VehicleStatus.BUSY;
+      await this.vehicleRepository.save(vehicle);
+    }
+
+    // 4. Log Events
+    await this.logTimelineEvent(
+      incident.id,
+      'DISPATCH_ACCEPTED',
+      `Vehicle ${dispatch.vehicle_id} has ACCEPTED the trip.`,
+      requestUser.id || requestUser.userId,
+      { dispatch_id: dispatchId }
+    );
+
+    return { message: 'Dispatch accepted successfully', data: dispatch };
+  }
+
+  async rejectDispatch(dispatchId: string, reason: string, requestUser: any) {
+    const dispatch = await this.dispatchRepository.findOne({
+      where: { id: dispatchId },
+      relations: ['incident']
+    });
+
+    if (!dispatch) {
+      // Check if the user accidentally passed an Incident ID
+      const incidentExists = await this.incidentRepository.findOneBy({ id: dispatchId });
+      if (incidentExists) {
+        throw new BadRequestException('Invalid ID: You provided an Incident ID, but this endpoint requires a Dispatch ID. Please use the ID of the ambulance request found in the initial assignment response.');
+      }
+      throw new NotFoundException('Dispatch request not found');
+    }
+
+    if (dispatch.status !== 'PENDING_ACCEPTANCE') {
+      throw new BadRequestException('Can only reject a pending dispatch');
+    }
+
+    try {
+      // 1. Mark current dispatch as REJECTED
+      dispatch.status = 'REJECTED';
+      // @ts-ignore
+      dispatch.cancellation_reason = reason; 
+      await this.dispatchRepository.save(dispatch);
+    } catch (err) {
+      console.error(`[RejectDispatch] Error saving dispatch ${dispatchId}:`, err);
+      throw err;
+    }
+
+    // --- RELEASE VEHICLE: Set status back to AVAILABLE ---
+    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: dispatch.vehicle_id! });
+    if (vehicle) {
+      vehicle.status = VehicleStatus.AVAILABLE;
+      await this.vehicleRepository.save(vehicle);
+    }
+
+    // 2. Log Rejection
+    await this.logTimelineEvent(
+      dispatch.incident_id,
+      'DISPATCH_REJECTED',
+      `Vehicle ${dispatch.vehicle_id} REJECTED the trip. Reason: ${reason}`,
+      requestUser.id || requestUser.userId
+    );
+
+    // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
+    // We pass a mock context or use the one from the rejection request
+    return this.startAutoAssignment(dispatch.incident_id, { 
+      userId: requestUser.id || requestUser.userId,
+      ip: '0.0.0.0',
+      userAgent: 'sequential-reassignment'
+    });
   }
 
   async cancelDispatch(id: string, dto: CancelDispatchDto, context: AuditContext) {
@@ -648,7 +922,7 @@ export class DispatchServiceService {
     }
 
     // 2. Release current vehicle
-    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id });
+    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: currentDispatch.vehicle_id! });
     if (vehicle) {
       vehicle.status = VehicleStatus.AVAILABLE;
       await this.vehicleRepository.save(vehicle);

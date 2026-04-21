@@ -368,7 +368,7 @@ export class PatientService {
         if (latestDispatch) {
           const vehicleId = latestDispatch.vehicle_id;
           const inventory = await this.vehicleInventoryRepo.findOneBy({
-            vehicle_id: vehicleId,
+            vehicle_id: vehicleId!,
             inventory_item_id: dto.inventory_item_id,
           });
 

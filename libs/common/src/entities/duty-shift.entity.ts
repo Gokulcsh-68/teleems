@@ -23,7 +23,7 @@ export class DutyShift {
 
   @Column({ name: 'driver_id', type: 'uuid', nullable: true })
   @Index()
-  driverId: string;
+  driverId: string | null;
 
   @ManyToOne(() => StaffProfile)
   @JoinColumn({ name: 'driver_id' })
@@ -31,7 +31,7 @@ export class DutyShift {
 
   @Column({ name: 'staff_id', type: 'uuid', nullable: true })
   @Index()
-  staffId: string; // EMT or Doctor
+  staffId: string | null; // EMT or Doctor
 
   @ManyToOne(() => StaffProfile)
   @JoinColumn({ name: 'staff_id' })
@@ -39,7 +39,7 @@ export class DutyShift {
 
   @Column({ name: 'organisation_id', type: 'uuid', nullable: true })
   @Index()
-  organisationId: string;
+  organisationId: string | null;
 
   @Column({ type: 'timestamptz' })
   startTime: Date;

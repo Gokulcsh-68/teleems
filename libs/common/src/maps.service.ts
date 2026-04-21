@@ -88,6 +88,15 @@ export class MapsService {
    */
   private simulateTravelTime(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) {
     const dist = this.haversine(origin.lat, origin.lng, destination.lat, destination.lng);
+    
+    // SANITY CHECK: If distance > 100km, assume GPS is uninitialized (0,0) and use default 15 mins
+    if (dist > 100) {
+      return {
+        duration: 900, // 15 minutes default
+        distance: dist * 1000
+      };
+    }
+
     // Assume 30km/h average in city traffic
     const duration = Math.floor((dist / 30) * 3600);
     return {

@@ -63,6 +63,18 @@ export class DispatchServiceController {
     return this.dispatchService.getSlaBreaches(query);
   }
 
+  @Post(':id/auto-assign')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
+  async autoAssignIncident(@Param('id') id: string, @Req() req: any) {
+    const context: AuditContext = {
+      userId: req.user.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      organisationId: req.user.organisationId,
+    };
+    return this.dispatchService.startAutoAssignment(id, context);
+  }
+
   @Post(':id/dispatch')
   @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
   async dispatchIncident(@Param('id') id: string, @Body() dto: DispatchIncidentDto, @Req() req: any) {
@@ -76,7 +88,7 @@ export class DispatchServiceController {
   }
 
   @Get(':id/dispatch')
-  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator')
+  @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic')
   async getActiveDispatch(@Param('id') id: string) {
     return this.dispatchService.getActiveDispatch(id);
   }
