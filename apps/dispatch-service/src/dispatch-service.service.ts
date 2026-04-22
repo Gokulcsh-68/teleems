@@ -4,7 +4,7 @@ import { Repository, Brackets } from 'typeorm';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
-import { CreateIncidentDto } from './dto/create-incident.dto';
+import { CreateIncidentDto, TriageLevel, IncidentSeverity } from './dto/create-incident.dto';
 import { UpdateIncidentStatusDto, AssignVehicleDto, UpdateIncidentDto, CancelIncidentDto } from './dto/update-incident.dto';
 import { ReassignVehicleDto } from './dto/reassign-vehicle.dto';
 import { CancelDispatchDto } from './dto/cancel-dispatch.dto';
@@ -252,13 +252,24 @@ export class DispatchServiceService {
       organisationId: context.organisationId || dto.organisationId,
     };
 
+    // Step 1 & 2: Map TriageLevel to internal severity if explicit severity is missing
+    let severity = dto.severity;
+    if (!severity && dto.triage_level) {
+      if (dto.triage_level === TriageLevel.RED) severity = IncidentSeverity.CRITICAL;
+      else if (dto.triage_level === TriageLevel.ORANGE) severity = IncidentSeverity.HIGH;
+      else if (dto.triage_level === TriageLevel.GREEN) severity = IncidentSeverity.MEDIUM;
+      else severity = IncidentSeverity.LOW;
+    }
+
     const incidentData: Partial<Incident> = {
       ...dto,
+      severity: severity || IncidentSeverity.LOW,
       organisationId: fullContext.organisationId,
       patients: dto.patients.map(p => ({
         id: uuid(),
         ...p,
-        triage_code: (p.triage_code || 'PENDING').toUpperCase(),
+        triage_level: p.triage_level || dto.triage_level || TriageLevel.GREEN,
+        symptoms: p.symptoms || [],
       })),
       caller_id: fullContext.userId,
       guest_name: dto.guest_name,
@@ -1314,7 +1325,7 @@ export class DispatchServiceService {
       name: p.name,
       age: p.age,
       gender: p.gender,
-      triage_code: (p.triage_code || 'PENDING').toUpperCase(),
+      triage_level: p.triage_level || TriageLevel.GREEN,
       symptoms: p.symptoms || [],
     }));
 
@@ -1329,7 +1340,7 @@ export class DispatchServiceService {
       context.userId,
       { 
         patient_count: newPatients.length, 
-        triages: newPatients.map(p => p.triage_code) 
+        triages: newPatients.map(p => p.triage_level) 
       }
     );
 
@@ -1378,7 +1389,7 @@ export class DispatchServiceService {
     if (dto.name) patient.name = dto.name;
     if (dto.age) patient.age = dto.age;
     if (dto.gender) patient.gender = dto.gender;
-    if (dto.triage_code) patient.triage_code = dto.triage_code.toUpperCase();
+    if (dto.triage_level) patient.triage_level = dto.triage_level;
     if (dto.symptoms) {
       patient.symptoms = [...(patient.symptoms || []), ...dto.symptoms];
     }
@@ -1389,7 +1400,7 @@ export class DispatchServiceService {
     await this.logTimelineEvent(
       incident.id,
       'PATIENT_UPDATED',
-      `Patient update: ${dto.triage_code ? `Triage changed to ${dto.triage_code.toUpperCase()}` : 'Profile updated.'}`,
+      `Patient update: ${dto.triage_level ? `Triage changed to ${dto.triage_level}` : 'Profile updated.'}`,
       context.userId,
       { patient_id: patientId, updates: dto }
     );

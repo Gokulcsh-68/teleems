@@ -1,4 +1,6 @@
-import { IsString, IsNumber, IsOptional, IsArray, IsNotEmpty } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsArray, IsNotEmpty, IsEnum, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { TriageLevel, SymptomDto } from './create-incident.dto';
 
 export class AddPatientDto {
   @IsString()
@@ -13,12 +15,13 @@ export class AddPatientDto {
   @IsNotEmpty()
   gender: string;
 
-  @IsString()
+  @IsEnum(TriageLevel)
   @IsOptional()
-  triage_code: string;
+  triage_level?: TriageLevel;
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => SymptomDto)
   @IsOptional()
-  symptoms?: string[];
+  symptoms?: SymptomDto[];
 }

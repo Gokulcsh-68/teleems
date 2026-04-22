@@ -10,11 +10,28 @@ export enum IncidentCategory {
   OTHER = 'OTHER',
 }
 
+export enum TriageLevel {
+  RED = 'RED',       // Most Urgent - Life Threatening
+  ORANGE = 'ORANGE', // Urgent - Not Life Threatening
+  GREEN = 'GREEN',   // Less Urgent - Walking Wounded
+  WHITE = 'WHITE',   // Non-Emergency
+  BLACK = 'BLACK',   // Dead/Deceased
+}
+
 export enum IncidentSeverity {
   CRITICAL = 'CRITICAL',
   HIGH = 'HIGH',
   MEDIUM = 'MEDIUM',
   LOW = 'LOW',
+}
+
+export class SymptomDto {
+  @IsString()
+  name: string;
+
+  @IsNumber()
+  @IsOptional()
+  duration_minutes?: number;
 }
 
 export class PatientDto {
@@ -29,22 +46,28 @@ export class PatientDto {
   @IsString()
   gender: string;
 
-  @IsString()
+  @IsEnum(TriageLevel)
   @IsOptional()
-  triage_code: string;
+  triage_level?: TriageLevel;
 
   @IsArray()
-  @IsString({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => SymptomDto)
   @IsOptional()
-  symptoms?: string[];
+  symptoms?: SymptomDto[];
 }
 
 export class CreateIncidentDto {
   @IsEnum(IncidentCategory)
   category: IncidentCategory;
 
+  @IsEnum(TriageLevel)
+  @IsOptional()
+  triage_level?: TriageLevel;
+
   @IsEnum(IncidentSeverity)
-  severity: IncidentSeverity;
+  @IsOptional()
+  severity?: IncidentSeverity;
 
   @IsString()
   @IsOptional()

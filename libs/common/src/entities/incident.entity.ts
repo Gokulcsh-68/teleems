@@ -32,8 +32,8 @@ export class Incident {
     name?: string; 
     age?: number; 
     gender: string; 
-    triage_code: string; 
-    symptoms?: string[] 
+    triage_level: string; 
+    symptoms?: { name: string; duration_minutes?: number }[] 
   }[];
 
   @Column({ type: 'text', nullable: true })
