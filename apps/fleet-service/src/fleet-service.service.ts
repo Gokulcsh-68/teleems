@@ -365,7 +365,7 @@ export class FleetServiceService {
     return { data: await this.stationRepo.save(station) };
   }
 
-  async findAllStations(requestUser: any) {
+  async findAllStations(requestUser: any, filterOrgId?: string) {
     const isPlatformAdmin = requestUser.roles?.some((r: string) => 
       ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
     );
@@ -374,6 +374,8 @@ export class FleetServiceService {
 
     if (!isPlatformAdmin) {
       queryBuilder.andWhere('station.organisationId = :orgId', { orgId: requestUser.organisationId || requestUser.org_id });
+    } else if (filterOrgId) {
+      queryBuilder.andWhere('station.organisationId = :orgId', { orgId: filterOrgId });
     }
 
     queryBuilder.orderBy('station.name', 'ASC');

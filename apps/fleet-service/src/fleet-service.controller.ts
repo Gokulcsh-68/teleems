@@ -88,8 +88,8 @@ export class FleetServiceController {
 
   @Get('stations')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Hospital Admin')
-  async listStations(@Req() req: any) {
-    return this.fleetService.findAllStations(req.user);
+  async listStations(@Query('organisation_id') orgId: string, @Req() req: any) {
+    return this.fleetService.findAllStations(req.user, orgId);
   }
 
   @Get('stations/:id')
