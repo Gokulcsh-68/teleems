@@ -16,21 +16,23 @@ import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
+import { Public } from '../../../libs/common/src/decorators/public.decorator';
 
 @Controller('v1/incidents')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class DispatchServiceController {
   constructor(private readonly dispatchService: DispatchServiceService) {}
 
+  @Public()
   @Post()
   @Roles('Caller (Public)', 'Call Centre Executive (CCE)', 'Hospital Admin', 'CureSelect Admin')
   @HttpCode(201)
   async createIncident(@Body() dto: CreateIncidentDto, @Req() req: any) {
-    const context: AuditContext = {
-      userId: req.user.userId,
+    const context: Partial<AuditContext> = {
+      userId: req.user?.userId,
       ip: req.ip,
       userAgent: req.get('user-agent'),
-      organisationId: req.user.organisationId,
+      organisationId: req.user?.organisationId,
     };
     const result = await this.dispatchService.createIncident(dto, context);
     return {

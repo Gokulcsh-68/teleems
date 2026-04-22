@@ -243,16 +243,26 @@ export class DispatchServiceService {
     return R * c;
   }
 
-  async createIncident(dto: CreateIncidentDto, context: AuditContext) {
-    const incidentData = {
+  async createIncident(dto: CreateIncidentDto, context: Partial<AuditContext>) {
+    // Construct a full AuditContext with defaults for mandatory fields
+    const fullContext: AuditContext = {
+      userId: context.userId || dto.caller_id || 'GUEST',
+      ip: context.ip || '0.0.0.0',
+      userAgent: context.userAgent || 'unknown',
+      organisationId: context.organisationId || dto.organisationId,
+    };
+
+    const incidentData: Partial<Incident> = {
       ...dto,
-      organisationId: dto.organisationId || context.organisationId,
+      organisationId: fullContext.organisationId,
       patients: dto.patients.map(p => ({
         id: uuid(),
         ...p,
         triage_code: (p.triage_code || 'PENDING').toUpperCase(),
       })),
-      caller_id: dto.caller_id || context.userId,
+      caller_id: fullContext.userId,
+      guest_name: dto.guest_name,
+      guest_phone: dto.guest_phone,
       status: 'PENDING',
     };
 
@@ -263,15 +273,15 @@ export class DispatchServiceService {
       incident.id, 
       'CREATED', 
       `Incident reported by ${incident.caller_id}`,
-      context.userId,
+      fullContext.userId,
       { category: incident.category, severity: incident.severity }
     );
 
     await this.logSecurityAudit(
-      context.userId,
+      fullContext.userId,
       'INCIDENT_CREATED',
       incident.id,
-      context,
+      fullContext,
       { category: incident.category, severity: incident.severity }
     );
 
@@ -280,7 +290,7 @@ export class DispatchServiceService {
     let eta_seconds: number | null = null;
 
     try {
-      const autoAssignResult = await this.startAutoAssignment(incident.id, context);
+      const autoAssignResult = await this.startAutoAssignment(incident.id, fullContext);
       if (autoAssignResult && autoAssignResult.data) {
         assigned_vehicle = autoAssignResult.data.vehicle_id;
         eta_seconds = autoAssignResult.data.eta_seconds;

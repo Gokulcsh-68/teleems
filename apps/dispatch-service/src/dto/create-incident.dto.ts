@@ -71,4 +71,12 @@ export class CreateIncidentDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  guest_name?: string;
+
+  @IsString()
+  @IsOptional()
+  guest_phone?: string;
 }

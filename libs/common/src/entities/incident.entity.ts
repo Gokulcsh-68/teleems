@@ -39,6 +39,12 @@ export class Incident {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  guest_name: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  guest_phone: string;
+
   @Column({ default: 'PENDING' })
   status: string;
 
