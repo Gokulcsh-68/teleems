@@ -119,6 +119,7 @@ export class DispatchServiceController {
     return this.dispatchService.cancelDispatch(id, dto, context);
   }
 
+  @Public()
   @Get(':id')
   @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async getIncident(@Param('id') id: string, @Req() req: any) {
@@ -174,6 +175,7 @@ export class DispatchServiceController {
     await this.dispatchService.cancelIncident(id, dto, context);
   }
 
+  @Public()
   @Get(':id/timeline')
   @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)', 'Hospital Admin')
   async getTimeline(@Param('id') id: string, @Query() query: PaginationQueryDto, @Req() req: any) {
