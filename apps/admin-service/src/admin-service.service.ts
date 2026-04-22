@@ -179,6 +179,10 @@ export class AdminServiceService {
   // --- Unified Hospital Registration ---
 
   async registerHospitalWithAdmin(dto: RegisterHospitalDto, creator: any, ip: string) {
+    // 1. Pre-flight checks for unique constraints
+    const existingHosp = await this.hospitalRepo.findOne({ where: { name: dto.hospital.name } });
+    if (existingHosp) throw new ConflictException(`Hospital with name '${dto.hospital.name}' already exists.`);
+
     return await this.dataSource.transaction(async (manager) => {
       // 1. Automatic Hospital Code Generation (e.g. Apollo -> APOL)
       const hospitalData = { ...dto.hospital };
@@ -227,6 +231,20 @@ export class AdminServiceService {
   }
 
   async registerFleetOperatorWithAdmin(dto: RegisterFleetOperatorDto, creator: any, ip: string) {
+    // 1. Pre-flight checks for unique constraints
+    const existingOrg = await this.orgRepo.findOne({ where: { name: dto.organisation.name } });
+    if (existingOrg) throw new ConflictException(`Organisation with name '${dto.organisation.name}' already exists.`);
+
+    if (dto.organisation.reg_number) {
+      const existingReg = await this.orgRepo.findOne({ where: { registration_number: dto.organisation.reg_number } });
+      if (existingReg) throw new ConflictException(`Organisation with registration number '${dto.organisation.reg_number}' already exists.`);
+    }
+
+    if (dto.organisation.gstin) {
+      const existingGstin = await this.orgRepo.findOne({ where: { gstin: dto.organisation.gstin } });
+      if (existingGstin) throw new ConflictException(`Organisation with GSTIN '${dto.organisation.gstin}' already exists.`);
+    }
+
     return await this.dataSource.transaction(async (manager) => {
       // 1. Create Organisation (using flattened fields)
       const orgData: any = {
