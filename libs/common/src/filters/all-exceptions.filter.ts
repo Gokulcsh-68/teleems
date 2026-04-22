@@ -8,12 +8,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request & { requestId?: string }>();
+    const isHttpException = 
+      exception instanceof HttpException || 
+      (exception && typeof (exception as any).getStatus === 'function' && typeof (exception as any).getResponse === 'function');
+
     const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
+      isHttpException
+        ? (exception as any).getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
+    if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
+      console.error('[AllExceptionsFilter] Caught 500 error:', exception);
+    }
+
+    const exceptionResponse = isHttpException ? (exception as any).getResponse() : null;
     
     // Default meanings from Teleems Spec 1.5
     const statusMeanings: Record<number, string> = {
@@ -60,7 +68,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json({
       error: {
         code: `ERR_${status}`,
-        message: message,
+        message: status === HttpStatus.INTERNAL_SERVER_ERROR && exception instanceof Error ? `Server Error: ${exception.message}` : message,
         details: details.length > 0 ? details : undefined,
         request_id: requestId,
       },
