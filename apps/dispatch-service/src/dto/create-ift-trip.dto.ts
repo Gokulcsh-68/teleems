@@ -1,4 +1,10 @@
-import { IsString, IsObject, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsObject,
+  IsEnum,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 
 export enum IftUrgency {
   BASIC = 'BASIC',

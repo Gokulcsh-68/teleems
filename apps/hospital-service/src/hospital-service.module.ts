@@ -15,7 +15,11 @@ import { DepartmentService } from './department.service';
     TypeOrmModule.forFeature([Hospital, HospitalStatus, Department]),
     AuthModule,
   ],
-  controllers: [HospitalServiceController, HospitalOpsController, DepartmentController],
+  controllers: [
+    HospitalServiceController,
+    HospitalOpsController,
+    DepartmentController,
+  ],
   providers: [HospitalServiceService, HospitalOpsService, DepartmentService],
 })
 export class HospitalServiceModule {}

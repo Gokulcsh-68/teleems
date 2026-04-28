@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsObject,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { SubscriptionPlan, OrganisationStatus } from '@app/common';
 
 export class CreateFleetOrganisationDto {

@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsEmail,
+} from 'class-validator';
 import { OrganisationStatus, SubscriptionPlan } from '@app/common';
 
 export class CreateOrganisationDto {

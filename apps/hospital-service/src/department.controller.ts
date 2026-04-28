@@ -1,9 +1,21 @@
-import { 
-  Controller, Get, Post, Body, Patch, Param, Delete, Query, 
-  UseGuards, Req 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { DepartmentService } from './department.service';
-import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentQueryDto } from './dto/department.dto';
+import {
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
+  DepartmentQueryDto,
+} from './dto/department.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 
 @Controller('v1/hospital/departments')
@@ -35,9 +47,9 @@ export class DepartmentController {
   @Patch(':id')
   @Roles('CureSelect Admin', 'Hospital Admin')
   update(
-    @Param('id') id: string, 
-    @Body() dto: UpdateDepartmentDto, 
-    @Req() req: any
+    @Param('id') id: string,
+    @Body() dto: UpdateDepartmentDto,
+    @Req() req: any,
   ) {
     return this.departmentService.update(id, dto, req.user, req.ip);
   }

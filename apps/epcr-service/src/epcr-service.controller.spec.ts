@@ -11,7 +11,8 @@ describe('EpcrServiceController', () => {
       providers: [EpcrServiceService],
     }).compile();
 
-    epcrServiceController = app.get<EpcrServiceController>(EpcrServiceController);
+    epcrServiceController = app.get<EpcrServiceController>(
+      EpcrServiceController,
+    );
   });
-
 });

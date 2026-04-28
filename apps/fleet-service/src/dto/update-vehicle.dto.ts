@@ -1,4 +1,12 @@
-import { IsString, IsEnum, IsNumber, IsOptional, Min, Max, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  Min,
+  Max,
+  IsBoolean,
+} from 'class-validator';
 import { VehicleStatus, VehicleType, OwnershipType } from '@app/common';
 
 export class UpdateVehicleDto {

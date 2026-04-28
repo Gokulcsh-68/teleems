@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
@@ -19,10 +23,10 @@ import {
   PatientProfile,
   PatientAssessment,
   PatientIntervention,
-  PaginatedResponse, 
-  encodeCursor, 
-  decodeCursor, 
-  StorageService, 
+  PaginatedResponse,
+  encodeCursor,
+  decodeCursor,
+  StorageService,
   MapsService,
   Incident,
   Dispatch,
@@ -61,35 +65,80 @@ export class TripService {
 
   private readonly validTransitions: Record<string, string[]> = {
     [TripStatus.CREATED]: [TripStatus.DISPATCHED],
-    [TripStatus.DISPATCHED]: [TripStatus.EN_ROUTE_SCENE, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
-    [TripStatus.EN_ROUTE_SCENE]: [TripStatus.AT_SCENE, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
-    [TripStatus.AT_SCENE]: [TripStatus.PATIENT_LOADED, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
-    [TripStatus.PATIENT_LOADED]: [TripStatus.EN_ROUTE_HOSPITAL, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
-    [TripStatus.EN_ROUTE_HOSPITAL]: [TripStatus.AT_HOSPITAL, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
-    [TripStatus.AT_HOSPITAL]: [TripStatus.HANDOFF_COMPLETE, TripStatus.CANCELLED, TripStatus.BREAKDOWN],
+    [TripStatus.DISPATCHED]: [
+      TripStatus.EN_ROUTE_SCENE,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
+    [TripStatus.EN_ROUTE_SCENE]: [
+      TripStatus.AT_SCENE,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
+    [TripStatus.AT_SCENE]: [
+      TripStatus.PATIENT_LOADED,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
+    [TripStatus.PATIENT_LOADED]: [
+      TripStatus.EN_ROUTE_HOSPITAL,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
+    [TripStatus.EN_ROUTE_HOSPITAL]: [
+      TripStatus.AT_HOSPITAL,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
+    [TripStatus.AT_HOSPITAL]: [
+      TripStatus.HANDOFF_COMPLETE,
+      TripStatus.CANCELLED,
+      TripStatus.BREAKDOWN,
+    ],
     [TripStatus.HANDOFF_COMPLETE]: [],
     [TripStatus.CANCELLED]: [],
-    [TripStatus.BREAKDOWN]: [TripStatus.CANCELLED, TripStatus.EN_ROUTE_SCENE, TripStatus.EN_ROUTE_HOSPITAL],
+    [TripStatus.BREAKDOWN]: [
+      TripStatus.CANCELLED,
+      TripStatus.EN_ROUTE_SCENE,
+      TripStatus.EN_ROUTE_HOSPITAL,
+    ],
   };
 
   async findAllTrips(query: TripQueryDto, requestUser: any) {
-    const { 
-      status, vehicle_id, driver_id, emt_id, 
-      date_from, date_to, incident_id, limit: limitStr, cursor 
+    const {
+      status,
+      vehicle_id,
+      driver_id,
+      emt_id,
+      date_from,
+      date_to,
+      incident_id,
+      limit: limitStr,
+      cursor,
     } = query;
 
     const parsedLimit = parseInt(limitStr || '50', 10);
     const limit = isNaN(parsedLimit) ? 50 : Math.min(parsedLimit, 100);
 
-    const qb = this.dispatchRepo.createQueryBuilder('trip')
-      .innerJoin(Incident, 'incident', 'incident.id = CAST(trip.incident_id AS uuid)')
+    const qb = this.dispatchRepo
+      .createQueryBuilder('trip')
+      .innerJoin(
+        Incident,
+        'incident',
+        'incident.id = CAST(trip.incident_id AS uuid)',
+      )
       .orderBy('trip.dispatched_at', 'DESC')
       .addOrderBy('trip.id', 'DESC');
 
     // 1. Tenant Isolation
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     if (!isPlatformAdmin) {
@@ -98,7 +147,10 @@ export class TripService {
         throw new ForbiddenException('User organization context missing');
       }
 
-      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+      if (
+        roles.includes('Hospital Admin') ||
+        roles.includes('Fleet Operator')
+      ) {
         qb.andWhere('incident.organisationId = :orgId', { orgId });
       } else if (roles.includes('Pilot') || roles.includes('Ambulance Pilot (Driver)') || roles.includes('EMT / Paramedic')) {
         const staffId = await this.getStaffProfileId(requestUser.userId);
@@ -117,13 +169,17 @@ export class TripService {
 
     // 2. Filters
     if (status) qb.andWhere('trip.status = :status', { status });
-    if (vehicle_id) qb.andWhere('trip.vehicle_id = :vehicle_id', { vehicle_id });
+    if (vehicle_id)
+      qb.andWhere('trip.vehicle_id = :vehicle_id', { vehicle_id });
     if (driver_id) qb.andWhere('trip.driver_id = :driver_id', { driver_id });
     if (emt_id) qb.andWhere('trip.emt_id = :emt_id', { emt_id });
-    if (incident_id) qb.andWhere('trip.incident_id = :incident_id', { incident_id });
+    if (incident_id)
+      qb.andWhere('trip.incident_id = :incident_id', { incident_id });
 
-    if (date_from) qb.andWhere('trip.dispatched_at >= :dateFrom', { dateFrom: date_from });
-    if (date_to) qb.andWhere('trip.dispatched_at <= :dateTo', { dateTo: date_to });
+    if (date_from)
+      qb.andWhere('trip.dispatched_at >= :dateFrom', { dateFrom: date_from });
+    if (date_to)
+      qb.andWhere('trip.dispatched_at <= :dateTo', { dateTo: date_to });
 
     // 3. Pagination
     if (cursor) {
@@ -132,7 +188,7 @@ export class TripService {
       if (cursorDate && cursorId) {
         qb.andWhere(
           '(trip.dispatched_at < :cursorDate OR (trip.dispatched_at = :cursorDate AND trip.id < :cursorId))',
-          { cursorDate, cursorId }
+          { cursorDate, cursorId },
         );
       }
     }
@@ -143,13 +199,21 @@ export class TripService {
 
     const hasNextPage = data.length >= limit;
     let next_cursor: string | null = null;
-    
+
     if (hasNextPage) {
       const last = data[data.length - 1];
-      next_cursor = encodeCursor(`${last.dispatched_at.toISOString()}|${last.id}`);
+      next_cursor = encodeCursor(
+        `${last.dispatched_at.toISOString()}|${last.id}`,
+      );
     }
 
-    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
+    return new PaginatedResponse(
+      data,
+      next_cursor,
+      total_count,
+      limit,
+      data.length,
+    );
   }
 
   async findOneTrip(id: string, requestUser: any) {
@@ -163,8 +227,13 @@ export class TripService {
     }
 
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     if (!isPlatformAdmin) {
@@ -189,7 +258,9 @@ export class TripService {
           throw new ForbiddenException('Insufficient permissions to view this trip (You are not the assigned EMT)');
         }
       } else {
-        throw new ForbiddenException('Insufficient permissions to view this trip');
+        throw new ForbiddenException(
+          'Insufficient permissions to view this trip',
+        );
       }
     }
 
@@ -205,8 +276,8 @@ export class TripService {
         trip_id: trip.id,
         driver_id: trip.driver_id,
         emt_id: trip.emt_id,
-        assigned_at: trip.dispatched_at
-      }
+        assigned_at: trip.dispatched_at,
+      },
     };
   }
 
@@ -220,7 +291,8 @@ export class TripService {
     const endTime = trip.status === 'COMPLETED' ? trip.updatedAt : new Date();
 
     // 3. Query LocationLog table
-    const logs = await this.locationRepo.createQueryBuilder('log')
+    const logs = await this.locationRepo
+      .createQueryBuilder('log')
       .where('log.vehicle_id = :vehicleId', { vehicleId: trip.vehicle_id })
       .andWhere('log.timestamp >= :startTime', { startTime })
       .andWhere('log.timestamp <= :endTime', { endTime })
@@ -228,17 +300,21 @@ export class TripService {
       .getMany();
 
     // 4. Transform to standardized format
-    const data = logs.map(log => ({
+    const data = logs.map((log) => ({
       latitude: Number(log.latitude),
       longitude: Number(log.longitude),
       timestamp: log.timestamp,
-      speed: Number(log.speed)
+      speed: Number(log.speed),
     }));
 
     return { data };
   }
 
-  async updateTripStatus(id: string, dto: UpdateTripStatusDto, requestUser: any) {
+  async updateTripStatus(
+    id: string,
+    dto: UpdateTripStatusDto,
+    requestUser: any,
+  ) {
     // 1. Fetch trip and validate ownership/isolation
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
@@ -246,9 +322,11 @@ export class TripService {
     // 2. Validate Transition
     const currentStatus = trip.status || TripStatus.CREATED;
     const allowed = this.validTransitions[currentStatus] || [];
-    
+
     if (!allowed.includes(dto.status)) {
-      throw new ForbiddenException(`Invalid transition from ${currentStatus} to ${dto.status}`);
+      throw new ForbiddenException(
+        `Invalid transition from ${currentStatus} to ${dto.status}`,
+      );
     }
 
     // 3. Update Trip Status
@@ -285,14 +363,17 @@ export class TripService {
     // 4. Update Vehicle Status & Location
     const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id! } });
     if (vehicle) {
-      if (dto.status === TripStatus.HANDOFF_COMPLETE || dto.status === TripStatus.CANCELLED) {
+      if (
+        dto.status === TripStatus.HANDOFF_COMPLETE ||
+        dto.status === TripStatus.CANCELLED
+      ) {
         vehicle.status = VehicleStatus.AVAILABLE;
       } else if (dto.status === TripStatus.BREAKDOWN) {
         vehicle.status = VehicleStatus.MAINTENANCE;
       } else {
         vehicle.status = VehicleStatus.DISPATCHED;
       }
-      
+
       vehicle.gps_lat = dto.gps_lat;
       vehicle.gps_lon = dto.gps_lon;
       await this.vehicleRepo.save(vehicle);
@@ -323,8 +404,13 @@ export class TripService {
 
   async startTrip(id: string, dto: StartTripDto, requestUser: any) {
     // 1. Fetch trip and parent incident
-    const qb = this.dispatchRepo.createQueryBuilder('trip')
-      .innerJoin(Incident, 'incident', 'incident.id = CAST(trip.incident_id AS uuid)')
+    const qb = this.dispatchRepo
+      .createQueryBuilder('trip')
+      .innerJoin(
+        Incident,
+        'incident',
+        'incident.id = CAST(trip.incident_id AS uuid)',
+      )
       .addSelect(['incident.gps_lat', 'incident.gps_lon'])
       .where('trip.id = :id', { id });
 
@@ -350,15 +436,17 @@ export class TripService {
     await this.updateTripStatus(id, updateDto, requestUser);
 
     // 3. Calculate ETA to scene
-    const incident = await this.dispatchRepo.manager.findOne(Incident, { where: { id: trip.incident_id } });
+    const incident = await this.dispatchRepo.manager.findOne(Incident, {
+      where: { id: trip.incident_id },
+    });
     let eta_seconds = 120; // Default fallback
 
     if (incident) {
       const distance = this.getDistance(
-        Number(dto.gps_lat), 
-        Number(dto.gps_lon), 
-        Number(incident.gps_lat), 
-        Number(incident.gps_lon)
+        Number(dto.gps_lat),
+        Number(dto.gps_lon),
+        Number(incident.gps_lat),
+        Number(incident.gps_lon),
       );
       // Rough estimate: distance in km / 45 km/h * 3600 seconds
       eta_seconds = Math.round((distance / 45) * 3600);
@@ -396,7 +484,7 @@ export class TripService {
     await this.dispatchRepo.save(trip);
 
     // Simulation: ETA to Hospital (Defaulting to 8 mins if no location service)
-    const eta_to_hospital = 480; 
+    const eta_to_hospital = 480;
 
     return { data: trip, eta_to_hospital };
   }
@@ -463,21 +551,27 @@ export class TripService {
     trip.breakdown_category = dto.category;
     await this.dispatchRepo.save(trip);
 
-    return { 
-      data: trip, 
-      backup_request_id: `BACKUP-${trip.incident_id.split('-')[0]}` 
+    return {
+      data: trip,
+      backup_request_id: `BACKUP-${trip.incident_id.split('-')[0]}`,
     };
   }
 
   async createIftTrip(dto: CreateIftTripDto, requestUser: any) {
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
-    const orgId = (isPlatformAdmin && dto.organisationId) 
-      ? dto.organisationId 
-      : (requestUser.organisationId || requestUser.org_id);
+    const orgId =
+      isPlatformAdmin && dto.organisationId
+        ? dto.organisationId
+        : requestUser.organisationId || requestUser.org_id;
 
     if (!orgId) throw new ForbiddenException('Organization context missing');
 
@@ -489,23 +583,28 @@ export class TripService {
       gps_lat: 0, // Will be updated by vehicle location
       gps_lon: 0,
       address: `IFT Transfer from ${dto.origin_hospital_id}`,
-      patients: [{
-        id: encodeCursor('PAT'),
-        gender: 'UNKNOWN',
-        triage_code: dto.urgency,
-      }],
+      patients: [
+        {
+          id: encodeCursor('PAT'),
+          gender: 'UNKNOWN',
+          triage_code: dto.urgency,
+        },
+      ],
       notes: `Patient Summary: ${JSON.stringify(dto.patient_summary)}`,
       status: 'DISPATCHED',
     });
-    const savedIncident = await this.dispatchRepo.manager.save(Incident, incident);
+    const savedIncident = await this.dispatchRepo.manager.save(
+      Incident,
+      incident,
+    );
 
     // 2. Find available vehicle of requested type
     const vehicle = await this.vehicleRepo.findOne({
-      where: { 
+      where: {
         status: VehicleStatus.AVAILABLE,
         vehicle_type: dto.requested_vehicle_type as any,
-        organisationId: orgId
-      }
+        organisationId: orgId,
+      },
     });
 
     // 3. Create IFT Trip
@@ -526,8 +625,8 @@ export class TripService {
           { name: 'Discharge Summary', verified: false },
           { name: 'Imaging Records (CD/Film)', verified: false },
           { name: 'Patient Belongings', verified: false },
-        ]
-      }
+        ],
+      },
     });
 
     const savedTrip = await this.dispatchRepo.save(trip);
@@ -552,15 +651,19 @@ export class TripService {
       throw new ForbiddenException('This endpoint is only for IFT trips');
     }
 
-    return { 
+    return {
       data: {
         trip_id: trip.id,
-        documents: trip.ift_metadata?.checklist || []
-      }
+        documents: trip.ift_metadata?.checklist || [],
+      },
     };
   }
 
-  async verifyIftDocuments(id: string, dto: VerifyIftDocumentsDto, requestUser: any) {
+  async verifyIftDocuments(
+    id: string,
+    dto: VerifyIftDocumentsDto,
+    requestUser: any,
+  ) {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
@@ -570,7 +673,7 @@ export class TripService {
 
     const metadata = trip.ift_metadata || {};
     metadata.checklist = dto.documents;
-    
+
     trip.ift_metadata = metadata;
     await this.dispatchRepo.save(trip);
 
@@ -583,11 +686,11 @@ export class TripService {
     });
     await this.timelineRepo.save(timeline);
 
-    return { 
+    return {
       data: {
         trip_id: trip.id,
-        documents: trip.ift_metadata?.checklist || []
-      }
+        documents: trip.ift_metadata?.checklist || [],
+      },
     };
   }
 
@@ -599,11 +702,12 @@ export class TripService {
     let signatureUrl = dto.signature_image_base64;
     if (dto.signature_image_base64.startsWith('data:')) {
       const fileName = `${trip.incident_id}_refusal_sig.png`;
-      signatureUrl = await this.storageService.uploadBase64(
+      const { dbUrl } = await this.storageService.uploadBase64(
         dto.signature_image_base64,
         'missions/refusals/',
-        fileName
+        fileName,
       );
+      signatureUrl = dbUrl;
     }
 
     // 2. Store the Refusal Record
@@ -611,7 +715,7 @@ export class TripService {
       ...dto,
       signature_image_base64: signatureUrl, // Store URL instead of raw base64
       recorded_at: new Date().toISOString(),
-      emt_user_id: requestUser.userId
+      emt_user_id: requestUser.userId,
     };
 
     // 2. Automate Mission Termination
@@ -623,14 +727,14 @@ export class TripService {
     // 3. Update associated Incident
     await this.dispatchRepo.manager.update(Incident, trip.incident_id, {
       status: 'CANCELLED',
-      notes: `[TERMINATED] Patient/Family Refusal recorded by EMT ${requestUser.userId}`
+      notes: `[TERMINATED] Patient/Family Refusal recorded by EMT ${requestUser.userId}`,
     });
 
     // 4. Release Vehicle
     if (trip.vehicle_id && trip.vehicle_id !== 'TBD') {
       await this.vehicleRepo.update(
         { registration_number: trip.vehicle_id },
-        { status: VehicleStatus.AVAILABLE }
+        { status: VehicleStatus.AVAILABLE },
       );
     }
 
@@ -643,9 +747,9 @@ export class TripService {
     });
     await this.timelineRepo.save(timeline);
 
-    return { 
+    return {
       message: 'Refusal recorded successfully and mission terminated',
-      data: trip.refusal_record 
+      data: trip.refusal_record,
     };
   }
 
@@ -667,10 +771,12 @@ export class TripService {
     const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id! });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    const hospitalCoords = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
+    const hospitalCoords = this.getHospitalLocation(
+      trip.destination_hospital_id || 'HOSP-DEFAULT',
+    );
     const routeData = await this.mapsService.getTravelTime(
       { lat: Number(vehicle.gps_lat), lng: Number(vehicle.gps_lon) },
-      { lat: hospitalCoords.lat, lng: hospitalCoords.lon }
+      { lat: hospitalCoords.lat, lng: hospitalCoords.lon },
     );
 
     return {
@@ -679,11 +785,15 @@ export class TripService {
       vehicle_location: {
         lat: Number(vehicle.gps_lat),
         lon: Number(vehicle.gps_lon),
-      }
+      },
     };
   }
 
-  async updateDestination(id: string, dto: UpdateDestinationDto, requestUser: any) {
+  async updateDestination(
+    id: string,
+    dto: UpdateDestinationDto,
+    requestUser: any,
+  ) {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
@@ -705,7 +815,7 @@ export class TripService {
 
     return {
       data: trip,
-      new_eta_seconds: etaResponse.eta_seconds
+      new_eta_seconds: etaResponse.eta_seconds,
     };
   }
 
@@ -717,17 +827,25 @@ export class TripService {
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
     // Determine target based on trip status
-    const isEnRouteScene = [TripStatus.DISPATCHED, TripStatus.EN_ROUTE_SCENE].includes(trip.status as TripStatus);
-    const destination = isEnRouteScene 
-        ? { lat: Number(trip.incident.gps_lat), lng: Number(trip.incident.gps_lon) }
-        : await (async () => {
-            const h = this.getHospitalLocation(trip.destination_hospital_id || 'HOSP-DEFAULT');
-            return { lat: h.lat, lng: h.lon };
-          })();
+    const isEnRouteScene = [
+      TripStatus.DISPATCHED,
+      TripStatus.EN_ROUTE_SCENE,
+    ].includes(trip.status as TripStatus);
+    const destination = isEnRouteScene
+      ? {
+          lat: Number(trip.incident.gps_lat),
+          lng: Number(trip.incident.gps_lon),
+        }
+      : await (async () => {
+          const h = this.getHospitalLocation(
+            trip.destination_hospital_id || 'HOSP-DEFAULT',
+          );
+          return { lat: h.lat, lng: h.lon };
+        })();
 
     const route = await this.mapsService.getDirections(
-        { lat: Number(vehicle.gps_lat), lng: Number(vehicle.gps_lon) },
-        destination
+      { lat: Number(vehicle.gps_lat), lng: Number(vehicle.gps_lon) },
+      destination,
     );
 
     return {
@@ -735,8 +853,8 @@ export class TripService {
         polyline: route.polyline,
         bounds: route.bounds,
         steps: route.steps,
-        destination_label: isEnRouteScene ? 'Scene' : 'Hospital'
-      }
+        destination_label: isEnRouteScene ? 'Scene' : 'Hospital',
+      },
     };
   }
 
@@ -747,22 +865,22 @@ export class TripService {
 
     // 1. Get Patient Profile
     const patient = await this.patientRepo.findOne({
-      where: { incident_id: trip.incident_id }
+      where: { incident_id: trip.incident_id },
     });
 
     let clinical: any = { assessments: [], interventions: [] };
     if (patient) {
-        // 2. Get Assessments (Vitals & GCS)
-        clinical.assessments = await this.assessmentRepo.find({
-            where: { patient_id: patient.id },
-            order: { taken_at: 'ASC' }
-        });
+      // 2. Get Assessments (Vitals & GCS)
+      clinical.assessments = await this.assessmentRepo.find({
+        where: { patient_id: patient.id },
+        order: { taken_at: 'ASC' },
+      });
 
-        // 3. Get Interventions
-        clinical.interventions = await this.interventionRepo.find({
-            where: { patient_id: patient.id },
-            order: { timestamp: 'ASC' }
-        });
+      // 3. Get Interventions
+      clinical.interventions = await this.interventionRepo.find({
+        where: { patient_id: patient.id },
+        order: { timestamp: 'ASC' },
+      });
     }
 
     return {
@@ -771,40 +889,47 @@ export class TripService {
           trip_id: trip.id,
           incident_id: trip.incident_id,
           organisation_id: trip.organisationId || incident.organisationId,
-          generated_at: new Date().toISOString()
+          generated_at: new Date().toISOString(),
         },
         operational: {
           trip,
-          incident
+          incident,
         },
         clinical: {
           patient,
           assessments: clinical.assessments,
-          interventions: clinical.interventions
-        }
-      }
+          interventions: clinical.interventions,
+        },
+      },
     };
   }
 
   private getHospitalLocation(id: string): { lat: number; lon: number } {
     // Mock Hospital Database (centered around a sample city)
-    const hospitals: Record<string, { lat: number, lon: number }> = {
+    const hospitals: Record<string, { lat: number; lon: number }> = {
       'HOSP-001': { lat: 12.9716, lon: 77.5946 },
       'HOSP-002': { lat: 12.9352, lon: 77.6245 },
-      'HOSP-DEFAULT': { lat: 12.9500, lon: 77.6000 }
+      'HOSP-DEFAULT': { lat: 12.95, lon: 77.6 },
     };
 
     return hospitals[id] || hospitals['HOSP-DEFAULT'];
   }
 
-  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private getDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Earth radius in km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = 
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }

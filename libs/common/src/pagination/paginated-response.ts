@@ -14,7 +14,8 @@ export class PaginatedResponse<T> {
  * Utility to encode a database cursor (like an ID or Timestamp) into an opaque string
  */
 export function encodeCursor(value: string | number | Date): string {
-  const normalizedValue = value instanceof Date ? value.toISOString() : String(value);
+  const normalizedValue =
+    value instanceof Date ? value.toISOString() : String(value);
   return Buffer.from(normalizedValue).toString('base64');
 }
 

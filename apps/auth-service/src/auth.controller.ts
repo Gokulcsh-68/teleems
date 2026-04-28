@@ -1,4 +1,24 @@
-import { Controller, Post, Body, Req, Res, UnauthorizedException, UseGuards, HttpCode, Get, Query, Put, Delete, HttpStatus, Patch, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Req,
+  Res,
+  UnauthorizedException,
+  UseGuards,
+  HttpCode,
+  Get,
+  Query,
+  Put,
+  Delete,
+  HttpStatus,
+  Patch,
+  ForbiddenException,
+  BadRequestException,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuditLogService } from './audit-log.service';
@@ -8,11 +28,20 @@ import { LoginDto } from './dto/login.dto';
 import { VerifyMfaDto } from './dto/verify-mfa.dto';
 import { ForcePasswordResetDto } from './dto/force-password-reset.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
-import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserQueryDto,
+  UpdateMeDto,
+} from './dto/user-management.dto';
+import {
+  CreateRoleDto,
+  UpdateRolePermissionsDto,
+} from './dto/role-management.dto';
 import { RequestPasswordResetDto } from './dto/request-password-reset.dto';
 import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
 import { IntrospectTokenDto } from './dto/introspect-token.dto';
+import { PresignRequestDto, Base64UploadDto } from './dto/upload.dto';
 
 import { JwtAuthGuard, RolesGuard, Roles, IpWhitelistGuard } from '@app/common';
 
@@ -22,7 +51,9 @@ import { JwtAuthGuard, RolesGuard, Roles, IpWhitelistGuard } from '@app/common';
 function extractIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
-    return typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : forwarded[0];
+    return typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : forwarded[0];
   }
   const ip = req.ip || '';
   return ip === '::ffff:127.0.0.1' ? '127.0.0.1' : ip;
@@ -30,11 +61,10 @@ function extractIp(req: Request): string {
 
 @Controller('v1/auth')
 export class AuthController {
-
   constructor(
     private readonly authService: AuthService,
     private readonly auditLogService: AuditLogService,
-  ) { }
+  ) {}
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
@@ -50,10 +80,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateMe(@Body() dto: UpdateMeDto, @Req() req: any) {
     const user = await this.authService.updateMe(
-      req.user.userId, 
-      dto, 
-      extractIp(req), 
-      req.headers['user-agent'] || 'unknown'
+      req.user.userId,
+      dto,
+      extractIp(req),
+      req.headers['user-agent'] || 'unknown',
     );
     return {
       message: 'Profile updated successfully',
@@ -71,17 +101,29 @@ export class AuthController {
   }
 
   @Post('otp/verify')
-  async verifyOtp(@Body() body: VerifyOtpDto, @Res({ passthrough: true }) res: Response) {
-    const { accessToken, refreshToken, user } = await this.authService.verifyOtpAndIssueTokens(body.phone, body.otp, body.otp_ref);
+  async verifyOtp(
+    @Body() body: VerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken, user } =
+      await this.authService.verifyOtpAndIssueTokens(
+        body.phone,
+        body.otp,
+        body.otp_ref,
+      );
     // Setting HTTP-only refresh token mapped to 1.2 specs
-    res.cookie('refresh_token', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     return {
       message: 'Authentication successful',
       data: {
         access_token: accessToken,
         refresh_token: refreshToken,
-        user
-      }
+        user,
+      },
     };
   }
 
@@ -90,7 +132,11 @@ export class AuthController {
   // ─────────────────────────────────────────────
 
   @Post('login')
-  async login(@Body() body: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() body: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
 
@@ -135,7 +181,11 @@ export class AuthController {
   // ─────────────────────────────────────────────
 
   @Post('mfa/verify')
-  async verifyMfa(@Body() body: VerifyMfaDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async verifyMfa(
+    @Body() body: VerifyMfaDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
 
@@ -148,13 +198,17 @@ export class AuthController {
     }
 
     if (!mfaSessionToken) {
-      throw new UnauthorizedException('MFA session token required (Header or Body)');
+      throw new UnauthorizedException(
+        'MFA session token required (Header or Body)',
+      );
     }
 
     // 2. Extract verification code (code has priority, then totp_code)
     const verificationCode = body.code || body.totp_code;
     if (!verificationCode) {
-      throw new UnauthorizedException('Verification code required (code or totp_code)');
+      throw new UnauthorizedException(
+        'Verification code required (code or totp_code)',
+      );
     }
 
     const result = await this.authService.verifyMfa(
@@ -162,7 +216,7 @@ export class AuthController {
       body.method || 'TOTP',
       verificationCode,
       ip,
-      userAgent
+      userAgent,
     );
 
     res.cookie('refresh_token', result.refreshToken, {
@@ -193,7 +247,12 @@ export class AuthController {
   async enableMfa(@Body() body: { totp_code: string }, @Req() req: any) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.enableMfa(req.user.userId, body.totp_code, ip, userAgent);
+    return this.authService.enableMfa(
+      req.user.userId,
+      body.totp_code,
+      ip,
+      userAgent,
+    );
   }
 
   @Post('mfa/disable')
@@ -201,7 +260,12 @@ export class AuthController {
   async disableMfa(@Body() body: { password: string }, @Req() req: any) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.disableMfa(req.user.userId, body.password, ip, userAgent);
+    return this.authService.disableMfa(
+      req.user.userId,
+      body.password,
+      ip,
+      userAgent,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -217,7 +281,11 @@ export class AuthController {
   @Post('password/reset/confirm')
   @HttpCode(204)
   async confirmPasswordReset(@Body() body: ConfirmPasswordResetDto) {
-    await this.authService.confirmPasswordReset(body.email, body.otp, body.new_password);
+    await this.authService.confirmPasswordReset(
+      body.email,
+      body.otp,
+      body.new_password,
+    );
   }
 
   @Post('users/:user_id/force-password-reset')
@@ -227,7 +295,12 @@ export class AuthController {
   async forcePasswordReset(@Req() req: any) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
-    await this.authService.forcePasswordReset(req.user, req.params.user_id, ip, userAgent);
+    await this.authService.forcePasswordReset(
+      req.user,
+      req.params.user_id,
+      ip,
+      userAgent,
+    );
   }
 
   @Post('password/change')
@@ -235,7 +308,12 @@ export class AuthController {
   async changePassword(@Body() body: ChangePasswordDto, @Req() req: any) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
-    return this.authService.changePassword(req.user.userId, body, ip, userAgent);
+    return this.authService.changePassword(
+      req.user.userId,
+      body,
+      ip,
+      userAgent,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -243,19 +321,27 @@ export class AuthController {
   // ─────────────────────────────────────────────
 
   @Post('token/refresh')
-  async refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refreshToken(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const token = req.cookies['refresh_token'];
     if (!token) throw new UnauthorizedException('No refresh token provided');
 
-    const { accessToken, refreshToken } = await this.authService.refreshTokens(token);
+    const { accessToken, refreshToken } =
+      await this.authService.refreshTokens(token);
     // Rotating the cookie as a best practice, while keeping it out of the JSON body per spec
-    res.cookie('refresh_token', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
     return {
       message: 'Token refreshed successfully',
       data: {
         access_token: accessToken,
-        expires_in: 900
-      }
+        expires_in: 900,
+      },
     };
   }
 
@@ -275,32 +361,47 @@ export class AuthController {
   }
 
   @Post('oauth/token')
-  async oauthToken(@Req() req: Request, @Body() body: { grant_type: string, scope?: string }) {
+  async oauthToken(
+    @Req() req: Request,
+    @Body() body: { grant_type: string; scope?: string },
+  ) {
     // 1. Check Authentication Header First
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Basic ')) {
-      throw new UnauthorizedException('Client credentials required in Authorization header (Basic Auth). Note: header must start with "Basic "');
+      throw new UnauthorizedException(
+        'Client credentials required in Authorization header (Basic Auth). Note: header must start with "Basic "',
+      );
     }
 
     // 2. Check Grant Type
     if (!body || body.grant_type !== 'client_credentials') {
-      throw new UnauthorizedException('Unsupported grant_type. Flow requires {"grant_type": "client_credentials"} in the request body.');
+      throw new UnauthorizedException(
+        'Unsupported grant_type. Flow requires {"grant_type": "client_credentials"} in the request body.',
+      );
     }
 
-    const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString('ascii');
+    const credentials = Buffer.from(
+      authHeader.split(' ')[1],
+      'base64',
+    ).toString('ascii');
     const [clientId, clientSecret] = credentials.split(':');
 
     if (!clientId || !clientSecret) {
-      throw new UnauthorizedException('Invalid Basic Authentication format. Expected "client_id:client_secret" encoded in base64.');
+      throw new UnauthorizedException(
+        'Invalid Basic Authentication format. Expected "client_id:client_secret" encoded in base64.',
+      );
     }
 
-    const result = await this.authService.issueClientCredentials(clientId, clientSecret);
+    const result = await this.authService.issueClientCredentials(
+      clientId,
+      clientSecret,
+    );
 
     return {
       access_token: result.accessToken,
       token_type: 'Bearer',
       expires_in: result.expiresIn,
-      scope: body.scope || 'all'
+      scope: body.scope || 'all',
     };
   }
 
@@ -310,7 +411,6 @@ export class AuthController {
   async introspect(@Body() body: IntrospectTokenDto) {
     return this.authService.introspect(body.token);
   }
-
 
   // ─────────────────────────────────────────────
   // Audit Log (Spec 5.1 — admin only)
@@ -375,7 +475,10 @@ export class AuthController {
   @Get('users/:user_id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   async getUser(@Req() req: any) {
-    const user = await this.authService.findOneUser(req.params.user_id, req.user);
+    const user = await this.authService.findOneUser(
+      req.params.user_id,
+      req.user,
+    );
     return {
       data: user,
     };
@@ -385,7 +488,11 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   async updateUserFull(@Req() req: any, @Body() dto: UpdateUserDto) {
-    const user = await this.authService.updateUser(req.params.user_id, dto, req.user);
+    const user = await this.authService.updateUser(
+      req.params.user_id,
+      dto,
+      req.user,
+    );
     return {
       data: user,
     };
@@ -395,12 +502,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   async updateUserPartial(@Req() req: any, @Body() dto: UpdateUserDto) {
     const targetId = req.params.user_id;
-    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
-    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
+    const isPlatformAdmin = req.user.roles.some((r: string) =>
+      ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r),
+    );
+    const isHospitalAdmin = req.user.roles.some((r: string) =>
+      ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r),
+    );
     const isOwn = req.user.userId === targetId;
 
     if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only update your own profile or sub-accounts');
+      throw new ForbiddenException(
+        'Access denied: You can only update your own profile or sub-accounts',
+      );
     }
 
     // Security: Non-platform-admins cannot update their own 'status' or 'role' or 'org_id'
@@ -422,9 +535,16 @@ export class AuthController {
   @Patch('users/:user_id/status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
-  async updateUserStatus(@Req() req: any, @Body() body: { status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING' }) {
+  async updateUserStatus(
+    @Req() req: any,
+    @Body() body: { status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING' },
+  ) {
     const targetId = req.params.user_id;
-    const user = await this.authService.updateUser(targetId, { status: body.status }, req.user);
+    const user = await this.authService.updateUser(
+      targetId,
+      { status: body.status },
+      req.user,
+    );
     return {
       message: `User status updated to ${body.status}`,
       data: user,
@@ -443,12 +563,18 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   async getUserSessions(@Req() req: any) {
     const targetId = req.params.user_id;
-    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
-    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
+    const isPlatformAdmin = req.user.roles.some((r: string) =>
+      ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r),
+    );
+    const isHospitalAdmin = req.user.roles.some((r: string) =>
+      ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r),
+    );
     const isOwn = req.user.userId === targetId;
 
     if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only view your own sessions or sub-accounts');
+      throw new ForbiddenException(
+        'Access denied: You can only view your own sessions or sub-accounts',
+      );
     }
 
     const sessions = await this.authService.getUserSessions(targetId, req.user);
@@ -463,12 +589,18 @@ export class AuthController {
   async revokeSession(@Req() req: any) {
     const targetId = req.params.user_id;
     const sessionId = req.params.session_id;
-    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
-    const isHospitalAdmin = req.user.roles.some((r: string) => ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r));
+    const isPlatformAdmin = req.user.roles.some((r: string) =>
+      ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r),
+    );
+    const isHospitalAdmin = req.user.roles.some((r: string) =>
+      ['HOSPITAL_ADMIN', 'Hospital Admin'].includes(r),
+    );
     const isOwn = req.user.userId === targetId;
 
     if (!isPlatformAdmin && !isHospitalAdmin && !isOwn) {
-      throw new ForbiddenException('Access denied: You can only terminate your own sessions or sub-accounts');
+      throw new ForbiddenException(
+        'Access denied: You can only terminate your own sessions or sub-accounts',
+      );
     }
 
     await this.authService.revokeSession(targetId, sessionId, req.user);
@@ -477,11 +609,22 @@ export class AuthController {
   @Get('users/:user_id/audit-log')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
-  async getUserAuditLog(@Req() req: any, @Query('limit') limit?: string, @Query('cursor') cursor?: string) {
+  async getUserAuditLog(
+    @Req() req: any,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
     const targetUserId = req.params.user_id;
-    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
-    const isHospitalLevelAdmin = req.user.roles.some((r: string) => 
-      ['Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+    const isPlatformAdmin = req.user.roles.some((r: string) =>
+      ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r),
+    );
+    const isHospitalLevelAdmin = req.user.roles.some((r: string) =>
+      [
+        'Hospital Admin',
+        'HOSPITAL_ADMIN',
+        'Hospital ED Doctor (ERCP)',
+        'ED_DOCTOR',
+      ].includes(r),
     );
 
     // Enforce tenant isolation for Audit Logs
@@ -490,19 +633,25 @@ export class AuthController {
     }
 
     const parsedLimit = Math.min(parseInt(limit || '50', 10), 100);
-    return this.auditLogService.getLogsForUser(targetUserId, parsedLimit, cursor);
+    return this.auditLogService.getLogsForUser(
+      targetUserId,
+      parsedLimit,
+      cursor,
+    );
   }
 
   @Get('roles')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CURESELECT_ADMIN', 'Hospital Admin', 'Hospital ED Doctor (ERCP)')
   async getRoles(@Req() req: any) {
-    const isPlatformAdmin = req.user.roles.some((r: string) => ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r));
-    
+    const isPlatformAdmin = req.user.roles.some((r: string) =>
+      ['CURESELECT_ADMIN', 'CureSelect Admin'].includes(r),
+    );
+
     // For Hospital Admins and ED Doctors, filter by 'Hospital' scope
     const scope = isPlatformAdmin ? undefined : 'Hospital';
     const roles = await this.authService.getRolesWithPermissions(scope);
-    
+
     return {
       data: roles,
     };
@@ -532,9 +681,16 @@ export class AuthController {
   @Put('roles/:role_id/permissions')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CURESELECT_ADMIN')
-  async updateRolePermissions(@Body() dto: UpdateRolePermissionsDto, @Req() req: any) {
+  async updateRolePermissions(
+    @Body() dto: UpdateRolePermissionsDto,
+    @Req() req: any,
+  ) {
     const roleId = req.params.role_id;
-    const role = await this.authService.updateRolePermissions(roleId, dto.permissions, req.user.userId);
+    const role = await this.authService.updateRolePermissions(
+      roleId,
+      dto.permissions,
+      req.user.userId,
+    );
     return {
       data: role,
     };
@@ -551,13 +707,84 @@ export class AuthController {
   @Get('audit-logs')
   @UseGuards(JwtAuthGuard, RolesGuard, IpWhitelistGuard)
   @Roles('CURESELECT_ADMIN')
-  async getAuditLogs(@Query('limit') limit?: string, @Query('offset') offset?: string) {
+  async getAuditLogs(
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
     const parsedLimit = Math.min(parseInt(limit || '50', 10), 100);
     const parsedOffset = parseInt(offset || '0', 10);
-    const { logs, total } = await this.auditLogService.getAllLogs(parsedLimit, parsedOffset);
+    const { logs, total } = await this.auditLogService.getAllLogs(
+      parsedLimit,
+      parsedOffset,
+    );
     return {
       message: 'Audit logs retrieved',
       data: { logs, total, limit: parsedLimit, offset: parsedOffset },
+    };
+  }
+  // ─────────────────────────────────────────────
+  // File Uploads (S3 Legacy Porting)
+  // ─────────────────────────────────────────────
+
+  @Post('uploads/presign')
+  @UseGuards(JwtAuthGuard)
+  async generatePresignedUrl(@Req() req: any, @Body() dto: PresignRequestDto) {
+    return this.authService.generatePresignedUpload(
+      req.user.userId,
+      dto.target_type,
+      dto.content_type,
+      dto.file_extension,
+    );
+  }
+
+  @Post('uploads/base64')
+  @UseGuards(JwtAuthGuard)
+  async uploadBase64(@Req() req: any, @Body() dto: Base64UploadDto) {
+    return this.authService.uploadBase64AndStore(
+      req.user.userId,
+      dto.base64_data,
+      dto.target_type,
+      dto.file_extension || 'png',
+    );
+  }
+
+  @Post('uploads/file')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @Req() req: any,
+    @UploadedFile() file: any,
+    @Body('target_type') target_type: 'avatar' | 'document' = 'document',
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'No file uploaded or invalid form-data field name (must be "file")',
+      );
+    }
+
+    // Default to handling original extension or fallback to png/pdf
+    const fileNameParts = file.originalname.split('.');
+    const extension = fileNameParts.length > 1 ? fileNameParts.pop() : 'png';
+
+    return this.authService.uploadBufferAndStore(
+      req.user.userId,
+      file.buffer,
+      target_type,
+      extension,
+      file.mimetype,
+    );
+  }
+
+  @Get('uploads/signed-url')
+  @UseGuards(JwtAuthGuard)
+  async getSignedUrl(@Query('path') path: string) {
+    if (!path) {
+      throw new BadRequestException('path query parameter is required');
+    }
+    const url = await this.authService.getSignedReadUrl(path);
+    return {
+      message: 'Signed URL generated successfully',
+      data: { url },
     };
   }
 }

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { 
-  CommonModule, 
-  PatientProfile, 
+import {
+  CommonModule,
+  PatientProfile,
   PatientAssessment,
   PatientAssessmentNote,
   PatientIntervention,
@@ -12,8 +12,11 @@ import {
   PatientSurgery,
   PatientHospitalisation,
   PatientMedicationLog,
+  PatientPhoto,
+  PatientDocument,
+  PatientValuable,
   VehicleInventory,
-  Dispatch
+  Dispatch,
 } from '@app/common';
 import { PatientController } from './patient-service.controller';
 import { PatientService } from './patient-service.service';
@@ -22,8 +25,8 @@ import { PatientService } from './patient-service.service';
   imports: [
     CommonModule,
     TypeOrmModule.forFeature([
-      PatientProfile, 
-      PatientAssessment, 
+      PatientProfile,
+      PatientAssessment,
       PatientAssessmentNote,
       PatientIntervention,
       PatientCondition,
@@ -32,8 +35,11 @@ import { PatientService } from './patient-service.service';
       PatientSurgery,
       PatientHospitalisation,
       PatientMedicationLog,
+      PatientPhoto,
+      PatientDocument,
+      PatientValuable,
       VehicleInventory,
-      Dispatch
+      Dispatch,
     ]),
   ],
   controllers: [PatientController],

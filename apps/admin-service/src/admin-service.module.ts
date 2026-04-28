@@ -8,11 +8,11 @@ import { CallCentreController } from './call-centre.controller';
 import { CallCentreService } from './call-centre.service';
 import { PlatformConfigController } from './platform-config.controller';
 import { PlatformConfigService } from './platform-config.service';
-import { 
-  Organisation, 
-  SymptomMaster, 
-  IncidentCategoryMaster, 
-  InventoryItemMaster, 
+import {
+  Organisation,
+  SymptomMaster,
+  IncidentCategoryMaster,
+  InventoryItemMaster,
   Hospital,
   CCEProfile,
   SystemConfig,
@@ -26,17 +26,17 @@ import {
   MedicationRouteMaster,
   ChiefComplaintMaster,
   InterventionMaster,
-  FleetOperator
+  FleetOperator,
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Organisation, 
-      SymptomMaster, 
-      IncidentCategoryMaster, 
-      InventoryItemMaster, 
+      Organisation,
+      SymptomMaster,
+      IncidentCategoryMaster,
+      InventoryItemMaster,
       Hospital,
       CCEProfile,
       SystemConfig,
@@ -50,21 +50,21 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       MedicationRouteMaster,
       ChiefComplaintMaster,
       InterventionMaster,
-      FleetOperator
+      FleetOperator,
     ]),
     AuthModule,
   ],
   controllers: [
-    AdminServiceController, 
-    MasterDataController, 
+    AdminServiceController,
+    MasterDataController,
     CallCentreController,
-    PlatformConfigController
+    PlatformConfigController,
   ],
   providers: [
-    AdminServiceService, 
-    MasterDataService, 
+    AdminServiceService,
+    MasterDataService,
     CallCentreService,
-    PlatformConfigService
+    PlatformConfigService,
   ],
 })
 export class AdminServiceModule {}

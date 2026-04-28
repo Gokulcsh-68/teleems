@@ -1,6 +1,19 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsBoolean, IsNumber, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsObject,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+} from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { SymptomSeverity, InventoryItemCategory, HospitalType } from '@app/common';
+import {
+  SymptomSeverity,
+  InventoryItemCategory,
+  HospitalType,
+} from '@app/common';
 
 export class CreateSymptomDto {
   @IsObject()
@@ -263,4 +276,3 @@ export class CreateMedicationRouteDto {
   @IsOptional()
   isCommon?: boolean;
 }
-

@@ -8,7 +8,8 @@ import {
   PaginatedResponse, encodeCursor, decodeCursor, AuditLogService, 
   Organisation, FleetOperator, Vehicle, VehicleStatus, Station, StaffProfile, StaffType, StaffStatus,
   DutyShift, DutyShiftStatus, InventoryItemMaster, VehicleInventory,
-  DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType
+  DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType,
+  User, Role
 } from '@app/common';
 import { DataSource } from 'typeorm';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
@@ -17,8 +18,6 @@ import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
 import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto } from './dto/inventory.dto';
 import { CreateRosterDto, RosterQueryDto } from './dto/roster.dto';
 import * as bcrypt from 'bcrypt';
-import { User } from '../../auth-service/src/entities/user.entity';
-import { Role } from '../../auth-service/src/entities/role.entity';
 
 @Injectable()
 export class FleetServiceService {

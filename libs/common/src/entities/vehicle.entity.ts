@@ -1,23 +1,30 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
 
 export enum VehicleStatus {
   AVAILABLE = 'AVAILABLE',
   BUSY = 'BUSY',
   DISPATCHED = 'DISPATCHED',
   MAINTENANCE = 'MAINTENANCE',
-  OFFLINE = 'OFFLINE'
+  OFFLINE = 'OFFLINE',
 }
 
 export enum VehicleType {
   ALS = 'ALS',
   BLS = 'BLS',
-  TRANSPORT = 'TRANSPORT'
+  TRANSPORT = 'TRANSPORT',
 }
 
 export enum OwnershipType {
   OWNED = 'OWNED',
   LEASED = 'LEASED',
-  HOSPITAL_OWNED = 'HOSPITAL_OWNED'
+  HOSPITAL_OWNED = 'HOSPITAL_OWNED',
 }
 
 @Entity('vehicles')
@@ -25,7 +32,7 @@ export class Vehicle {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   @Index()
   registration_number: string; // e.g. "MH-12-AB-1234"
 
@@ -47,7 +54,7 @@ export class Vehicle {
   @Column({
     type: 'enum',
     enum: VehicleType,
-    default: VehicleType.BLS
+    default: VehicleType.BLS,
   })
   vehicle_type: VehicleType;
 
@@ -57,7 +64,7 @@ export class Vehicle {
   @Column({
     type: 'enum',
     enum: OwnershipType,
-    default: OwnershipType.OWNED
+    default: OwnershipType.OWNED,
   })
   ownership_type: OwnershipType;
 

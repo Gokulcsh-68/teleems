@@ -127,15 +127,6 @@
         "tsConfigPath": "apps/teleems-backend/tsconfig.app.json"
       }
     },
-    "telelink-service": {
-      "type": "application",
-      "root": "apps/telelink-service",
-      "entryFile": "main",
-      "sourceRoot": "apps/telelink-service/src",
-      "compilerOptions": {
-        "tsConfigPath": "apps/telelink-service/tsconfig.app.json"
-      }
-    },
     "patient-service": {
       "type": "application",
       "root": "apps/patient-service",

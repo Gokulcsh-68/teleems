@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('incidents')
 export class Incident {
@@ -27,7 +33,7 @@ export class Incident {
   address: string;
 
   @Column({ type: 'jsonb' })
-  patients: { 
+  patients: {
     id: string;
     name?: string; 
     age?: number; 

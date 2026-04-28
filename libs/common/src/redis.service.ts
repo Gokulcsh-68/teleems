@@ -68,7 +68,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   // --- Pub/Sub Operations ---
 
   async publish(channel: string, message: any) {
-    const payload = typeof message === 'string' ? message : JSON.stringify(message);
+    const payload =
+      typeof message === 'string' ? message : JSON.stringify(message);
     await this.publisher.publish(channel, payload);
   }
 
@@ -81,7 +82,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async pSubscribe(pattern: string, callback: (channel: string, message: string) => void) {
+  async pSubscribe(
+    pattern: string,
+    callback: (channel: string, message: string) => void,
+  ) {
     await this.subscriber.psubscribe(pattern);
     this.subscriber.on('pmessage', (patternMatch, channel, message) => {
       if (patternMatch === pattern) {

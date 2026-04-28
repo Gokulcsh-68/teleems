@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Req, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { MasterDataService } from './master-data.service';
 import {
   CreateSymptomDto,
@@ -12,19 +23,28 @@ import {
   CreateHospitalisationReasonDto,
   CreateChiefComplaintDto,
   CreateInterventionMasterDto,
-  CreateMedicationRouteDto
+  CreateMedicationRouteDto,
 } from './dto/master-data.dto';
-import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  Roles,
+  AdminIpWhitelistGuard,
+} from '@app/common';
 
 @Controller('v1/admin/master')
 @UseGuards(JwtAuthGuard, RolesGuard, AdminIpWhitelistGuard)
 @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
 export class MasterDataController {
-  constructor(private readonly masterDataService: MasterDataService) { }
+  constructor(private readonly masterDataService: MasterDataService) {}
 
   @Post('symptoms')
   async createSymptom(@Body() dto: CreateSymptomDto, @Req() req: any) {
-    const result = await this.masterDataService.createSymptom(dto, req.user.userId, req.ip);
+    const result = await this.masterDataService.createSymptom(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -35,8 +55,15 @@ export class MasterDataController {
   }
 
   @Post('categories')
-  async createCategory(@Body() dto: CreateIncidentCategoryDto, @Req() req: any) {
-    const result = await this.masterDataService.createCategory(dto, req.user.userId, req.ip);
+  async createCategory(
+    @Body() dto: CreateIncidentCategoryDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createCategory(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -47,8 +74,15 @@ export class MasterDataController {
   }
 
   @Post('inventory')
-  async createInventoryItem(@Body() dto: CreateInventoryItemDto, @Req() req: any) {
-    const result = await this.masterDataService.createInventoryItem(dto, req.user.userId, req.ip);
+  async createInventoryItem(
+    @Body() dto: CreateInventoryItemDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createInventoryItem(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -59,8 +93,17 @@ export class MasterDataController {
   }
 
   @Put('hospitals/:id')
-  async updateHospital(@Param('id') id: string, @Body() dto: UpdateHospitalMasterDto, @Req() req: any) {
-    const result = await this.masterDataService.updateHospitalMaster(id, dto, req.user.userId, req.ip);
+  async updateHospital(
+    @Param('id') id: string,
+    @Body() dto: UpdateHospitalMasterDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.updateHospitalMaster(
+      id,
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -68,7 +111,11 @@ export class MasterDataController {
 
   @Post('icd-codes')
   async createIcdCode(@Body() dto: any, @Req() req: any) {
-    const result = await this.masterDataService.createIcdCode(dto, req.user.userId, req.ip);
+    const result = await this.masterDataService.createIcdCode(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -76,9 +123,14 @@ export class MasterDataController {
   async toggleIcdStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleIcdStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleIcdStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -92,7 +144,11 @@ export class MasterDataController {
 
   @Post('allergies')
   async createAllergen(@Body() dto: CreateAllergenDto, @Req() req: any) {
-    const result = await this.masterDataService.createAllergen(dto, req.user.userId, req.ip);
+    const result = await this.masterDataService.createAllergen(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -106,9 +162,14 @@ export class MasterDataController {
   async toggleAllergenStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleAllergenStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleAllergenStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -116,7 +177,11 @@ export class MasterDataController {
 
   @Post('medications')
   async createMedication(@Body() dto: CreateMedicationDto, @Req() req: any) {
-    const result = await this.masterDataService.createMedication(dto, req.user.userId, req.ip);
+    const result = await this.masterDataService.createMedication(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -130,9 +195,14 @@ export class MasterDataController {
   async toggleMedicationStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleMedicationStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleMedicationStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -140,7 +210,11 @@ export class MasterDataController {
 
   @Post('surgeries')
   async createSurgery(@Body() dto: CreateSurgeryDto, @Req() req: any) {
-    const result = await this.masterDataService.createSurgery(dto, req.user.userId, req.ip);
+    const result = await this.masterDataService.createSurgery(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -154,17 +228,29 @@ export class MasterDataController {
   async toggleSurgeryStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleSurgeryStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleSurgeryStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
   // --- Hospitalisation Master ---
 
   @Post('hospitalisations')
-  async createHospitalisationReason(@Body() dto: CreateHospitalisationReasonDto, @Req() req: any) {
-    const result = await this.masterDataService.createHospitalisationReason(dto, req.user.userId, req.ip);
+  async createHospitalisationReason(
+    @Body() dto: CreateHospitalisationReasonDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createHospitalisationReason(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -178,9 +264,14 @@ export class MasterDataController {
   async toggleHospitalisationStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleHospitalisationStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleHospitalisationStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -193,8 +284,15 @@ export class MasterDataController {
   }
 
   @Post('chief-complaints')
-  async createChiefComplaint(@Body() dto: CreateChiefComplaintDto, @Req() req: any) {
-    const result = await this.masterDataService.createChiefComplaint(dto, req.user.userId, req.ip);
+  async createChiefComplaint(
+    @Body() dto: CreateChiefComplaintDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createChiefComplaint(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -202,9 +300,14 @@ export class MasterDataController {
   async toggleChiefComplaintStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleChiefComplaintStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleChiefComplaintStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -212,13 +315,21 @@ export class MasterDataController {
 
   @Get('interventions')
   async findAllInterventionMasters(@Query() query: MasterQueryDto) {
-    const result = await this.masterDataService.findAllInterventionMasters(query);
+    const result =
+      await this.masterDataService.findAllInterventionMasters(query);
     return { data: result };
   }
 
   @Post('interventions')
-  async createInterventionMaster(@Body() dto: CreateInterventionMasterDto, @Req() req: any) {
-    const result = await this.masterDataService.createInterventionMaster(dto, req.user.userId, req.ip);
+  async createInterventionMaster(
+    @Body() dto: CreateInterventionMasterDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createInterventionMaster(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -226,9 +337,14 @@ export class MasterDataController {
   async toggleInterventionMasterStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleInterventionMasterStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleInterventionMasterStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -241,8 +357,15 @@ export class MasterDataController {
   }
 
   @Post('medication-routes')
-  async createMedicationRoute(@Body() dto: CreateMedicationRouteDto, @Req() req: any) {
-    const result = await this.masterDataService.createMedicationRoute(dto, req.user.userId, req.ip);
+  async createMedicationRoute(
+    @Body() dto: CreateMedicationRouteDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.createMedicationRoute(
+      dto,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 
@@ -250,9 +373,14 @@ export class MasterDataController {
   async toggleMedicationRouteStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Req() req: any
+    @Req() req: any,
   ) {
-    const result = await this.masterDataService.toggleMedicationRouteStatus(id, isActive, req.user.userId, req.ip);
+    const result = await this.masterDataService.toggleMedicationRouteStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 }

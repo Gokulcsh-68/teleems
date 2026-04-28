@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Query, Req, UseGuards, Param, Put, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Query,
+  Req,
+  UseGuards,
+  Param,
+  Put,
+  Body,
+} from '@nestjs/common';
 import { TripService } from './trip.service';
 import { TripQueryDto } from './dto/trip-query.dto';
 import { UpdateTripStatusDto } from './dto/update-trip-status.dto';
@@ -18,28 +28,48 @@ import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
 @Controller('v1/trips')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class TripController {
-  constructor(private readonly tripService: TripService) { }
+  constructor(private readonly tripService: TripService) {}
 
   @Get()
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Fleet Operator',
+    'Hospital Admin',
+    'CureSelect Admin',
+    'Call Centre Executive (CCE)',
+  )
   async listTrips(@Query() query: TripQueryDto, @Req() req: any) {
     return this.tripService.findAllTrips(query, req.user);
   }
 
   @Get(':id')
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Fleet Operator',
+    'Hospital Admin',
+    'CureSelect Admin',
+    'Call Centre Executive (CCE)',
+  )
   async getOneTrip(@Param('id') id: string, @Req() req: any) {
     return this.tripService.findOneTrip(id, req.user);
   }
 
   @Get(':id/crew')
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Fleet Operator',
+    'Hospital Admin',
+    'CureSelect Admin',
+    'Call Centre Executive (CCE)',
+  )
   async getTripCrew(@Param('id') id: string, @Req() req: any) {
     return this.tripService.getTripCrew(id, req.user);
   }
 
   @Get(':id/location-history')
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Fleet Operator',
+    'Hospital Admin',
+    'CureSelect Admin',
+    'Call Centre Executive (CCE)',
+  )
   async getTripLocationHistory(@Param('id') id: string, @Req() req: any) {
     return this.tripService.findLocationHistory(id, req.user);
   }
@@ -106,13 +136,21 @@ export class TripController {
 
   @Put(':id/ift-documents')
   @Roles('EMT / Paramedic', 'CureSelect Admin')
-  async verifyIftDocuments(@Param('id') id: string, @Body() dto: VerifyIftDocumentsDto, @Req() req: any) {
+  async verifyIftDocuments(
+    @Param('id') id: string,
+    @Body() dto: VerifyIftDocumentsDto,
+    @Req() req: any,
+  ) {
     return this.tripService.verifyIftDocuments(id, dto, req.user);
   }
 
   @Post(':id/refusal')
   @Roles('EMT / Paramedic', 'CureSelect Admin')
-  async recordRefusal(@Param('id') id: string, @Body() dto: RecordRefusalDto, @Req() req: any) {
+  async recordRefusal(
+    @Param('id') id: string,
+    @Body() dto: RecordRefusalDto,
+    @Req() req: any,
+  ) {
     return this.tripService.recordRefusal(id, dto, req.user);
   }
 
@@ -123,7 +161,13 @@ export class TripController {
   }
 
   @Get(':id/eta')
-  @Roles('Caller (Public)', 'Hospital Admin', 'Fleet Operator', 'CureSelect Admin', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Caller (Public)',
+    'Hospital Admin',
+    'Fleet Operator',
+    'CureSelect Admin',
+    'Call Centre Executive (CCE)',
+  )
   async getTripEta(@Param('id') id: string, @Req() req: any) {
     return this.tripService.getTripEta(id, req.user);
   }
@@ -141,7 +185,12 @@ export class TripController {
   }
 
   @Get(':id/bundle')
-  @Roles('CureSelect Admin', 'Hospital Admin', 'Fleet Operator', 'EMT / Paramedic')
+  @Roles(
+    'CureSelect Admin',
+    'Hospital Admin',
+    'Fleet Operator',
+    'EMT / Paramedic',
+  )
   async getMissionBundle(@Param('id') id: string, @Req() req: any) {
     return this.tripService.getMissionBundle(id, req.user);
   }

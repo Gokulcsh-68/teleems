@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { 
-  CCEProfile, 
-  AuditLogService, 
-  RedisService 
-} from '@app/common';
+import { CCEProfile, AuditLogService, RedisService } from '@app/common';
 import { CreateCCEDto, UpdateCCEProfileDto } from './dto/call-centre.dto';
 import { AuthService } from '../../auth-service/src/auth.service';
 
@@ -21,14 +21,17 @@ export class CallCentreService {
 
   async createCCE(dto: CreateCCEDto, adminId: string, ip: string) {
     // 1. Create User via AuthService
-    const user = await this.authService.createUser({
-      username: dto.username,
-      phone: dto.phone,
-      email: dto.email,
-      name: dto.name,
-      password: 'TemporaryPassword123!',
-      role: 'Call Centre Executive (CCE)',
-    }, { userId: adminId, roles: ['CURESELECT_ADMIN'] } as any);
+    const user = await this.authService.createUser(
+      {
+        username: dto.username,
+        phone: dto.phone,
+        email: dto.email,
+        name: dto.name,
+        password: 'TemporaryPassword123!',
+        role: 'Call Centre Executive (CCE)',
+      },
+      { userId: adminId, roles: ['CURESELECT_ADMIN'] } as any,
+    );
 
     // 2. Initialize CCE Profile
     const profile = this.profileRepo.create({
@@ -48,9 +51,15 @@ export class CallCentreService {
     return { user, profile };
   }
 
-  async updateProfile(userId: string, dto: UpdateCCEProfileDto, adminId: string, ip: string) {
+  async updateProfile(
+    userId: string,
+    dto: UpdateCCEProfileDto,
+    adminId: string,
+    ip: string,
+  ) {
     const profile = await this.profileRepo.findOneBy({ userId });
-    if (!profile) throw new NotFoundException(`CCE Profile for user ${userId} not found`);
+    if (!profile)
+      throw new NotFoundException(`CCE Profile for user ${userId} not found`);
 
     Object.assign(profile, dto);
     await this.profileRepo.save(profile);
@@ -68,18 +77,22 @@ export class CallCentreService {
   async getDashboard() {
     // 1. Fetch all profiles
     const profiles = await this.profileRepo.find();
-    
+
     // 2. Decorate with real-time status from Redis
-    const dashboard = await Promise.all(profiles.map(async (p) => {
-      const statusJson = await this.redisService.get(`cce:status:${p.userId}`);
-      return {
-        userId: p.userId,
-        zones: p.assigned_zones,
-        routing: p.routing_strategy,
-        sla: p.sla_config,
-        status: statusJson ? JSON.parse(statusJson) : { state: 'OFFLINE' },
-      };
-    }));
+    const dashboard = await Promise.all(
+      profiles.map(async (p) => {
+        const statusJson = await this.redisService.get(
+          `cce:status:${p.userId}`,
+        );
+        return {
+          userId: p.userId,
+          zones: p.assigned_zones,
+          routing: p.routing_strategy,
+          sla: p.sla_config,
+          status: statusJson ? JSON.parse(statusJson) : { state: 'OFFLINE' },
+        };
+      }),
+    );
 
     return dashboard;
   }

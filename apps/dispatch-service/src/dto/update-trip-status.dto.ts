@@ -1,4 +1,10 @@
-import { IsEnum, IsNumber, IsOptional, IsString, IsDateString } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsDateString,
+} from 'class-validator';
 import { TripStatus } from '../enums/trip-status.enum';
 
 export class UpdateTripStatusDto {

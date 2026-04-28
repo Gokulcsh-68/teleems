@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { HospitalServiceService } from './hospital-service.service';
 import { CreateHospitalDto, UpdateHospitalDto } from './dto/hospital.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
@@ -21,14 +31,23 @@ export class HospitalServiceController {
   }
 
   @Get(':id')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Hospital Admin', 'HOSPITAL_ADMIN')
+  @Roles(
+    'CureSelect Admin',
+    'CURESELECT_ADMIN',
+    'Hospital Admin',
+    'HOSPITAL_ADMIN',
+  )
   async findOne(@Param('id') id: string) {
     return this.hospitalService.findOne(id);
   }
 
   @Put(':id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
-  async update(@Param('id') id: string, @Body() dto: UpdateHospitalDto, @Req() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateHospitalDto,
+    @Req() req: any,
+  ) {
     return this.hospitalService.update(id, dto, req.user.userId, req.ip);
   }
 

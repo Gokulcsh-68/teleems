@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { PatientProfile } from './patient-profile.entity';
 
 @Entity('patient_interventions')
@@ -11,7 +19,17 @@ export class PatientIntervention {
   patient_id: string;
 
   @Column()
-  type: 'CPR' | 'DEFIB' | 'IV_ACCESS' | 'INTUBATION' | 'OXYGEN' | 'SPLINT' | 'TOURNIQUET' | 'CATHETER' | 'OTHER' | string;
+  type:
+    | 'CPR'
+    | 'DEFIB'
+    | 'IV_ACCESS'
+    | 'INTUBATION'
+    | 'OXYGEN'
+    | 'SPLINT'
+    | 'TOURNIQUET'
+    | 'CATHETER'
+    | 'OTHER'
+    | string;
 
   @Column({ type: 'text', nullable: true })
   description: string;

@@ -1,4 +1,9 @@
-import { IsNumber, IsOptional, IsDateString, IsNotEmpty } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsDateString,
+  IsNotEmpty,
+} from 'class-validator';
 
 export class RecordVitalsDto {
   @IsNumber()

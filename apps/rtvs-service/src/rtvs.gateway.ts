@@ -18,7 +18,9 @@ import { RedisService } from '../../../libs/common/src';
   },
   transports: ['polling', 'websocket'],
 })
-export class RtvsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class RtvsGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -28,26 +30,28 @@ export class RtvsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   afterInit(server: Server) {
     this.logger.log('RTVS WebSocket Gateway Initialized');
-    
+
     // Subscribe to all vitals streams using pattern matching
     this.redisService.pSubscribe('vitals:stream:*', (channel, message) => {
-        try {
-            const payload = JSON.parse(message);
-            const { patient_id } = payload;
-            
-            // Broadcast to the specific patient room
-            this.server.to(`patient_${patient_id}`).emit('vitals_update', payload);
-            
-            this.logger.debug(`Streamed ${payload.type} update for patient ${patient_id}`);
-        } catch (err) {
-            this.logger.error('Failed to parse vitals stream message', err);
-        }
+      try {
+        const payload = JSON.parse(message);
+        const { patient_id } = payload;
+
+        // Broadcast to the specific patient room
+        this.server.to(`patient_${patient_id}`).emit('vitals_update', payload);
+
+        this.logger.debug(
+          `Streamed ${payload.type} update for patient ${patient_id}`,
+        );
+      } catch (err) {
+        this.logger.error('Failed to parse vitals stream message', err);
+      }
     });
   }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
-    // In production, we'd verify JWT here. 
+    // In production, we'd verify JWT here.
   }
 
   handleDisconnect(client: Socket) {
@@ -61,7 +65,9 @@ export class RtvsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   ) {
     const room = `patient_${data.patient_id}`;
     client.join(room);
-    this.logger.log(`Client ${client.id} joined stream for patient ${data.patient_id}`);
+    this.logger.log(
+      `Client ${client.id} joined stream for patient ${data.patient_id}`,
+    );
     return { status: 'joined', room };
   }
 
@@ -72,7 +78,9 @@ export class RtvsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   ) {
     const room = `patient_${data.patient_id}`;
     client.leave(room);
-    this.logger.log(`Client ${client.id} left stream for patient ${data.patient_id}`);
+    this.logger.log(
+      `Client ${client.id} left stream for patient ${data.patient_id}`,
+    );
     return { status: 'left', room };
   }
 }

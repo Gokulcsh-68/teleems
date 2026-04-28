@@ -1,8 +1,21 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
-import { Department, Hospital, AuditLogService, PaginatedResponse } from '@app/common';
-import { CreateDepartmentDto, UpdateDepartmentDto, DepartmentQueryDto } from './dto/department.dto';
+import {
+  Department,
+  Hospital,
+  AuditLogService,
+  PaginatedResponse,
+} from '@app/common';
+import {
+  CreateDepartmentDto,
+  UpdateDepartmentDto,
+  DepartmentQueryDto,
+} from './dto/department.dto';
 
 @Injectable()
 export class DepartmentService {
@@ -17,22 +30,35 @@ export class DepartmentService {
   async create(dto: CreateDepartmentDto, user: any, ip: string) {
     const hospital = await this.hospitalRepo.findOneBy({ id: dto.hospitalId });
     if (!hospital) {
-      throw new NotFoundException(`Hospital with ID ${dto.hospitalId} not found`);
+      throw new NotFoundException(
+        `Hospital with ID ${dto.hospitalId} not found`,
+      );
     }
 
     // Permission check: Hospital Admin must belong to the hospital
     const userHospitalId = user.hospitalId || user.organisationId;
-    if (!user.roles.includes('CURESELECT_ADMIN') && userHospitalId !== dto.hospitalId) {
-      throw new ForbiddenException('Access denied: You can only manage departments for your own hospital');
+    if (
+      !user.roles.includes('CURESELECT_ADMIN') &&
+      userHospitalId !== dto.hospitalId
+    ) {
+      throw new ForbiddenException(
+        'Access denied: You can only manage departments for your own hospital',
+      );
     }
 
-    const department = await this.departmentRepo.save(this.departmentRepo.create(dto));
+    const department = await this.departmentRepo.save(
+      this.departmentRepo.create(dto),
+    );
 
     await this.auditLogService.log({
       userId: user.id,
       action: 'DEPARTMENT_CREATED',
       ipAddress: ip,
-      metadata: { departmentId: department.id, name: department.name, hospitalId: dto.hospitalId },
+      metadata: {
+        departmentId: department.id,
+        name: department.name,
+        hospitalId: dto.hospitalId,
+      },
     });
 
     return department;
@@ -69,7 +95,7 @@ export class DepartmentService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
@@ -89,8 +115,13 @@ export class DepartmentService {
 
     // Permission check
     const userHospitalId = user.hospitalId || user.organisationId;
-    if (!user.roles.includes('CURESELECT_ADMIN') && userHospitalId !== department.hospitalId) {
-      throw new ForbiddenException('Access denied: You can only manage departments for your own hospital');
+    if (
+      !user.roles.includes('CURESELECT_ADMIN') &&
+      userHospitalId !== department.hospitalId
+    ) {
+      throw new ForbiddenException(
+        'Access denied: You can only manage departments for your own hospital',
+      );
     }
 
     Object.assign(department, dto);
@@ -111,8 +142,13 @@ export class DepartmentService {
 
     // Permission check
     const userHospitalId = user.hospitalId || user.organisationId;
-    if (!user.roles.includes('CURESELECT_ADMIN') && userHospitalId !== department.hospitalId) {
-      throw new ForbiddenException('Access denied: You can only manage departments for your own hospital');
+    if (
+      !user.roles.includes('CURESELECT_ADMIN') &&
+      userHospitalId !== department.hospitalId
+    ) {
+      throw new ForbiddenException(
+        'Access denied: You can only manage departments for your own hospital',
+      );
     }
 
     await this.departmentRepo.remove(department);

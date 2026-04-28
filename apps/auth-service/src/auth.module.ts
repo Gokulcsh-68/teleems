@@ -5,10 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuditLogService } from './audit-log.service';
-import { User } from './entities/user.entity';
-import { Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle } from '@app/common';
-import { Role } from './entities/role.entity';
-import { Session } from './entities/session.entity';
+import { User, Role, Session, Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle } from '@app/common';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,20 +36,29 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
 
         if (!privateKey || !publicKey) {
           try {
-            privateKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key'), 'utf8');
-            publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+            privateKey = fs.readFileSync(
+              path.join(process.cwd(), 'secrets', 'jwtRS256.key'),
+              'utf8',
+            );
+            publicKey = fs.readFileSync(
+              path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'),
+              'utf8',
+            );
           } catch (e) {
-            console.error('CRITICAL: JWT keys not found in ENV and secrets folder is missing!', e.message);
-            throw e; 
+            console.error(
+              'CRITICAL: JWT keys not found in ENV and secrets folder is missing!',
+              e.message,
+            );
+            throw e;
           }
         }
 
         return {
           privateKey,
           publicKey,
-          signOptions: { 
+          signOptions: {
             expiresIn: config.get('JWT_EXPIRATION') || '3h',
-            algorithm: 'RS256'
+            algorithm: 'RS256',
           },
         };
       },
@@ -66,9 +72,8 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
     {
       provide: APP_GUARD,
       useClass: DynamicRateLimitGuard,
-    }
+    },
   ],
   exports: [AuthService, JwtModule, AuditLogService, TypeOrmModule],
 })
 export class AuthModule {}
-

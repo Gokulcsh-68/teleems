@@ -1,4 +1,12 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsObject, IsBoolean, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsObject,
+  IsBoolean,
+  IsUUID,
+} from 'class-validator';
 import { ConfigCategory, FeatureFlagScope } from '@app/common';
 
 export class UpdateSystemConfigDto {

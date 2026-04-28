@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -24,7 +29,7 @@ import {
   COMMON_INTERVENTIONS,
   COMMON_MEDICATION_ROUTES,
   COMMON_ACUTE_MEDICATIONS,
-  PaginatedResponse
+  PaginatedResponse,
 } from '@app/common';
 import {
   CreateSymptomDto,
@@ -38,7 +43,7 @@ import {
   CreateHospitalisationReasonDto,
   CreateChiefComplaintDto,
   CreateInterventionMasterDto,
-  CreateMedicationRouteDto
+  CreateMedicationRouteDto,
 } from './dto/master-data.dto';
 import { ILike } from 'typeorm';
 import { AuthService } from '../../auth-service/src/auth.service';
@@ -72,7 +77,7 @@ export class MasterDataService {
     private readonly interventionMasterRepo: Repository<InterventionMaster>,
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
-  ) { }
+  ) {}
 
   async onModuleInit() {
     await this.seedIcdCodes();
@@ -138,15 +143,20 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   // --- Incident Category Master ---
 
-  async createCategory(dto: CreateIncidentCategoryDto, adminId: string, ip: string) {
+  async createCategory(
+    dto: CreateIncidentCategoryDto,
+    adminId: string,
+    ip: string,
+  ) {
     const existing = await this.categoryRepo.findOneBy({ id: dto.id });
-    if (existing) throw new ConflictException(`Category with ID ${dto.id} already exists`);
+    if (existing)
+      throw new ConflictException(`Category with ID ${dto.id} already exists`);
 
     const category = this.categoryRepo.create(dto);
     await this.categoryRepo.save(category);
@@ -184,13 +194,17 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   // --- Inventory Item Master ---
 
-  async createInventoryItem(dto: CreateInventoryItemDto, adminId: string, ip: string) {
+  async createInventoryItem(
+    dto: CreateInventoryItemDto,
+    adminId: string,
+    ip: string,
+  ) {
     const item = this.inventoryRepo.create(dto);
     await this.inventoryRepo.save(item);
 
@@ -230,15 +244,21 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   // --- Hospital Specialty Mapping ---
 
-  async updateHospitalMaster(id: string, dto: UpdateHospitalMasterDto, adminId: string, ip: string) {
+  async updateHospitalMaster(
+    id: string,
+    dto: UpdateHospitalMasterDto,
+    adminId: string,
+    ip: string,
+  ) {
     const hospital = await this.hospitalRepo.findOneBy({ id });
-    if (!hospital) throw new NotFoundException(`Hospital with ID ${id} not found`);
+    if (!hospital)
+      throw new NotFoundException(`Hospital with ID ${id} not found`);
 
     Object.assign(hospital, dto);
     await this.hospitalRepo.save(hospital);
@@ -256,14 +276,21 @@ export class MasterDataService {
   // --- ICD-10 Master ---
 
   async findAllIcdCodes(query: MasterQueryDto) {
-    const { page = 1, limit = 50, search, category, isCommon, isActive } = query;
+    const {
+      page = 1,
+      limit = 50,
+      search,
+      category,
+      isCommon,
+      isActive,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (search) {
       where.description = ILike(`%${search}%`);
       // Optionally search code too
-      // where.code = ILike(`%${search}%`); 
+      // where.code = ILike(`%${search}%`);
     }
     if (category) {
       where.category = category;
@@ -289,19 +316,20 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   async createIcdCode(dto: any, adminId: string, ip: string) {
     const existing = await this.icdRepo.findOneBy({ code: dto.code });
-    if (existing) throw new ConflictException(`ICD code ${dto.code} already exists`);
+    if (existing)
+      throw new ConflictException(`ICD code ${dto.code} already exists`);
 
     const icd = this.icdRepo.create({
       code: dto.code,
       description: dto.description,
       category: dto.category,
-      isCommon: dto.isCommon
+      isCommon: dto.isCommon,
     });
     await this.icdRepo.save(icd);
 
@@ -315,7 +343,12 @@ export class MasterDataService {
     return icd;
   }
 
-  async toggleIcdStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleIcdStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const icd = await this.icdRepo.findOneBy({ id });
     if (!icd) throw new NotFoundException(`ICD record with ID ${id} not found`);
 
@@ -338,7 +371,9 @@ export class MasterDataService {
     console.log('[SEED] Synchronizing Allergy Master Registry...');
     let count = 0;
     for (const allergenDef of COMMON_ALLERGENS) {
-      const existing = await this.allergyRepo.findOneBy({ name: allergenDef.name });
+      const existing = await this.allergyRepo.findOneBy({
+        name: allergenDef.name,
+      });
       if (!existing) {
         await this.allergyRepo.save(this.allergyRepo.create(allergenDef));
         count++;
@@ -348,7 +383,14 @@ export class MasterDataService {
   }
 
   async findAllAllergens(query: MasterQueryDto) {
-    const { page = 1, limit = 50, search, category, isCommon, isActive } = query;
+    const {
+      page = 1,
+      limit = 50,
+      search,
+      category,
+      isCommon,
+      isActive,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -379,13 +421,14 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   async createAllergen(dto: CreateAllergenDto, adminId: string, ip: string) {
     const existing = await this.allergyRepo.findOneBy({ name: dto.name });
-    if (existing) throw new ConflictException(`Allergen ${dto.name} already exists`);
+    if (existing)
+      throw new ConflictException(`Allergen ${dto.name} already exists`);
 
     const allergen = this.allergyRepo.create(dto);
     await this.allergyRepo.save(allergen);
@@ -400,9 +443,15 @@ export class MasterDataService {
     return allergen;
   }
 
-  async toggleAllergenStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleAllergenStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const allergen = await this.allergyRepo.findOneBy({ id });
-    if (!allergen) throw new NotFoundException(`Allergen with ID ${id} not found`);
+    if (!allergen)
+      throw new NotFoundException(`Allergen with ID ${id} not found`);
 
     allergen.isActive = isActive;
     await this.allergyRepo.save(allergen);
@@ -423,7 +472,9 @@ export class MasterDataService {
     console.log('[SEED] Synchronizing Medication Master Registry...');
     let count = 0;
     for (const medDef of COMMON_MEDICATIONS) {
-      const existing = await this.medicationRepo.findOneBy({ name: medDef.name });
+      const existing = await this.medicationRepo.findOneBy({
+        name: medDef.name,
+      });
       if (!existing) {
         await this.medicationRepo.save(this.medicationRepo.create(medDef));
         count++;
@@ -433,7 +484,14 @@ export class MasterDataService {
   }
 
   async findAllMedications(query: MasterQueryDto) {
-    const { page = 1, limit = 50, search, category, isCommon, isActive } = query;
+    const {
+      page = 1,
+      limit = 50,
+      search,
+      category,
+      isCommon,
+      isActive,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -464,13 +522,18 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
-  async createMedication(dto: CreateMedicationDto, adminId: string, ip: string) {
+  async createMedication(
+    dto: CreateMedicationDto,
+    adminId: string,
+    ip: string,
+  ) {
     const existing = await this.medicationRepo.findOneBy({ name: dto.name });
-    if (existing) throw new ConflictException(`Medication ${dto.name} already exists`);
+    if (existing)
+      throw new ConflictException(`Medication ${dto.name} already exists`);
 
     const medication = this.medicationRepo.create(dto);
     await this.medicationRepo.save(medication);
@@ -485,9 +548,15 @@ export class MasterDataService {
     return medication;
   }
 
-  async toggleMedicationStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleMedicationStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const medication = await this.medicationRepo.findOneBy({ id });
-    if (!medication) throw new NotFoundException(`Medication with ID ${id} not found`);
+    if (!medication)
+      throw new NotFoundException(`Medication with ID ${id} not found`);
 
     medication.isActive = isActive;
     await this.medicationRepo.save(medication);
@@ -508,7 +577,9 @@ export class MasterDataService {
     console.log('[SEED] Synchronizing Surgery Master Registry...');
     let count = 0;
     for (const surgeryDef of COMMON_SURGERIES) {
-      const existing = await this.surgeryRepo.findOneBy({ name: surgeryDef.name });
+      const existing = await this.surgeryRepo.findOneBy({
+        name: surgeryDef.name,
+      });
       if (!existing) {
         await this.surgeryRepo.save(this.surgeryRepo.create(surgeryDef));
         count++;
@@ -518,7 +589,14 @@ export class MasterDataService {
   }
 
   async findAllSurgeries(query: MasterQueryDto) {
-    const { page = 1, limit = 50, search, category, isCommon, isActive } = query;
+    const {
+      page = 1,
+      limit = 50,
+      search,
+      category,
+      isCommon,
+      isActive,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -549,13 +627,14 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
   async createSurgery(dto: CreateSurgeryDto, adminId: string, ip: string) {
     const existing = await this.surgeryRepo.findOneBy({ name: dto.name });
-    if (existing) throw new ConflictException(`Surgery ${dto.name} already exists`);
+    if (existing)
+      throw new ConflictException(`Surgery ${dto.name} already exists`);
 
     const surgery = this.surgeryRepo.create(dto);
     await this.surgeryRepo.save(surgery);
@@ -570,9 +649,15 @@ export class MasterDataService {
     return surgery;
   }
 
-  async toggleSurgeryStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleSurgeryStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const surgery = await this.surgeryRepo.findOneBy({ id });
-    if (!surgery) throw new NotFoundException(`Surgery with ID ${id} not found`);
+    if (!surgery)
+      throw new NotFoundException(`Surgery with ID ${id} not found`);
 
     surgery.isActive = isActive;
     await this.surgeryRepo.save(surgery);
@@ -593,17 +678,30 @@ export class MasterDataService {
     console.log('[SEED] Synchronizing Hospitalisation Master Registry...');
     let count = 0;
     for (const reasonDef of COMMON_HOSPITALISATION_REASONS) {
-      const existing = await this.hospitalisationRepo.findOneBy({ reason: reasonDef.reason });
+      const existing = await this.hospitalisationRepo.findOneBy({
+        reason: reasonDef.reason,
+      });
       if (!existing) {
-        await this.hospitalisationRepo.save(this.hospitalisationRepo.create(reasonDef));
+        await this.hospitalisationRepo.save(
+          this.hospitalisationRepo.create(reasonDef),
+        );
         count++;
       }
     }
-    console.log(`[SEED] Success: Added ${count} new hospitalisation reasons to registry.`);
+    console.log(
+      `[SEED] Success: Added ${count} new hospitalisation reasons to registry.`,
+    );
   }
 
   async findAllHospitalisations(query: MasterQueryDto) {
-    const { page = 1, limit = 50, search, category, isCommon, isActive } = query;
+    const {
+      page = 1,
+      limit = 50,
+      search,
+      category,
+      isCommon,
+      isActive,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -634,13 +732,22 @@ export class MasterDataService {
       limit,
       data.length,
       page,
-      Math.ceil(total / limit)
+      Math.ceil(total / limit),
     );
   }
 
-  async createHospitalisationReason(dto: CreateHospitalisationReasonDto, adminId: string, ip: string) {
-    const existing = await this.hospitalisationRepo.findOneBy({ reason: dto.reason });
-    if (existing) throw new ConflictException(`Hospitalisation reason ${dto.reason} already exists`);
+  async createHospitalisationReason(
+    dto: CreateHospitalisationReasonDto,
+    adminId: string,
+    ip: string,
+  ) {
+    const existing = await this.hospitalisationRepo.findOneBy({
+      reason: dto.reason,
+    });
+    if (existing)
+      throw new ConflictException(
+        `Hospitalisation reason ${dto.reason} already exists`,
+      );
 
     const reason = this.hospitalisationRepo.create(dto);
     await this.hospitalisationRepo.save(reason);
@@ -655,9 +762,17 @@ export class MasterDataService {
     return reason;
   }
 
-  async toggleHospitalisationStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleHospitalisationStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const reason = await this.hospitalisationRepo.findOneBy({ id });
-    if (!reason) throw new NotFoundException(`Hospitalisation reason with ID ${id} not found`);
+    if (!reason)
+      throw new NotFoundException(
+        `Hospitalisation reason with ID ${id} not found`,
+      );
 
     reason.isActive = isActive;
     await this.hospitalisationRepo.save(reason);
@@ -702,10 +817,22 @@ export class MasterDataService {
       skip,
     });
 
-    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+    return new PaginatedResponse(
+      data,
+      null,
+      total,
+      limit,
+      data.length,
+      page,
+      Math.ceil(total / limit),
+    );
   }
 
-  async createChiefComplaint(dto: CreateChiefComplaintDto, adminId: string, ip: string) {
+  async createChiefComplaint(
+    dto: CreateChiefComplaintDto,
+    adminId: string,
+    ip: string,
+  ) {
     const existing = await this.complaintRepo.findOneBy({ name: dto.name });
     if (existing) throw new ConflictException('Chief complaint already exists');
 
@@ -722,7 +849,12 @@ export class MasterDataService {
     return complaint;
   }
 
-  async toggleChiefComplaintStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleChiefComplaintStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const complaint = await this.complaintRepo.findOneBy({ id });
     if (!complaint) throw new NotFoundException('Chief complaint not found');
 
@@ -745,9 +877,13 @@ export class MasterDataService {
     console.log('[SEED] Synchronizing Intervention Master Registry...');
     let count = 0;
     for (const def of COMMON_INTERVENTIONS) {
-      const existing = await this.interventionMasterRepo.findOneBy({ name: def.name });
+      const existing = await this.interventionMasterRepo.findOneBy({
+        name: def.name,
+      });
       if (!existing) {
-        await this.interventionMasterRepo.save(this.interventionMasterRepo.create(def));
+        await this.interventionMasterRepo.save(
+          this.interventionMasterRepo.create(def),
+        );
         count++;
       }
     }
@@ -769,11 +905,25 @@ export class MasterDataService {
       skip,
     });
 
-    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+    return new PaginatedResponse(
+      data,
+      null,
+      total,
+      limit,
+      data.length,
+      page,
+      Math.ceil(total / limit),
+    );
   }
 
-  async createInterventionMaster(dto: CreateInterventionMasterDto, adminId: string, ip: string) {
-    const existing = await this.interventionMasterRepo.findOneBy({ name: dto.name });
+  async createInterventionMaster(
+    dto: CreateInterventionMasterDto,
+    adminId: string,
+    ip: string,
+  ) {
+    const existing = await this.interventionMasterRepo.findOneBy({
+      name: dto.name,
+    });
     if (existing) throw new ConflictException('Intervention already exists');
 
     const intervention = this.interventionMasterRepo.create(dto);
@@ -789,9 +939,15 @@ export class MasterDataService {
     return intervention;
   }
 
-  async toggleInterventionMasterStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleInterventionMasterStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const intervention = await this.interventionMasterRepo.findOneBy({ id });
-    if (!intervention) throw new NotFoundException('Intervention master not found');
+    if (!intervention)
+      throw new NotFoundException('Intervention master not found');
 
     intervention.isActive = isActive;
     await this.interventionMasterRepo.save(intervention);
@@ -836,12 +992,27 @@ export class MasterDataService {
       skip,
     });
 
-    return new PaginatedResponse(data, null, total, limit, data.length, page, Math.ceil(total / limit));
+    return new PaginatedResponse(
+      data,
+      null,
+      total,
+      limit,
+      data.length,
+      page,
+      Math.ceil(total / limit),
+    );
   }
 
-  async createMedicationRoute(dto: CreateMedicationRouteDto, adminId: string, ip: string) {
+  async createMedicationRoute(
+    dto: CreateMedicationRouteDto,
+    adminId: string,
+    ip: string,
+  ) {
     const existing = await this.routeRepo.findOneBy({ code: dto.code });
-    if (existing) throw new ConflictException(`Medication route with code '${dto.code}' already exists`);
+    if (existing)
+      throw new ConflictException(
+        `Medication route with code '${dto.code}' already exists`,
+      );
 
     const route = this.routeRepo.create(dto);
     await this.routeRepo.save(route);
@@ -856,7 +1027,12 @@ export class MasterDataService {
     return route;
   }
 
-  async toggleMedicationRouteStatus(id: string, isActive: boolean, adminId: string, ip: string) {
+  async toggleMedicationRouteStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
     const route = await this.routeRepo.findOneBy({ id });
     if (!route) throw new NotFoundException('Medication route not found');
 

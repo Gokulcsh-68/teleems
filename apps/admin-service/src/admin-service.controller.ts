@@ -1,10 +1,30 @@
-import { Controller, Post, Get, Put, Body, Param, Req, UseGuards, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import { AdminServiceService } from './admin-service.service';
-import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
+import {
+  CreateOrganisationDto,
+  UpdateOrganisationDto,
+} from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
 import { FleetOperatorQueryDto } from './dto/fleet-operator-query.dto';
-import { OrganisationStatus, JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
+import {
+  OrganisationStatus,
+  JwtAuthGuard,
+  RolesGuard,
+  Roles,
+  AdminIpWhitelistGuard,
+} from '@app/common';
 
 @Controller('v1/admin')
 @UseGuards(JwtAuthGuard, RolesGuard, AdminIpWhitelistGuard)
@@ -28,13 +48,31 @@ export class AdminServiceController {
   }
 
   @Put('organisations/:id')
-  async updateOrg(@Param('id') id: string, @Body() dto: UpdateOrganisationDto, @Req() req: any) {
-    return this.adminService.updateOrganisation(id, dto, req.user.userId, req.ip);
+  async updateOrg(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganisationDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateOrganisation(
+      id,
+      dto,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Patch('organisations/:id/status')
-  async setStatus(@Param('id') id: string, @Body() body: { status: OrganisationStatus }, @Req() req: any) {
-    return this.adminService.setOrganisationStatus(id, body.status, req.user.userId, req.ip);
+  async setStatus(
+    @Param('id') id: string,
+    @Body() body: { status: OrganisationStatus },
+    @Req() req: any,
+  ) {
+    return this.adminService.setOrganisationStatus(
+      id,
+      body.status,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Get('audit-logs')
@@ -44,15 +82,27 @@ export class AdminServiceController {
 
   @Get('fleet-operators')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async listFleetOperators(@Query() query: FleetOperatorQueryDto, @Req() req: any) {
+  async listFleetOperators(
+    @Query() query: FleetOperatorQueryDto,
+    @Req() req: any,
+  ) {
     return this.adminService.findAllFleetOperators(query, req.user);
   }
 
   @Put('fleet-operators/:id')
   @Patch('fleet-operators/:id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async updateFleetOperator(@Param('id') id: string, @Body() dto: UpdateOrganisationDto, @Req() req: any) {
-    return this.adminService.updateFleetOperatorDetails(id, dto, req.user, req.ip);
+  async updateFleetOperator(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganisationDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.updateFleetOperatorDetails(
+      id,
+      dto,
+      req.user,
+      req.ip,
+    );
   }
 
   @Post('organisations/:id/invoices')
@@ -66,7 +116,14 @@ export class AdminServiceController {
   }
 
   @Post('register-fleet-operator')
-  async registerFleetOperator(@Body() dto: RegisterFleetOperatorDto, @Req() req: any) {
-    return this.adminService.registerFleetOperatorWithAdmin(dto, req.user, req.ip);
+  async registerFleetOperator(
+    @Body() dto: RegisterFleetOperatorDto,
+    @Req() req: any,
+  ) {
+    return this.adminService.registerFleetOperatorWithAdmin(
+      dto,
+      req.user,
+      req.ip,
+    );
   }
 }

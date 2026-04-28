@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, PrimaryColumn, Column, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  Column,
+  Index,
+} from 'typeorm';
 
 @Entity({ name: 'rtvs_records' })
 export class RtvsRecord {
@@ -8,9 +14,17 @@ export class RtvsRecord {
   @PrimaryColumn({ type: 'timestamptz' })
   timestamp: Date;
 
-  @Column()
+  @Column({ name: 'organisation_id' })
   @Index()
   organisationId: string;
+
+  @Column({ name: 'incident_id', nullable: true })
+  @Index()
+  incidentId: string;
+
+  @Column({ name: 'patient_id', nullable: true })
+  @Index()
+  patientId: string;
 
   @Column({ type: 'json' })
   vitals: any;

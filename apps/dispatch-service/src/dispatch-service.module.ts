@@ -8,9 +8,9 @@ import { DispatchServiceService } from './dispatch-service.service';
 import { TripService } from './trip.service';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { IncidentEscalation } from './entities/incident-escalation.entity';
-import { 
-  PatientProfile, 
-  PatientAssessment, 
+import {
+  PatientProfile,
+  PatientAssessment,
   PatientIntervention,
   Incident,
   Dispatch,
@@ -41,4 +41,3 @@ import { DispatchGateway } from './dispatch.gateway';
   exports: [DispatchServiceService, DispatchGateway],
 })
 export class DispatchServiceModule {}
-

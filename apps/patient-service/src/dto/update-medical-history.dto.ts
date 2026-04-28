@@ -1,4 +1,11 @@
-import { IsArray, IsOptional, IsString, IsEnum, ValidateNested, IsNotEmpty } from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsString,
+  IsEnum,
+  ValidateNested,
+  IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ConditionDto {

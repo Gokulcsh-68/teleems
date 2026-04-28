@@ -1,12 +1,23 @@
-import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ForbiddenException,
+  BadRequestException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
-import { User } from './entities/user.entity';
-import { Role } from './entities/role.entity';
-import { Session } from './entities/session.entity';
-import { AuditLogService } from '@app/common';
+import {
+  Organisation,
+  User,
+  Role,
+  Session,
+  AuditLogService,
+  StorageService,
+
+} from '@app/common';
 import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
 import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
@@ -21,7 +32,6 @@ import * as bcrypt from 'bcrypt';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 
-
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
 const MFA_SESSION_EXPIRY = '5m';
@@ -29,8 +39,10 @@ const BCRYPT_SALT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService implements OnModuleInit {
-
-  private otpStore = new Map<string, { otp: string; otpRef: string; expiresAt: number }>();
+  private otpStore = new Map<
+    string,
+    { otp: string; otpRef: string; expiresAt: number }
+  >();
 
   constructor(
     private jwtService: JwtService,
@@ -43,7 +55,8 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(DutyShift) private dutyShiftRepo: Repository<DutyShift>,
     @InjectRepository(Vehicle) private vehicleRepo: Repository<Vehicle>,
     private auditLogService: AuditLogService,
-  ) { }
+    private storageService: StorageService,
+  ) {}
 
   async onModuleInit() {
     await this.seedRoles();
@@ -62,7 +75,9 @@ export class AuthService implements OnModuleInit {
       }
       await this.roleRepo.save(role);
     }
-    console.log(`[SEED] Successfully synchronized ${SYSTEM_ROLES.length} roles.`);
+    console.log(
+      `[SEED] Successfully synchronized ${SYSTEM_ROLES.length} roles.`,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -77,7 +92,7 @@ export class AuthService implements OnModuleInit {
     this.otpStore.set(phone, {
       otp,
       otpRef,
-      expiresAt: Date.now() + expiresIn * 1000
+      expiresAt: Date.now() + expiresIn * 1000,
     });
 
     console.log(`[OTP] ${phone} (${purpose}): ${otp} [Ref: ${otpRef}]`);
@@ -87,14 +102,19 @@ export class AuthService implements OnModuleInit {
       data: {
         otp_ref: otpRef,
         expires_in: expiresIn,
-        otp: process.env.NODE_ENV !== 'production' ? otp : undefined
-      }
+        otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+      },
     };
   }
 
   async verifyOtpAndIssueTokens(phone: string, otp: string, otpRef: string) {
     const stored = this.otpStore.get(phone);
-    if (!stored || stored.otp !== otp || stored.otpRef !== otpRef || Date.now() > stored.expiresAt) {
+    if (
+      !stored ||
+      stored.otp !== otp ||
+      stored.otpRef !== otpRef ||
+      Date.now() > stored.expiresAt
+    ) {
       throw new UnauthorizedException('Invalid or expired OTP');
     }
     this.otpStore.delete(phone);
@@ -116,7 +136,7 @@ export class AuthService implements OnModuleInit {
       ipAddress,
       userAgent,
       isValid: true,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days (Refresh Token max)
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days (Refresh Token max)
     });
     await this.sessionRepo.save(session);
 
@@ -124,7 +144,7 @@ export class AuthService implements OnModuleInit {
       sub: user.id,
       roles: user.roles,
       org_id: user.organisationId,
-      sid: session.id
+      sid: session.id,
     };
 
     const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
@@ -140,7 +160,8 @@ export class AuthService implements OnModuleInit {
     const { username, password } = loginDto;
 
     // Explicitly select password and mfaSecret since they are marked select: false
-    const user = await this.userRepo.createQueryBuilder('user')
+    const user = await this.userRepo
+      .createQueryBuilder('user')
       .addSelect('user.password')
       .addSelect('user.mfaSecret')
       .where('user.username = :username', { username })
@@ -152,7 +173,9 @@ export class AuthService implements OnModuleInit {
 
     // Check account lockout
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const minutesLeft = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000);
+      const minutesLeft = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 60000,
+      );
       await this.auditLogService.log({
         userId: user.id,
         action: 'LOGIN_BLOCKED_LOCKED',
@@ -173,7 +196,9 @@ export class AuthService implements OnModuleInit {
       const updates: Partial<User> = { failedLoginAttempts: newAttempts };
 
       if (newAttempts >= MAX_FAILED_ATTEMPTS) {
-        updates.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000);
+        updates.lockedUntil = new Date(
+          Date.now() + LOCKOUT_DURATION_MINUTES * 60 * 1000,
+        );
       }
 
       await this.userRepo.update(user.id, updates);
@@ -183,7 +208,10 @@ export class AuthService implements OnModuleInit {
         action: 'LOGIN_FAILED',
         ipAddress,
         userAgent,
-        metadata: { attempt: newAttempts, locked: newAttempts >= MAX_FAILED_ATTEMPTS },
+        metadata: {
+          attempt: newAttempts,
+          locked: newAttempts >= MAX_FAILED_ATTEMPTS,
+        },
       });
 
       throw new UnauthorizedException('Invalid credentials');
@@ -196,7 +224,9 @@ export class AuthService implements OnModuleInit {
       lastActiveAt: new Date(),
     });
 
-    const isAdmin = user.roles.some(r => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const isAdmin = user.roles.some((r) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+    );
     const isMfaEnforced = this.configService.get('ENFORCE_MFA') !== 'false';
 
     // Mandatory MFA Enforcement for Admins (Spec 5.1)
@@ -272,7 +302,11 @@ export class AuthService implements OnModuleInit {
     }
 
     // No MFA — issue tokens directly
-    const { accessToken, refreshToken } = await this.issueTokens(user, ipAddress, userAgent);
+    const { accessToken, refreshToken } = await this.issueTokens(
+      user,
+      ipAddress,
+      userAgent,
+    );
 
     await this.auditLogService.log({
       userId: user.id,
@@ -306,7 +340,13 @@ export class AuthService implements OnModuleInit {
   /**
    * Verify MFA challenge after login — supports TOTP or SMS OTP methods.
    */
-  async verifyMfa(mfaSessionToken: string, method: 'TOTP' | 'SMS', code: string, ipAddress: string, userAgent: string) {
+  async verifyMfa(
+    mfaSessionToken: string,
+    method: 'TOTP' | 'SMS',
+    code: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
     let tokenPayload: any;
     try {
       tokenPayload = this.jwtService.verify(mfaSessionToken);
@@ -318,7 +358,8 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Invalid MFA session token');
     }
 
-    const user = await this.userRepo.createQueryBuilder('user')
+    const user = await this.userRepo
+      .createQueryBuilder('user')
       .addSelect('user.mfaSecret')
       .addSelect('user.mfaBackupCodes')
       .where('user.id = :id', { id: tokenPayload.sub })
@@ -351,7 +392,9 @@ export class AuthService implements OnModuleInit {
             // Remove used backup code
             const updatedCodes = [...user.mfaBackupCodes];
             updatedCodes.splice(i, 1);
-            await this.userRepo.update(user.id, { mfaBackupCodes: updatedCodes });
+            await this.userRepo.update(user.id, {
+              mfaBackupCodes: updatedCodes,
+            });
             break;
           }
         }
@@ -377,7 +420,11 @@ export class AuthService implements OnModuleInit {
     }
 
     // MFA passed — issue real tokens
-    const { accessToken, refreshToken } = await this.issueTokens(user, ipAddress, userAgent);
+    const { accessToken, refreshToken } = await this.issueTokens(
+      user,
+      ipAddress,
+      userAgent,
+    );
 
     await this.userRepo.update(user.id, { lastActiveAt: new Date() });
 
@@ -456,7 +503,9 @@ export class AuthService implements OnModuleInit {
     if (!user) throw new UnauthorizedException('User not found');
 
     if (user.mfaEnabled) {
-      throw new BadRequestException('MFA is already enabled. Disable it first to reconfigure.');
+      throw new BadRequestException(
+        'MFA is already enabled. Disable it first to reconfigure.',
+      );
     }
 
     const issuer = process.env.MFA_ISSUER || 'TeleEMS';
@@ -496,7 +545,8 @@ export class AuthService implements OnModuleInit {
     });
 
     return {
-      message: 'MFA setup initiated. Scan the QR code and verify with a TOTP code.',
+      message:
+        'MFA setup initiated. Scan the QR code and verify with a TOTP code.',
       data: {
         totp_uri: secret.otpauth_url,
         secret: secret.base32,
@@ -508,14 +558,22 @@ export class AuthService implements OnModuleInit {
   /**
    * Confirm MFA setup by verifying a TOTP code → enables MFA and generates backup codes.
    */
-  async enableMfa(userId: string, totpCode: string, ipAddress: string, userAgent: string) {
-    const user = await this.userRepo.createQueryBuilder('user')
+  async enableMfa(
+    userId: string,
+    totpCode: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const user = await this.userRepo
+      .createQueryBuilder('user')
       .addSelect('user.mfaSecret')
       .where('user.id = :id', { id: userId })
       .getOne();
 
     if (!user || !user.mfaSecret) {
-      throw new BadRequestException('MFA setup has not been initiated. Call /mfa/totp/setup first.');
+      throw new BadRequestException(
+        'MFA setup has not been initiated. Call /mfa/totp/setup first.',
+      );
     }
 
     const isValid = speakeasy.totp.verify({
@@ -533,14 +591,16 @@ export class AuthService implements OnModuleInit {
     const backupCodes: string[] = [];
     for (let i = 0; i < 10; i++) {
       const code = Array.from({ length: 8 }, () =>
-        'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.charAt(Math.floor(Math.random() * 32))
+        'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'.charAt(
+          Math.floor(Math.random() * 32),
+        ),
       ).join('');
       backupCodes.push(code);
     }
 
     // Hash backup codes before storing
     const hashedCodes = await Promise.all(
-      backupCodes.map(code => bcrypt.hash(code, 10)),
+      backupCodes.map((code) => bcrypt.hash(code, 10)),
     );
 
     await this.userRepo.update(userId, {
@@ -557,7 +617,8 @@ export class AuthService implements OnModuleInit {
     });
 
     return {
-      message: 'MFA has been successfully enabled. Save your backup codes securely.',
+      message:
+        'MFA has been successfully enabled. Save your backup codes securely.',
       data: { backup_codes: backupCodes },
     };
   }
@@ -565,8 +626,14 @@ export class AuthService implements OnModuleInit {
   /**
    * Disable MFA on the account (requires password confirmation for security).
    */
-  async disableMfa(userId: string, password: string, ipAddress: string, userAgent: string) {
-    const user = await this.userRepo.createQueryBuilder('user')
+  async disableMfa(
+    userId: string,
+    password: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const user = await this.userRepo
+      .createQueryBuilder('user')
       .addSelect('user.password')
       .where('user.id = :id', { id: userId })
       .getOne();
@@ -579,10 +646,15 @@ export class AuthService implements OnModuleInit {
 
     // Require password confirmation to disable MFA
     if (!user.password || !(await bcrypt.compare(password, user.password))) {
-      throw new UnauthorizedException('Invalid password. MFA disable requires password confirmation.');
+      throw new UnauthorizedException(
+        'Invalid password. MFA disable requires password confirmation.',
+      );
     }
 
-    await this.userRepo.update(userId, { mfaEnabled: false, mfaSecret: null as any });
+    await this.userRepo.update(userId, {
+      mfaEnabled: false,
+      mfaSecret: null as any,
+    });
 
     await this.auditLogService.log({
       userId,
@@ -604,19 +676,32 @@ export class AuthService implements OnModuleInit {
   /**
    * Force password reset on a sub-account (admin-only).
    */
-  async forcePasswordReset(creator: any, targetUserId: string, ipAddress: string, userAgent: string) {
+  async forcePasswordReset(
+    creator: any,
+    targetUserId: string,
+    ipAddress: string,
+    userAgent: string,
+  ) {
     const targetUser = await this.userRepo.findOneBy({ id: targetUserId });
     if (!targetUser) {
       throw new BadRequestException('Target user not found');
     }
 
-    const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-    const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
-    const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+    const isPlatformAdmin = creator.roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+    );
+    const isHospitalAdmin = creator.roles.some((r: string) =>
+      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
+    );
+    const isEdDoctor = creator.roles.some((r: string) =>
+      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
+    );
 
     if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
       if (targetUser.organisationId !== creator.organisationId) {
-        throw new ForbiddenException('Access denied: You can only reset passwords for users in your own organization');
+        throw new ForbiddenException(
+          'Access denied: You can only reset passwords for users in your own organization',
+        );
       }
     }
 
@@ -639,8 +724,14 @@ export class AuthService implements OnModuleInit {
   /**
    * Change own password (handles forced resets and voluntary changes).
    */
-  async changePassword(userId: string, dto: ChangePasswordDto, ipAddress: string, userAgent: string) {
-    const user = await this.userRepo.createQueryBuilder('user')
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    ipAddress: string,
+    userAgent: string,
+  ) {
+    const user = await this.userRepo
+      .createQueryBuilder('user')
       .addSelect('user.password')
       .where('user.id = :id', { id: userId })
       .getOne();
@@ -649,16 +740,24 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('User not found');
     }
 
-    const isCurrentValid = await bcrypt.compare(dto.current_password, user.password);
+    const isCurrentValid = await bcrypt.compare(
+      dto.current_password,
+      user.password,
+    );
     if (!isCurrentValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
 
     if (dto.current_password === dto.new_password) {
-      throw new BadRequestException('New password must be different from current password');
+      throw new BadRequestException(
+        'New password must be different from current password',
+      );
     }
 
-    const hashedPassword = await bcrypt.hash(dto.new_password, BCRYPT_SALT_ROUNDS);
+    const hashedPassword = await bcrypt.hash(
+      dto.new_password,
+      BCRYPT_SALT_ROUNDS,
+    );
     await this.userRepo.update(userId, {
       password: hashedPassword,
       forcePasswordReset: false,
@@ -682,7 +781,10 @@ export class AuthService implements OnModuleInit {
    * Always returns the same response to prevent email enumeration attacks.
    */
   async requestPasswordReset(email: string): Promise<{ message: string }> {
-    const GENERIC_RESPONSE = { message: 'If an account with that email exists, a password reset link has been sent.' };
+    const GENERIC_RESPONSE = {
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+    };
 
     const user = await this.userRepo.findOne({
       where: { email },
@@ -690,7 +792,8 @@ export class AuthService implements OnModuleInit {
     });
 
     const adminRoles = ['CURESELECT_ADMIN', 'HOSPITAL_ADMIN', 'FLEET_MANAGER'];
-    const isPrivileged = user && user.roles.some(role => adminRoles.includes(role));
+    const isPrivileged =
+      user && user.roles.some((role) => adminRoles.includes(role));
 
     if (!user || !isPrivileged) {
       return GENERIC_RESPONSE;
@@ -719,19 +822,26 @@ export class AuthService implements OnModuleInit {
     });
 
     return {
-      message: 'If an account with that email exists, a password reset link has been sent.',
-      ...(process.env.NODE_ENV !== 'production' ? {
-        reset_url: resetUrl,
-        otp,
-        otp_ref: otpRef
-      } : {}),
+      message:
+        'If an account with that email exists, a password reset link has been sent.',
+      ...(process.env.NODE_ENV !== 'production'
+        ? {
+            reset_url: resetUrl,
+            otp,
+            otp_ref: otpRef,
+          }
+        : {}),
     };
   }
 
   /**
    * Complete password reset using the OTP provided in the email.
    */
-  async confirmPasswordReset(email: string, otp: string, newPassword: string): Promise<void> {
+  async confirmPasswordReset(
+    email: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<void> {
     const stored = this.otpStore.get(email);
 
     if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
@@ -771,10 +881,14 @@ export class AuthService implements OnModuleInit {
       const payload = this.jwtService.verify(refreshToken);
       const newPayload = {
         sub: payload.sub,
-        roles: payload.roles || [payload.role]
+        roles: payload.roles || [payload.role],
       };
-      const newAccessToken = this.jwtService.sign(newPayload, { expiresIn: '3h' });
-      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+      const newAccessToken = this.jwtService.sign(newPayload, {
+        expiresIn: '3h',
+      });
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+      });
       return { accessToken: newAccessToken, refreshToken: newRefreshToken };
     } catch (err) {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -783,8 +897,10 @@ export class AuthService implements OnModuleInit {
 
   async issueClientCredentials(clientId: string, clientSecret: string) {
     const clientsStr = process.env.OAUTH2_CLIENTS || '';
-    const clients = clientsStr.split(',').map(pair => pair.split(':'));
-    const isValid = clients.some(([id, secret]) => id === clientId && secret === clientSecret);
+    const clients = clientsStr.split(',').map((pair) => pair.split(':'));
+    const isValid = clients.some(
+      ([id, secret]) => id === clientId && secret === clientSecret,
+    );
 
     if (!isValid) {
       throw new UnauthorizedException('Invalid client credentials');
@@ -794,7 +910,7 @@ export class AuthService implements OnModuleInit {
     const accessToken = this.jwtService.sign(payload, { expiresIn: '3h' });
     return {
       accessToken,
-      expiresIn: 900 // 15 minutes as per signing option
+      expiresIn: 900, // 15 minutes as per signing option
     };
   }
 
@@ -841,10 +957,14 @@ export class AuthService implements OnModuleInit {
     if (!role) {
       // Try case-insensitive fallback for developer convenience
       const allRoles = await this.roleRepo.find();
-      const found = allRoles.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+      const found = allRoles.find(
+        (r) => r.name.toLowerCase() === roleName.toLowerCase(),
+      );
       if (found) return found.permissions;
 
-      throw new BadRequestException(`Role '${roleName}' not found in the system`);
+      throw new BadRequestException(
+        `Role '${roleName}' not found in the system`,
+      );
     }
     return role.permissions;
   }
@@ -860,10 +980,12 @@ export class AuthService implements OnModuleInit {
 
     // Validate permissions if provided
     if (dto.permissions && dto.permissions.length > 0) {
-      const validKeys = PERMISSION_MASTER.map(p => p.key);
-      const invalid = dto.permissions.filter(p => !validKeys.includes(p));
+      const validKeys = PERMISSION_MASTER.map((p) => p.key);
+      const invalid = dto.permissions.filter((p) => !validKeys.includes(p));
       if (invalid.length > 0) {
-        throw new BadRequestException(`Invalid permissions: ${invalid.join(', ')}`);
+        throw new BadRequestException(
+          `Invalid permissions: ${invalid.join(', ')}`,
+        );
       }
     }
 
@@ -879,7 +1001,10 @@ export class AuthService implements OnModuleInit {
       userId: 'SYSTEM', // Or pass the admin ID
       action: 'ROLE_CREATED',
       ipAddress: '0.0.0.0',
-      metadata: { role_name: role.name, permissions_count: role.permissions.length },
+      metadata: {
+        role_name: role.name,
+        permissions_count: role.permissions.length,
+      },
     });
 
     return role;
@@ -888,17 +1013,23 @@ export class AuthService implements OnModuleInit {
   /**
    * Persistently update permissions for a role.
    */
-  async updateRolePermissions(roleName: string, permissions: string[], adminId: string) {
+  async updateRolePermissions(
+    roleName: string,
+    permissions: string[],
+    adminId: string,
+  ) {
     const role = await this.roleRepo.findOneBy({ name: roleName });
     if (!role) {
       throw new BadRequestException(`Role '${roleName}' not found`);
     }
 
     // Spec 2.5: Validate every permission against the master registry
-    const validKeys = PERMISSION_MASTER.map(p => p.key);
-    const invalid = permissions.filter(p => !validKeys.includes(p));
+    const validKeys = PERMISSION_MASTER.map((p) => p.key);
+    const invalid = permissions.filter((p) => !validKeys.includes(p));
     if (invalid.length > 0) {
-      throw new BadRequestException(`Invalid permissions detected: ${invalid.join(', ')}`);
+      throw new BadRequestException(
+        `Invalid permissions detected: ${invalid.join(', ')}`,
+      );
     }
 
     role.permissions = permissions;
@@ -925,7 +1056,9 @@ export class AuthService implements OnModuleInit {
 
     // Protection for CURESELECT_ADMIN
     if (role.name === 'CURESELECT_ADMIN') {
-      throw new BadRequestException('The primary administrator role cannot be deleted');
+      throw new BadRequestException(
+        'The primary administrator role cannot be deleted',
+      );
     }
 
     await this.roleRepo.remove(role);
@@ -943,7 +1076,9 @@ export class AuthService implements OnModuleInit {
     // Verify role exists in our masters
     const roleExists = await this.roleRepo.findOneBy({ name: roleName });
     if (!roleExists) {
-      throw new BadRequestException(`Role '${roleName}' does not exist in the system`);
+      throw new BadRequestException(
+        `Role '${roleName}' does not exist in the system`,
+      );
     }
 
     if (!user.roles.includes(roleName)) {
@@ -992,7 +1127,10 @@ export class AuthService implements OnModuleInit {
   /**
    * List users with cursor-based pagination and filtering.
    */
-  async findAllUsers(query: UserQueryDto, requester?: any): Promise<PaginatedResponse<User>> {
+  async findAllUsers(
+    query: UserQueryDto,
+    requester?: any,
+  ): Promise<PaginatedResponse<User>> {
     const limit = parseInt(query.limit || '20', 10);
     const page = parseInt(query.page || '1', 10);
     const offset = (page - 1) * limit;
@@ -1001,34 +1139,48 @@ export class AuthService implements OnModuleInit {
 
     // Multi-tenancy Isolation (Spec 2.4)
     if (requester) {
-      const isPlatformAdmin = requester.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+      const isPlatformAdmin = requester.roles.some((r: string) =>
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+      );
       if (!isPlatformAdmin) {
-        qb.where('user.organisation_id = :orgId', { orgId: requester.organisationId });
+        qb.where('user.organisation_id = :orgId', {
+          orgId: requester.organisationId,
+        });
       } else if (query.organisation_id) {
-        qb.where('user.organisation_id = :orgId', { orgId: query.organisation_id });
+        qb.where('user.organisation_id = :orgId', {
+          orgId: query.organisation_id,
+        });
       }
     }
 
     if (query.role) {
       // For simple-array in Postgres, we convert the string to a real array for exact matching
-      qb.andWhere(':role = ANY(string_to_array(user.roles, \',\'))', { role: query.role });
+      qb.andWhere(":role = ANY(string_to_array(user.roles, ','))", {
+        role: query.role,
+      });
     }
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
     }
     if (query.employee_id) {
-      qb.andWhere('user.employeeId = :employeeId', { employeeId: query.employee_id });
+      qb.andWhere('user.employeeId = :employeeId', {
+        employeeId: query.employee_id,
+      });
     }
     if (query.department) {
-      qb.andWhere('user.department ILIKE :dept', { dept: `%${query.department}%` });
+      qb.andWhere('user.department ILIKE :dept', {
+        dept: `%${query.department}%`,
+      });
     }
     if (query.designation) {
-      qb.andWhere('user.designation ILIKE :desig', { desig: `%${query.designation}%` });
+      qb.andWhere('user.designation ILIKE :desig', {
+        desig: `%${query.designation}%`,
+      });
     }
     if (query.search) {
       qb.andWhere(
         '(user.name ILIKE :search OR user.phone ILIKE :search OR user.email ILIKE :search OR user.username ILIKE :search)',
-        { search: `%${query.search}%` }
+        { search: `%${query.search}%` },
       );
     }
     if (query.date_from) {
@@ -1045,10 +1197,13 @@ export class AuthService implements OnModuleInit {
     if (query.cursor) {
       const decoded = decodeCursor(query.cursor);
       const [createdAtStr, id] = decoded.split('|');
-      qb.andWhere('(user.createdAt < :createdAt OR (user.createdAt = :createdAt AND user.id < :id))', {
-        createdAt: new Date(createdAtStr),
-        id,
-      });
+      qb.andWhere(
+        '(user.createdAt < :createdAt OR (user.createdAt = :createdAt AND user.id < :id))',
+        {
+          createdAt: new Date(createdAtStr),
+          id,
+        },
+      );
       qb.orderBy('user.createdAt', 'DESC').addOrderBy('user.id', 'DESC');
       qb.limit(limit + 1);
     } else {
@@ -1066,7 +1221,9 @@ export class AuthService implements OnModuleInit {
       data = hasNextPage ? users.slice(0, limit) : users;
       if (hasNextPage) {
         const last = data[data.length - 1];
-        next_cursor = encodeCursor(`${last.createdAt.toISOString()}|${last.id}`);
+        next_cursor = encodeCursor(
+          `${last.createdAt.toISOString()}|${last.id}`,
+        );
       }
     }
 
@@ -1077,45 +1234,55 @@ export class AuthService implements OnModuleInit {
       limit,
       data.length,
       page,
-      total_pages
+      total_pages,
     );
   }
 
   /**
    * Create a new user account with tenant isolation and role normalization.
    */
-  async createUser(dto: CreateUserDto, creator: any, manager?: EntityManager): Promise<User> {
+  async createUser(
+    dto: CreateUserDto,
+    creator: any,
+    manager?: EntityManager,
+  ): Promise<User> {
     // Check for specific collisions
     // Use transactional manager if provided for checks
     const repo = manager ? manager.getRepository(User) : this.userRepo;
 
     const phoneExists = await repo.findOne({ where: { phone: dto.phone } });
     if (phoneExists) {
-      throw new BadRequestException(`User with phone ${dto.phone} already exists`);
+      throw new BadRequestException(
+        `User with phone ${dto.phone} already exists`,
+      );
     }
 
     if (dto.email) {
       const emailExists = await repo.findOne({ where: { email: dto.email } });
       if (emailExists) {
-        throw new BadRequestException(`User with email ${dto.email} already exists`);
+        throw new BadRequestException(
+          `User with email ${dto.email} already exists`,
+        );
       }
     }
 
     const username = dto.username || dto.email?.split('@')[0] || dto.phone;
     const usernameExists = await repo.findOne({ where: { username } });
     if (usernameExists) {
-      throw new BadRequestException(`User with username ${username} already exists`);
+      throw new BadRequestException(
+        `User with username ${username} already exists`,
+      );
     }
 
     // RBAC Security (Spec 2.4/5.1) - Resilient to v4.0 Renames
     const isPlatformAdmin = creator.roles.some((r: string) =>
-      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
     );
     const isHospitalAdmin = creator.roles.some((r: string) =>
-      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r)
+      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
     );
     const isEdDoctor = creator.roles.some((r: string) =>
-      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
     );
 
     let targetOrgId = dto.org_id;
@@ -1123,15 +1290,15 @@ export class AuthService implements OnModuleInit {
 
     // Role Normalization for User Convenience (e.g. ED_DOCTOR -> Hospital ED Doctor (ERCP))
     const roleMapping: Record<string, string> = {
-      'ED_DOCTOR': 'Hospital ED Doctor (ERCP)',
-      'NURSE': 'Hospital Nurse',
-      'COORDINATOR': 'Hospital Coordinator',
+      ED_DOCTOR: 'Hospital ED Doctor (ERCP)',
+      NURSE: 'Hospital Nurse',
+      COORDINATOR: 'Hospital Coordinator',
       'CO-ORDINATOR': 'Hospital Coordinator',
       'HOSPITAL-COORDINATOR': 'Hospital Coordinator',
-      'HOSPITAL_COORDINATOR': 'Hospital Coordinator',
-      'ADMIN': 'Hospital Admin',
-      'EMT': 'EMT / Paramedic',
-      'CURESELECT_ADMIN': 'CureSelect Admin',
+      HOSPITAL_COORDINATOR: 'Hospital Coordinator',
+      ADMIN: 'Hospital Admin',
+      EMT: 'EMT / Paramedic',
+      CURESELECT_ADMIN: 'CureSelect Admin',
     };
 
     if (roleMapping[targetRole.toUpperCase()]) {
@@ -1146,14 +1313,18 @@ export class AuthService implements OnModuleInit {
         'Hospital ED Doctor (ERCP)',
         'Hospital Nurse',
         'Hospital Coordinator',
-        'Hospital Admin'
+        'Hospital Admin',
       ];
       if (!allowedHospitalRoles.includes(targetRole)) {
-        throw new ForbiddenException(`Hospital Administrators can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`);
+        throw new ForbiddenException(
+          `Hospital Administrators can only create hospital staff accounts (${allowedHospitalRoles.join(', ')})`,
+        );
       }
 
       if (!targetOrgId) {
-        throw new BadRequestException(`Your admin account is misconfigured (missing organisationId). Please contact a Super Admin.`);
+        throw new BadRequestException(
+          `Your admin account is misconfigured (missing organisationId). Please contact a Super Admin.`,
+        );
       }
     } else if (isPlatformAdmin) {
       // 2. Super Admin Flow: Must pass org_id for hospital-scoped roles
@@ -1161,13 +1332,17 @@ export class AuthService implements OnModuleInit {
         'Hospital ED Doctor (ERCP)',
         'Hospital Nurse',
         'Hospital Coordinator',
-        'Hospital Admin'
+        'Hospital Admin',
       ];
       if (hospitalRoles.includes(targetRole) && !targetOrgId) {
-        throw new BadRequestException(`An Organisation ID (org_id) is required when a Super Admin creates a hospital-scoped user.`);
+        throw new BadRequestException(
+          `An Organisation ID (org_id) is required when a Super Admin creates a hospital-scoped user.`,
+        );
       }
     } else {
-      throw new ForbiddenException(`You do not have permission to create users. (Current roles: ${creator.roles.join(', ')})`);
+      throw new ForbiddenException(
+        `You do not have permission to create users. (Current roles: ${creator.roles.join(', ')})`,
+      );
     }
 
     // Persona-specific defaults
@@ -1177,9 +1352,18 @@ export class AuthService implements OnModuleInit {
 
     // Automatic Employee ID generation for Hospital roles
     let generatedEmployeeId = dto.employee_id;
-    const hospitalRoles = ['Hospital Admin', 'Hospital Coordinator', 'Hospital ED Doctor (ERCP)', 'Hospital Nurse'];
+    const hospitalRoles = [
+      'Hospital Admin',
+      'Hospital Coordinator',
+      'Hospital ED Doctor (ERCP)',
+      'Hospital Nurse',
+    ];
 
-    if (hospitalRoles.includes(targetRole) && !generatedEmployeeId && targetOrgId) {
+    if (
+      hospitalRoles.includes(targetRole) &&
+      !generatedEmployeeId &&
+      targetOrgId
+    ) {
       generatedEmployeeId = await this.generateEmployeeId(targetOrgId, manager);
     }
 
@@ -1208,7 +1392,11 @@ export class AuthService implements OnModuleInit {
       userId: creator.userId,
       action: 'USER_CREATED',
       ipAddress: '0.0.0.0', // Placeholder
-      metadata: { roles: savedUser.roles, targetUserId: savedUser.id, org_id: targetOrgId },
+      metadata: {
+        roles: savedUser.roles,
+        targetUserId: savedUser.id,
+        org_id: targetOrgId,
+      },
     });
 
     return savedUser;
@@ -1225,21 +1413,30 @@ export class AuthService implements OnModuleInit {
 
     if (requester) {
       const isPlatformAdmin = requester.roles.some((r: string) =>
-        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
       );
       const isOwn = requester.userId === id;
 
       if (!isPlatformAdmin && !isOwn) {
         const isHospitalLevelAdmin = requester.roles.some((r: string) =>
-          ['Hospital Admin', 'HOSPITAL_ADMIN', 'Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r)
+          [
+            'Hospital Admin',
+            'HOSPITAL_ADMIN',
+            'Hospital ED Doctor (ERCP)',
+            'ED_DOCTOR',
+          ].includes(r),
         );
 
         if (isHospitalLevelAdmin) {
           if (user.organisationId !== requester.organisationId) {
-            throw new ForbiddenException('Access denied: You can only view users in your own organization');
+            throw new ForbiddenException(
+              'Access denied: You can only view users in your own organization',
+            );
           }
         } else {
-          throw new ForbiddenException('Access denied: Insufficient permissions to view this profile');
+          throw new ForbiddenException(
+            'Access denied: Insufficient permissions to view this profile',
+          );
         }
       }
     }
@@ -1254,24 +1451,41 @@ export class AuthService implements OnModuleInit {
     const user = await this.findOneUser(id);
 
     if (creator) {
-      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
-      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+      const isPlatformAdmin = creator.roles.some((r: string) =>
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+      );
+      const isHospitalAdmin = creator.roles.some((r: string) =>
+        ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
+      );
+      const isEdDoctor = creator.roles.some((r: string) =>
+        ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
+      );
 
       if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
         if (user.organisationId !== creator.organisationId) {
-          throw new ForbiddenException('Access denied: You can only update users in your own organization');
+          throw new ForbiddenException(
+            'Access denied: You can only update users in your own organization',
+          );
         }
 
         // Additional constraints for non-platform admins
         if (dto.org_id && dto.org_id !== user.organisationId) {
-          throw new ForbiddenException('Access denied: Hospital Administrators cannot change a user\'s organization');
+          throw new ForbiddenException(
+            "Access denied: Hospital Administrators cannot change a user's organization",
+          );
         }
 
         if (dto.role) {
-          const platformRoles = ['CURESELECT_ADMIN', 'CureSelect Admin', 'Call Centre Executive (CCE)', 'CCE'];
+          const platformRoles = [
+            'CURESELECT_ADMIN',
+            'CureSelect Admin',
+            'Call Centre Executive (CCE)',
+            'CCE',
+          ];
           if (platformRoles.includes(dto.role)) {
-            throw new ForbiddenException(`Access denied: Only Platform Administrators can assign the ${dto.role} role`);
+            throw new ForbiddenException(
+              `Access denied: Only Platform Administrators can assign the ${dto.role} role`,
+            );
           }
         }
       }
@@ -1279,7 +1493,8 @@ export class AuthService implements OnModuleInit {
 
     // Prevent duplicate phone/email/username if they are being updated
     if (dto.phone || dto.email) {
-      const conflict = await this.userRepo.createQueryBuilder('user')
+      const conflict = await this.userRepo
+        .createQueryBuilder('user')
         .where('user.id != :id', { id })
         .andWhere('(user.phone = :phone OR user.email = :email)', {
           phone: dto.phone || 'NEVER_MATCH_123',
@@ -1288,7 +1503,9 @@ export class AuthService implements OnModuleInit {
         .getOne();
 
       if (conflict) {
-        throw new BadRequestException('Another user already has this phone number or email address');
+        throw new BadRequestException(
+          'Another user already has this phone number or email address',
+        );
       }
     }
 
@@ -1303,7 +1520,7 @@ export class AuthService implements OnModuleInit {
     if (dto.employee_id !== undefined) user.employeeId = dto.employee_id;
     if (dto.department !== undefined) user.department = dto.department;
     if (dto.designation !== undefined) user.designation = dto.designation;
-    
+
     if (dto.metadata !== undefined) {
       user.metadata = { ...(user.metadata || {}), ...dto.metadata };
     }
@@ -1323,7 +1540,12 @@ export class AuthService implements OnModuleInit {
   /**
    * Self-profile update for logged-in users.
    */
-  async updateMe(userId: string, dto: UpdateMeDto, ipAddress: string, userAgent: string) {
+  async updateMe(
+    userId: string,
+    dto: UpdateMeDto,
+    ipAddress: string,
+    userAgent: string,
+  ) {
     const user = await this.userRepo.findOneBy({ id: userId });
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -1333,7 +1555,7 @@ export class AuthService implements OnModuleInit {
     if (dto.name !== undefined) user.name = dto.name;
     if (dto.email !== undefined) user.email = dto.email;
     if (dto.phone !== undefined) user.phone = dto.phone;
-    
+
     if (dto.metadata !== undefined) {
       user.metadata = { ...(user.metadata || {}), ...dto.metadata };
     }
@@ -1357,13 +1579,21 @@ export class AuthService implements OnModuleInit {
   async deleteUser(id: string, creator: any) {
     const user = await this.findOneUser(id);
 
-    const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-    const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
-    const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+    const isPlatformAdmin = creator.roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+    );
+    const isHospitalAdmin = creator.roles.some((r: string) =>
+      ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
+    );
+    const isEdDoctor = creator.roles.some((r: string) =>
+      ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
+    );
 
     if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
       if (user.organisationId !== creator.organisationId) {
-        throw new ForbiddenException('Access denied: You can only deactivate users in your own organization');
+        throw new ForbiddenException(
+          'Access denied: You can only deactivate users in your own organization',
+        );
       }
     }
 
@@ -1398,13 +1628,21 @@ export class AuthService implements OnModuleInit {
       const user = await this.userRepo.findOneBy({ id: userId });
       if (!user) throw new BadRequestException('User not found');
 
-      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
-      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+      const isPlatformAdmin = creator.roles.some((r: string) =>
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+      );
+      const isHospitalAdmin = creator.roles.some((r: string) =>
+        ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
+      );
+      const isEdDoctor = creator.roles.some((r: string) =>
+        ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
+      );
 
       if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
         if (user.organisationId !== creator.organisationId) {
-          throw new ForbiddenException('Access denied: You can only view sessions for users in your own organization');
+          throw new ForbiddenException(
+            'Access denied: You can only view sessions for users in your own organization',
+          );
         }
       }
     }
@@ -1412,7 +1650,7 @@ export class AuthService implements OnModuleInit {
     return this.sessionRepo.find({
       where: { userId, isValid: true },
       order: { lastActiveAt: 'DESC' },
-      select: ['id', 'ipAddress', 'userAgent', 'lastActiveAt', 'createdAt']
+      select: ['id', 'ipAddress', 'userAgent', 'lastActiveAt', 'createdAt'],
     });
   }
 
@@ -1424,13 +1662,21 @@ export class AuthService implements OnModuleInit {
       const targetUser = await this.userRepo.findOneBy({ id: userId });
       if (!targetUser) throw new BadRequestException('User not found');
 
-      const isPlatformAdmin = creator.roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-      const isHospitalAdmin = creator.roles.some((r: string) => ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r));
-      const isEdDoctor = creator.roles.some((r: string) => ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r));
+      const isPlatformAdmin = creator.roles.some((r: string) =>
+        ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+      );
+      const isHospitalAdmin = creator.roles.some((r: string) =>
+        ['Hospital Admin', 'HOSPITAL_ADMIN'].includes(r),
+      );
+      const isEdDoctor = creator.roles.some((r: string) =>
+        ['Hospital ED Doctor (ERCP)', 'ED_DOCTOR'].includes(r),
+      );
 
       if ((isHospitalAdmin || isEdDoctor) && !isPlatformAdmin) {
         if (targetUser.organisationId !== creator.organisationId) {
-          throw new ForbiddenException('Access denied: You can only terminate sessions for users in your own organization');
+          throw new ForbiddenException(
+            'Access denied: You can only terminate sessions for users in your own organization',
+          );
         }
       }
     }
@@ -1438,24 +1684,159 @@ export class AuthService implements OnModuleInit {
     const session = await this.sessionRepo.findOneBy({ id: sessionId, userId });
 
     if (!session) {
-      throw new BadRequestException('Session not found or does not belong to user');
+      throw new BadRequestException(
+        'Session not found or does not belong to user',
+      );
     }
 
     session.isValid = false;
     await this.sessionRepo.save(session);
   }
 
-  private async generateEmployeeId(hospitalId: string, manager?: EntityManager): Promise<string> {
+  private async generateEmployeeId(
+    hospitalId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
     const mgr = manager || this.userRepo.manager;
     const hospital = await mgr.findOne(Hospital, { where: { id: hospitalId } });
 
     if (!hospital) return `EMP-${Date.now().toString().slice(-4)}`;
 
     const prefix = hospital.code || hospital.name.slice(0, 3).toUpperCase();
-    const count = await mgr.count(User, { where: { organisationId: hospitalId } });
+    const count = await mgr.count(User, {
+      where: { organisationId: hospitalId },
+    });
 
     // Format: CODE-1001, CODE-1002...
     const sequence = 1001 + count;
     return `${prefix}-${sequence}`;
+  }
+  // ─────────────────────────────────────────────
+  // File Uploads (S3 Legacy Porting)
+  // ─────────────────────────────────────────────
+
+  async generatePresignedUpload(
+    userId: string,
+    targetType: 'avatar' | 'document',
+    contentType: string,
+    extension: string,
+  ) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const primaryRole =
+      user.roles && user.roles.length > 0
+        ? user.roles[0].toLowerCase().replace(/\s+/g, '')
+        : 'user';
+    const folder = `${primaryRole}/`;
+
+    // e.g. profile_123456.png or authdoc_123456.pdf
+    const prefix = targetType === 'avatar' ? 'profile' : 'authdoc';
+    const fileName = `${prefix}_${Date.now()}_${userId}.${extension.replace('.', '')}`;
+
+    const { uploadUrl, readUrl } =
+      await this.storageService.generatePresignedUrl(
+        folder,
+        fileName,
+        contentType,
+        10,
+      );
+
+    // Track it in DB if avatar (similar to updateUser)
+    if (targetType === 'avatar') {
+      user.profileImage = fileName;
+      await this.userRepo.save(user);
+    }
+
+    return {
+      message: 'Pre-signed URL generated. Valid for 10 minutes.',
+      data: {
+        upload_url: uploadUrl,
+        read_url: readUrl, // Optional depending on frontend needs
+        file_name: fileName,
+      },
+    };
+  }
+
+  async uploadBase64AndStore(
+    userId: string,
+    base64Data: string,
+    targetType: 'avatar' | 'document',
+    extension = 'png',
+  ) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const primaryRole =
+      user.roles && user.roles.length > 0
+        ? user.roles[0].toLowerCase().replace(/\s+/g, '')
+        : 'user';
+    const folder = `${primaryRole}/`;
+
+    const prefix = targetType === 'avatar' ? 'profile' : 'authdoc';
+    const fileName = `${prefix}_${Date.now()}_${userId}.${extension.replace('.', '')}`;
+
+    const { dbUrl, readUrl } = await this.storageService.uploadBase64(
+      base64Data,
+      folder,
+      fileName,
+    );
+
+    if (targetType === 'avatar') {
+      user.profileImage = fileName;
+      await this.userRepo.save(user);
+    }
+
+    return {
+      message: 'Base64 upload successful',
+      data: {
+        url: readUrl,
+        file_name: fileName,
+      },
+    };
+  }
+
+  async uploadBufferAndStore(
+    userId: string,
+    buffer: Buffer,
+    targetType: 'avatar' | 'document',
+    extension = 'png',
+    contentType = 'application/octet-stream',
+  ) {
+    const user = await this.userRepo.findOneBy({ id: userId });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const primaryRole =
+      user.roles && user.roles.length > 0
+        ? user.roles[0].toLowerCase().replace(/\s+/g, '')
+        : 'user';
+    const folder = `${primaryRole}/`;
+
+    const prefix = targetType === 'avatar' ? 'profile' : 'authdoc';
+    const fileName = `${prefix}_${Date.now()}_${userId}.${extension}`;
+
+    const { dbUrl, readUrl } = await this.storageService.uploadBuffer(
+      buffer,
+      folder,
+      fileName,
+      contentType,
+    );
+
+    if (targetType === 'avatar') {
+      user.profileImage = fileName;
+      await this.userRepo.save(user);
+    }
+
+    return {
+      message: 'File upload successful',
+      data: {
+        url: readUrl,
+        file_name: fileName,
+      },
+    };
+  }
+
+  async getSignedReadUrl(path: string) {
+    return this.storageService.generatePresignedGetUrl(path);
   }
 }

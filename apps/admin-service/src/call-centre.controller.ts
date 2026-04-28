@@ -1,7 +1,21 @@
-import { Controller, Get, Post, Patch, Body, Param, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { CallCentreService } from './call-centre.service';
 import { CreateCCEDto, UpdateCCEProfileDto } from './dto/call-centre.dto';
-import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  Roles,
+  AdminIpWhitelistGuard,
+} from '@app/common';
 
 @Controller('v1/admin/call-centre')
 @UseGuards(JwtAuthGuard, RolesGuard, AdminIpWhitelistGuard)
@@ -15,8 +29,17 @@ export class CallCentreController {
   }
 
   @Patch('cces/:id/profile')
-  async updateProfile(@Param('id') id: string, @Body() dto: UpdateCCEProfileDto, @Req() req: any) {
-    return this.callCentreService.updateProfile(id, dto, req.user.userId, req.ip);
+  async updateProfile(
+    @Param('id') id: string,
+    @Body() dto: UpdateCCEProfileDto,
+    @Req() req: any,
+  ) {
+    return this.callCentreService.updateProfile(
+      id,
+      dto,
+      req.user.userId,
+      req.ip,
+    );
   }
 
   @Get('dashboard')
