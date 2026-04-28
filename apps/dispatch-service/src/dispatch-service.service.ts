@@ -1061,14 +1061,29 @@ export class DispatchServiceService {
       await this.vehicleRepository.save(vehicle);
     }
 
-    // 4. Log Events
-    await this.logTimelineEvent(
-      incident.id,
-      'DISPATCH_ACCEPTED',
-      `Vehicle ${dispatch.vehicle_id} has ACCEPTED the trip.`,
-      requestUser.id || requestUser.userId,
-      { dispatch_id: dispatchId }
-    );
+    // 5. Notify assigned crew members via WebSocket
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (dispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
+          dispatch_id: dispatchId,
+          status: 'DISPATCHED',
+          action: 'ACCEPTED',
+          by: requestUser.userId
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of acceptance:', e);
+    }
 
     return { message: 'Dispatch accepted successfully', data: dispatch };
   }
@@ -1110,13 +1125,39 @@ export class DispatchServiceService {
       await this.vehicleRepository.save(vehicle);
     }
 
-    // 2. Log Rejection
+    // 3. Log Timeline
     await this.logTimelineEvent(
       dispatch.incident_id,
       'DISPATCH_REJECTED',
-      `Vehicle ${dispatch.vehicle_id} REJECTED the trip. Reason: ${reason}`,
-      requestUser.id || requestUser.userId
+      `Crew member rejected the trip. Reason: ${reason}`,
+      requestUser.userId,
+      { reason }
     );
+
+    // 4. Notify other crew members via WebSocket
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (dispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('incident:updated', {
+          dispatch_id: dispatchId,
+          status: 'REJECTED',
+          action: 'REJECTED',
+          by: requestUser.userId,
+          reason
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of rejection:', e);
+    }
 
     // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
     // We pass a mock context or use the one from the rejection request
@@ -1317,6 +1358,8 @@ export class DispatchServiceService {
       where: [
         { driver_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
         { emt_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
+        { driver_id: staffProfile.id, status: 'DISPATCHED' as any },
+        { emt_id: staffProfile.id, status: 'DISPATCHED' as any },
         { driver_id: staffProfile.id, status: 'navigating' as any },
         { emt_id: staffProfile.id, status: 'navigating' as any },
         { driver_id: staffProfile.id, status: 'at_scene' as any },
