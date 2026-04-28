@@ -21,6 +21,10 @@ import { CreateIftTripDto } from './dto/create-ift-trip.dto';
 import { VerifyIftDocumentsDto } from './dto/verify-ift-documents.dto';
 import { RecordRefusalDto } from './dto/record-refusal.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
+import { RecordVitalsDto } from './dto/record-vitals.dto';
+import { RecordInterventionDto } from './dto/record-intervention.dto';
+import { UpdatePatientDto } from './dto/update-patient.dto';
+import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
@@ -176,6 +180,24 @@ export class TripController {
   @Roles('Pilot', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'CureSelect Admin')
   async updateDestination(@Param('id') id: string, @Body() dto: UpdateDestinationDto, @Req() req: any) {
     return this.tripService.updateDestination(id, dto, req.user);
+  }
+
+  @Post(':id/clinical/patient')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async createOrUpdatePatient(@Param('id') id: string, @Body() dto: CreatePatientProfileDto, @Req() req: any) {
+    return this.tripService.createOrUpdatePatient(id, dto, req.user);
+  }
+
+  @Post(':id/clinical/vitals')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordVitals(@Param('id') id: string, @Body() dto: RecordVitalsDto, @Req() req: any) {
+    return this.tripService.recordVitals(id, dto, req.user);
+  }
+
+  @Post(':id/clinical/intervention')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordIntervention(@Param('id') id: string, @Body() dto: RecordInterventionDto, @Req() req: any) {
+    return this.tripService.recordIntervention(id, dto, req.user);
   }
 
   @Get(':id/route')

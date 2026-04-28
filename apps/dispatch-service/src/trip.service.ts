@@ -19,6 +19,9 @@ import { CreateIftTripDto } from './dto/create-ift-trip.dto';
 import { VerifyIftDocumentsDto } from './dto/verify-ift-documents.dto';
 import { RecordRefusalDto } from './dto/record-refusal.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
+import { RecordVitalsDto } from './dto/record-vitals.dto';
+import { RecordInterventionDto } from './dto/record-intervention.dto';
+import { CreatePatientProfileDto } from './dto/create-patient-profile.dto';
 import { 
   PatientProfile,
   PatientAssessment,
@@ -817,6 +820,86 @@ export class TripService {
       data: trip,
       new_eta_seconds: etaResponse.eta_seconds,
     };
+  }
+
+  async createOrUpdatePatient(id: string, dto: CreatePatientProfileDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    let patient = await this.patientRepo.findOne({
+      where: { incident_id: trip.incident_id },
+    });
+
+    if (!patient) {
+      patient = this.patientRepo.create({
+        ...dto as any,
+        incident_id: trip.incident_id,
+        organisationId: trip.organisationId,
+      });
+    } else {
+      Object.assign(patient, dto);
+    }
+
+    const savedPatient = await this.patientRepo.save(patient);
+    return { data: savedPatient };
+  }
+
+  async recordVitals(id: string, dto: RecordVitalsDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const patient = await this.patientRepo.findOne({
+      where: { incident_id: trip.incident_id },
+    });
+
+    if (!patient) throw new NotFoundException('Patient profile not found. Create profile first.');
+
+    const assessment = this.assessmentRepo.create({
+      ...dto as any,
+      patient_id: patient.id,
+      taken_at: dto.taken_at ? new Date(dto.taken_at) : new Date(),
+    });
+
+    const savedAssessment = await this.assessmentRepo.save(assessment);
+    
+    // Log to timeline
+    await this.timelineRepo.save(this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'VITALS_RECORDED',
+      description: `Vitals recorded: HR ${dto.heart_rate}, BP ${dto.bp_systolic}/${dto.bp_diastolic}`,
+      user_id: requestUser.userId,
+    }));
+
+    return { data: savedAssessment };
+  }
+
+  async recordIntervention(id: string, dto: RecordInterventionDto, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const patient = await this.patientRepo.findOne({
+      where: { incident_id: trip.incident_id },
+    });
+
+    if (!patient) throw new NotFoundException('Patient profile not found.');
+
+    const intervention = this.interventionRepo.create({
+      ...dto as any,
+      patient_id: patient.id,
+      timestamp: new Date(),
+    });
+
+    const savedIntervention = await this.interventionRepo.save(intervention);
+
+    // Log to timeline
+    await this.timelineRepo.save(this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'INTERVENTION',
+      description: `Clinical Intervention: ${dto.intervention_name} (${dto.notes || 'No notes'})`,
+      user_id: requestUser.userId,
+    }));
+
+    return { data: savedIntervention };
   }
 
   async getNavigationRoute(id: string, requestUser: any) {
