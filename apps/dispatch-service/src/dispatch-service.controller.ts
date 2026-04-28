@@ -89,6 +89,12 @@ export class DispatchServiceController {
     return this.dispatchService.dispatchIncident(id, dto, context);
   }
 
+  @Get('active/my-dispatch')
+  @Roles('Ambulance Pilot (Driver)', 'EMT / Paramedic')
+  async getMyActiveDispatch(@Req() req: any) {
+    return this.dispatchService.findActiveDispatchForUser(req.user);
+  }
+
   @Get(':id/dispatch')
   @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic')
   async getActiveDispatch(@Param('id') id: string, @Req() req: any) {

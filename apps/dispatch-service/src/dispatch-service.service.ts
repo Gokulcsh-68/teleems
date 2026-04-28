@@ -1123,6 +1123,37 @@ export class DispatchServiceService {
     return { data: dispatch };
   }
 
+  /**
+   * Finds the latest active dispatch for the current crew member
+   */
+  async findActiveDispatchForUser(requestUser: any) {
+    const staffProfile = await this.staffProfileRepository.findOneBy({ userId: requestUser.userId });
+    if (!staffProfile) {
+      throw new NotFoundException('Staff profile not found');
+    }
+
+    // Find any dispatch assigned to this user that is still active
+    // Active means: PENDING_ACCEPTANCE, navigating, at_scene, etc.
+    const dispatch = await this.dispatchRepository.findOne({
+      where: [
+        { driver_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
+        { emt_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
+        { driver_id: staffProfile.id, status: 'navigating' as any },
+        { emt_id: staffProfile.id, status: 'navigating' as any },
+        { driver_id: staffProfile.id, status: 'at_scene' as any },
+        { emt_id: staffProfile.id, status: 'at_scene' as any },
+      ],
+      relations: ['incident'],
+      order: { dispatched_at: 'DESC' }
+    });
+
+    if (!dispatch) {
+      return { data: null };
+    }
+
+    return { data: dispatch };
+  }
+
   async recommendVehicles(dto: RecommendVehicleDto) {
     const { gps_lat, gps_lon, vehicle_type_required } = dto;
 
