@@ -11,7 +11,10 @@ import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
 import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
-import { PaginatedResponse, encodeCursor, decodeCursor, AuditLog, Hospital } from '@app/common';
+import { 
+  PaginatedResponse, encodeCursor, decodeCursor, AuditLog, Hospital,
+  StaffProfile, DutyRoster, DutyShift, Vehicle, DutyShiftStatus
+} from '@app/common';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcrypt';
@@ -35,6 +38,10 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Role) private roleRepo: Repository<Role>,
     @InjectRepository(Session) private sessionRepo: Repository<Session>,
+    @InjectRepository(StaffProfile) private staffProfileRepo: Repository<StaffProfile>,
+    @InjectRepository(DutyRoster) private rosterRepo: Repository<DutyRoster>,
+    @InjectRepository(DutyShift) private dutyShiftRepo: Repository<DutyShift>,
+    @InjectRepository(Vehicle) private vehicleRepo: Repository<Vehicle>,
     private auditLogService: AuditLogService,
   ) { }
 
@@ -274,6 +281,8 @@ export class AuthService implements OnModuleInit {
       userAgent,
     });
 
+    const assignedVehicle = await this.getAssignedVehicle(user.id);
+
     return {
       accessToken,
       refreshToken,
@@ -284,6 +293,7 @@ export class AuthService implements OnModuleInit {
         phone: user.phone,
         username: user.username,
         roles: user.roles,
+        assigned_vehicle: assignedVehicle,
       },
     };
   }
@@ -382,6 +392,44 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
+   * Helper to find assigned vehicle for crew members (Driver/EMT/Doctor)
+   */
+  private async getAssignedVehicle(userId: string): Promise<Vehicle | null> {
+    // 1. Get Staff Profile
+    const profile = await this.staffProfileRepo.findOneBy({ userId });
+    if (!profile) return null;
+
+    // 2. Check for an active DutyShift (Already ON_DUTY)
+    const activeShift = await this.dutyShiftRepo.findOne({
+      where: [
+        { driverId: profile.id, status: DutyShiftStatus.ON_DUTY },
+        { staffId: profile.id, status: DutyShiftStatus.ON_DUTY }
+      ],
+      relations: ['vehicle']
+    });
+
+    if (activeShift && activeShift.vehicle) {
+      return activeShift.vehicle;
+    }
+
+    // 3. Check for today's DutyRoster
+    const today = new Date().toISOString().split('T')[0];
+    const roster = await this.rosterRepo.createQueryBuilder('roster')
+      .leftJoinAndSelect('roster.vehicle', 'vehicle')
+      .where('(roster.driverId = :pId OR roster.staffId = :pId)', { pId: profile.id })
+      .andWhere('roster.startDate <= :today', { today })
+      .andWhere('roster.endDate >= :today', { today })
+      .andWhere('roster.isActive = :active', { active: true })
+      .getOne();
+
+    if (roster && roster.vehicle) {
+      return roster.vehicle;
+    }
+
+    return null;
+  }
+
+  /**
    * Get current user profile.
    */
   async getMe(userId: string) {
@@ -389,7 +437,13 @@ export class AuthService implements OnModuleInit {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-    return user;
+
+    const assignedVehicle = await this.getAssignedVehicle(userId);
+
+    return {
+      ...user,
+      assigned_vehicle: assignedVehicle,
+    };
   }
 
   /**
