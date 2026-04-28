@@ -281,7 +281,7 @@ export class AuthService implements OnModuleInit {
       userAgent,
     });
 
-    const assignedVehicle = await this.getAssignedVehicle(user.id);
+    const { vehicle: assignedVehicle, isOnDuty } = await this.getAssignedVehicle(user.id);
 
     return {
       accessToken,
@@ -294,6 +294,7 @@ export class AuthService implements OnModuleInit {
         username: user.username,
         roles: user.roles,
         assigned_vehicle: assignedVehicle,
+        is_on_duty: isOnDuty,
       },
     };
   }
@@ -394,10 +395,10 @@ export class AuthService implements OnModuleInit {
   /**
    * Helper to find assigned vehicle for crew members (Driver/EMT/Doctor)
    */
-  private async getAssignedVehicle(userId: string): Promise<Vehicle | null> {
+  private async getAssignedVehicle(userId: string): Promise<{ vehicle: Vehicle | null; isOnDuty: boolean }> {
     // 1. Get Staff Profile
     const profile = await this.staffProfileRepo.findOneBy({ userId });
-    if (!profile) return null;
+    if (!profile) return { vehicle: null, isOnDuty: false };
 
     // 2. Check for an active DutyShift (Already ON_DUTY)
     const activeShift = await this.dutyShiftRepo.findOne({
@@ -409,7 +410,7 @@ export class AuthService implements OnModuleInit {
     });
 
     if (activeShift && activeShift.vehicle) {
-      return activeShift.vehicle;
+      return { vehicle: activeShift.vehicle, isOnDuty: true };
     }
 
     // 3. Check for today's DutyRoster
@@ -423,10 +424,10 @@ export class AuthService implements OnModuleInit {
       .getOne();
 
     if (roster && roster.vehicle) {
-      return roster.vehicle;
+      return { vehicle: roster.vehicle, isOnDuty: false };
     }
 
-    return null;
+    return { vehicle: null, isOnDuty: false };
   }
 
   /**
@@ -438,11 +439,12 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('User not found');
     }
 
-    const assignedVehicle = await this.getAssignedVehicle(userId);
+    const { vehicle: assignedVehicle, isOnDuty } = await this.getAssignedVehicle(userId);
 
     return {
       ...user,
       assigned_vehicle: assignedVehicle,
+      is_on_duty: isOnDuty,
     };
   }
 
