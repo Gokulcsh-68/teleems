@@ -769,12 +769,22 @@ export class DispatchServiceService {
     targetVehicle.status = VehicleStatus.BUSY;
     await this.vehicleRepository.save(targetVehicle);
 
+    // 3. Find the Active Shift to get Driver/EMT IDs
+    const activeShift = await this.dutyShiftRepository.findOne({
+      where: { 
+        vehicleId: targetVehicle.id, 
+        status: 'ON_DUTY' as any 
+      }
+    });
+
     // Create the dispatch record
     const dispatch = this.dispatchRepository.create({
       incident_id: incident.id,
       vehicle_id: vehicleId,
       dispatched_by: context.userId,
       status: 'DISPATCHED',
+      driver_id: activeShift?.driverId,
+      emt_id: activeShift?.staffId,
       eta_seconds: eta,
       manual_vehicle_id: dto.manual_vehicle_id || null,
       override_reason: dto.override_reason || null,
@@ -782,6 +792,29 @@ export class DispatchServiceService {
       organisationId: incident.organisationId,
     });
     await this.dispatchRepository.save(dispatch);
+
+    // --- REAL-TIME NOTIFICATION: WebSocket Alert ---
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driverProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driverProfile?.userId) crewUserIds.push(driverProfile.userId);
+      }
+      if (dispatch.emt_id) {
+        const emtProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emtProfile?.userId) crewUserIds.push(emtProfile.userId);
+      }
+
+      for (const userId of crewUserIds) {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:assigned', {
+          id: dispatch.id,
+          incident,
+          eta_seconds: eta,
+        });
+      }
+    } catch (err) {
+      console.warn(`[DISPATCH] Failed to send real-time notification: ${err.message}`);
+    }
 
     // Update the incident
     incident.assigned_vehicle = vehicleId;
