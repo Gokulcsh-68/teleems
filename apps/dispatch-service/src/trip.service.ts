@@ -86,6 +86,7 @@ export class TripService {
     ],
     [TripStatus.PATIENT_LOADED]: [
       TripStatus.EN_ROUTE_HOSPITAL,
+      TripStatus.AT_HOSPITAL,
       TripStatus.CANCELLED,
       TripStatus.BREAKDOWN,
     ],
