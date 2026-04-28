@@ -8,11 +8,11 @@ import {
 export class RecordInterventionDto {
   @IsString()
   @IsNotEmpty()
-  type: string;
+  intervention_name: string;
 
   @IsString()
-  @IsNotEmpty()
-  description: string;
+  @IsOptional()
+  notes?: string;
 
   @IsString()
   @IsOptional()

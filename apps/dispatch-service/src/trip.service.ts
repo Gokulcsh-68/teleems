@@ -70,6 +70,7 @@ export class TripService {
     [TripStatus.CREATED]: [TripStatus.DISPATCHED],
     [TripStatus.DISPATCHED]: [
       TripStatus.EN_ROUTE_SCENE,
+      TripStatus.AT_SCENE,
       TripStatus.CANCELLED,
       TripStatus.BREAKDOWN,
     ],
@@ -835,12 +836,12 @@ export class TripService {
         ...dto as any,
         incident_id: trip.incident_id,
         organisationId: trip.organisationId,
-      });
+      }) as unknown as PatientProfile;
     } else {
       Object.assign(patient, dto);
     }
 
-    const savedPatient = await this.patientRepo.save(patient);
+    const savedPatient = await this.patientRepo.save(patient!);
     return { data: savedPatient };
   }
 
