@@ -24,6 +24,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthModule } from '../../auth-service/src/auth.module';
 import { CommonModule } from '../../../libs/common/src';
 
+import { DispatchGateway } from './dispatch.gateway';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -35,8 +37,8 @@ import { CommonModule } from '../../../libs/common/src';
     CommonModule,
   ],
   controllers: [DispatchServiceController, TripController, DispatchController],
-  providers: [DispatchServiceService, TripService, JwtStrategy],
-  exports: [DispatchServiceService],
+  providers: [DispatchServiceService, TripService, JwtStrategy, DispatchGateway],
+  exports: [DispatchServiceService, DispatchGateway],
 })
 export class DispatchServiceModule {}
 

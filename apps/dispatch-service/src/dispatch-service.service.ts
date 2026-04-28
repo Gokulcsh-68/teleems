@@ -41,6 +41,8 @@ export interface AuditContext {
   organisationId?: string;
 }
 
+import { DispatchGateway } from './dispatch.gateway';
+
 @Injectable()
 export class DispatchServiceService {
   constructor(
@@ -62,6 +64,7 @@ export class DispatchServiceService {
     private readonly staffProfileRepository: Repository<StaffProfile>,
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
+    private readonly dispatchGateway: DispatchGateway,
   ) {}
 
   private async getStaffProfileId(userId: string): Promise<string | null> {
@@ -823,6 +826,33 @@ export class DispatchServiceService {
     });
 
     const savedDispatch = await this.dispatchRepository.save(dispatch);
+
+    // --- REAL-TIME NOTIFICATION: WebSocket Alert ---
+    try {
+      // Find User IDs for the assigned crew to notify them specifically
+      const crewUserIds: string[] = [];
+      
+      if (dispatch.driver_id) {
+        const driverProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driverProfile?.userId) crewUserIds.push(driverProfile.userId);
+      }
+      
+      if (dispatch.emt_id) {
+        const emtProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emtProfile?.userId) crewUserIds.push(emtProfile.userId);
+      }
+
+      // Notify via Gateway
+      for (const userId of crewUserIds) {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:assigned', {
+          id: savedDispatch.id,
+          incident,
+          eta_seconds: duration,
+        });
+      }
+    } catch (err) {
+      console.error(`Failed to send real-time notification: ${err.message}`);
+    }
 
     // 5. Update Incident Status & Assignment
     incident.status = 'AUTO_ASSIGNING';
