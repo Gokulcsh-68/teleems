@@ -11,7 +11,8 @@ describe('AdminServiceController', () => {
       providers: [AdminServiceService],
     }).compile();
 
-    adminServiceController = app.get<AdminServiceController>(AdminServiceController);
+    adminServiceController = app.get<AdminServiceController>(
+      AdminServiceController,
+    );
   });
-
 });

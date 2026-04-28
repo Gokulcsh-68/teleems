@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
+} from 'typeorm';
 import { Hospital } from './hospital.entity';
 
 @Entity('departments')
@@ -27,7 +36,9 @@ export class Department {
   @Index()
   isActive: boolean;
 
-  @ManyToOne(() => Hospital, (hospital) => hospital.departments, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Hospital, (hospital) => hospital.departments, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'hospital_id' })
   hospital: Hospital;
 

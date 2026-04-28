@@ -1,4 +1,9 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import * as crypto from 'crypto';
@@ -25,34 +30,47 @@ export interface Response<T> {
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<Response<T>> {
     const httpContext = context.switchToHttp();
     const request = httpContext.getRequest();
     const response = httpContext.getResponse();
-    
+
     const requestId = request.headers['x-request-id'] || crypto.randomUUID();
     request.requestId = requestId;
 
     return next.handle().pipe(
-      map(data => {
+      map((data) => {
         // Default values
         let message = 'Success';
         let pureData = data;
 
         // Extract custom message/data if wrapped in { message, data }
-        if (data && typeof data === 'object' && 'message' in data && 'data' in data) {
-           message = data.message;
-           pureData = data.data;
+        if (
+          data &&
+          typeof data === 'object' &&
+          'message' in data &&
+          'data' in data
+        ) {
+          message = data.message;
+          pureData = data.data;
         }
 
         // Determine if we are dealing with pagination
-        const paginatedInfo = (data instanceof PaginatedResponse) ? data : (pureData instanceof PaginatedResponse ? pureData : null);
+        const paginatedInfo =
+          data instanceof PaginatedResponse
+            ? data
+            : pureData instanceof PaginatedResponse
+              ? pureData
+              : null;
         const isPaginated = !!paginatedInfo;
 
         const res: Response<T> = {
           status: response.statusCode,
           message: message,
-          data: isPaginated ? (paginatedInfo.data as any) : (pureData || {}),
+          data: isPaginated ? (paginatedInfo.data as any) : pureData || {},
           meta: {
             request_id: requestId,
             timestamp: new Date().toISOString(),

@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -7,7 +12,10 @@ export class IpWhitelistGuard implements CanActivate {
 
   constructor(private configService: ConfigService) {
     const raw = this.configService.get<string>('ADMIN_WHITELISTED_IPS') || '*';
-    this.allowedIps = raw.split(',').map(ip => ip.trim()).filter(Boolean);
+    this.allowedIps = raw
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean);
   }
 
   canActivate(context: ExecutionContext): boolean {

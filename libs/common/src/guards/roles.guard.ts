@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -36,8 +41,16 @@ export class RolesGuard implements CanActivate {
     const roleAliases: Record<string, string[]> = {
       'CureSelect Admin': ['CURESELECT_ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'],
       'Hospital Admin': ['HOSPITAL_ADMIN', 'HOSPITAL_MANAGER'],
-      'Hospital Coordinator': ['COORDINATOR', 'HOSPITAL_COORDINATOR', 'CO-ORDINATOR'],
-      'Hospital ED Doctor (ERCP)': ['ED_DOCTOR', 'ERCP_DOCTOR', 'HOSPITAL_DOCTOR'],
+      'Hospital Coordinator': [
+        'COORDINATOR',
+        'HOSPITAL_COORDINATOR',
+        'CO-ORDINATOR',
+      ],
+      'Hospital ED Doctor (ERCP)': [
+        'ED_DOCTOR',
+        'ERCP_DOCTOR',
+        'HOSPITAL_DOCTOR',
+      ],
       'Hospital Nurse': ['NURSE', 'HOSPITAL_NURSE'],
       'Call Centre Executive (CCE)': ['CCE', 'DISPATCHER'],
       'EMT / Paramedic': ['EMT', 'PARAMEDIC'],
@@ -51,7 +64,8 @@ export class RolesGuard implements CanActivate {
 
       // Alias Match (Legacy support)
       const aliases = roleAliases[requiredRole];
-      if (aliases && aliases.some(alias => user.roles.includes(alias))) return true;
+      if (aliases && aliases.some((alias) => user.roles.includes(alias)))
+        return true;
 
       return false;
     });

@@ -5,6 +5,7 @@ import { AuditLogService } from './services/audit-log.service';
 import { RedisService } from './redis.service';
 import { MapsService } from './maps.service';
 import { StorageService } from './storage.service';
+import { CureselectApiService } from './services/cureselect-api.service';
 import { Organisation } from './entities/organisation.entity';
 import { AuditLog } from './entities/audit-log.entity';
 import { Hospital } from './entities/hospital.entity';
@@ -21,24 +22,38 @@ import { HospitalStatus } from './entities/hospital-status.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      Organisation, 
-      AuditLog, 
-      Hospital, 
-      SymptomMaster, 
-      IncidentCategoryMaster, 
+      Organisation,
+      AuditLog,
+      Hospital,
+      SymptomMaster,
+      IncidentCategoryMaster,
       InventoryItemMaster,
       CCEProfile,
       SystemConfig,
       FeatureFlag,
       IotDeviceProfile,
-      HospitalStatus
+      HospitalStatus,
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super-secret',
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  providers: [AuditLogService, RedisService, MapsService, StorageService],
-  exports: [AuditLogService, RedisService, MapsService, StorageService, TypeOrmModule, JwtModule],
+  providers: [
+    AuditLogService,
+    RedisService,
+    MapsService,
+    StorageService,
+    CureselectApiService,
+  ],
+  exports: [
+    AuditLogService,
+    RedisService,
+    MapsService,
+    StorageService,
+    CureselectApiService,
+    TypeOrmModule,
+    JwtModule,
+  ],
 })
 export class CommonModule {}

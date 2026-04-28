@@ -1,4 +1,10 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ExceptionFilter,
+  Catch,
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { Request, Response } from 'express';
 import * as crypto from 'crypto';
 
@@ -25,15 +31,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     
     // Default meanings from Teleems Spec 1.5
     const statusMeanings: Record<number, string> = {
-      [HttpStatus.BAD_REQUEST]: 'Validation error; details array lists field-level errors.',
+      [HttpStatus.BAD_REQUEST]:
+        'Validation error; details array lists field-level errors.',
       [HttpStatus.UNAUTHORIZED]: 'Missing or invalid/expired JWT.',
-      [HttpStatus.FORBIDDEN]: "Valid JWT but role lacks permission for this resource.",
-      [HttpStatus.NOT_FOUND]: "Resource does not exist or is outside caller's scope.",
-      [HttpStatus.CONFLICT]: "Duplicate resource or state conflict (idempotency violation).",
-      [HttpStatus.UNPROCESSABLE_ENTITY]: "Business logic validation failure.",
-      [HttpStatus.TOO_MANY_REQUESTS]: "Rate limit exceeded; Retry-After header provided.",
-      [HttpStatus.INTERNAL_SERVER_ERROR]: "Unexpected server error; request_id for support reference.",
-      [HttpStatus.SERVICE_UNAVAILABLE]: "Downstream dependency unavailable; circuit breaker open.",
+      [HttpStatus.FORBIDDEN]:
+        'Valid JWT but role lacks permission for this resource.',
+      [HttpStatus.NOT_FOUND]:
+        "Resource does not exist or is outside caller's scope.",
+      [HttpStatus.CONFLICT]:
+        'Duplicate resource or state conflict (idempotency violation).',
+      [HttpStatus.UNPROCESSABLE_ENTITY]: 'Business logic validation failure.',
+      [HttpStatus.TOO_MANY_REQUESTS]:
+        'Rate limit exceeded; Retry-After header provided.',
+      [HttpStatus.INTERNAL_SERVER_ERROR]:
+        'Unexpected server error; request_id for support reference.',
+      [HttpStatus.SERVICE_UNAVAILABLE]:
+        'Downstream dependency unavailable; circuit breaker open.',
     };
 
     let message = statusMeanings[status] || 'Internal server error';
@@ -41,10 +54,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
-    } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+    } else if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null
+    ) {
       const resObj = exceptionResponse as any;
       const rawMessage = resObj.message;
-      
+
       if (Array.isArray(rawMessage)) {
         // If it's an array (Validation Errors), use a summary for 'message' and keep 'details' as the array
         message = statusMeanings[status] || 'Validation failed';
@@ -55,7 +71,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
-    const requestId = request.requestId || request.headers['x-request-id'] || crypto.randomUUID();
+    const requestId =
+      request.requestId ||
+      request.headers['x-request-id'] ||
+      crypto.randomUUID();
 
     // Special handling for 429 Retry-After header as per spec
     if (status === HttpStatus.TOO_MANY_REQUESTS) {

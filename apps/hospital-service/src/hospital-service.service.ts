@@ -13,7 +13,9 @@ export class HospitalServiceService {
   ) {}
 
   async createHospital(dto: CreateHospitalDto, adminId: string, ip: string) {
-    const hospital = await this.hospitalRepo.save(this.hospitalRepo.create(dto));
+    const hospital = await this.hospitalRepo.save(
+      this.hospitalRepo.create(dto),
+    );
 
     await this.auditLogService.log({
       userId: adminId,
@@ -31,11 +33,17 @@ export class HospitalServiceService {
 
   async findOne(id: string) {
     const hospital = await this.hospitalRepo.findOneBy({ id });
-    if (!hospital) throw new NotFoundException(`Hospital with ID ${id} not found`);
+    if (!hospital)
+      throw new NotFoundException(`Hospital with ID ${id} not found`);
     return hospital;
   }
 
-  async update(id: string, dto: UpdateHospitalDto, adminId: string, ip: string) {
+  async update(
+    id: string,
+    dto: UpdateHospitalDto,
+    adminId: string,
+    ip: string,
+  ) {
     const hospital = await this.findOne(id);
     Object.assign(hospital, dto);
     await this.hospitalRepo.save(hospital);

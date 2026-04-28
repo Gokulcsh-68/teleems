@@ -14,7 +14,10 @@ export class AdminIpWhitelistGuard implements CanActivate {
 
   constructor(private configService: ConfigService) {
     const ips = this.configService.get<string>('ADMIN_IP_WHITELIST') || '';
-    this.whitelistedIps = ips.split(',').map((ip) => ip.trim()).filter(Boolean);
+    this.whitelistedIps = ips
+      .split(',')
+      .map((ip) => ip.trim())
+      .filter(Boolean);
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -32,7 +35,9 @@ export class AdminIpWhitelistGuard implements CanActivate {
 
     // If no whitelist is configured, allow all for dev convenience (but log it)
     if (this.whitelistedIps.length === 0) {
-      this.logger.warn('ADMIN_IP_WHITELIST is empty. IP whitelisting is DISABLED for Admin roles.');
+      this.logger.warn(
+        'ADMIN_IP_WHITELIST is empty. IP whitelisting is DISABLED for Admin roles.',
+      );
       return true;
     }
 
@@ -44,8 +49,12 @@ export class AdminIpWhitelistGuard implements CanActivate {
     const isWhitelisted = this.whitelistedIps.includes(clientIp);
 
     if (!isWhitelisted) {
-      this.logger.warn(`Admin login attempted from unauthorized IP: ${clientIp} for user ${user.userId}`);
-      throw new ForbiddenException(`Access denied: IP ${clientIp} is not whitelisted for administrative access.`);
+      this.logger.warn(
+        `Admin login attempted from unauthorized IP: ${clientIp} for user ${user.userId}`,
+      );
+      throw new ForbiddenException(
+        `Access denied: IP ${clientIp} is not whitelisted for administrative access.`,
+      );
     }
 
     return true;

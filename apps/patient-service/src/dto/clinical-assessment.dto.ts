@@ -1,4 +1,15 @@
-import { IsInt, Min, Max, IsOptional, IsString, IsEnum, IsArray, IsDateString, ValidateNested, IsNotEmpty } from 'class-validator';
+import {
+  IsInt,
+  Min,
+  Max,
+  IsOptional,
+  IsString,
+  IsEnum,
+  IsArray,
+  IsDateString,
+  ValidateNested,
+  IsNotEmpty,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class GcsDto {

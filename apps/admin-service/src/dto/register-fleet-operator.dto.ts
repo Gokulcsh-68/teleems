@@ -1,4 +1,12 @@
-import { IsString, IsEmail, IsNotEmpty, IsOptional, ValidateNested, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  ValidateNested,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateFleetOrganisationDto } from '../../../fleet-service/src/dto/fleet-organisation.dto';
 

@@ -1,11 +1,24 @@
-import { Controller, Get, Post, Body, Req, UseGuards, Patch } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Req,
+  UseGuards,
+  Patch,
+} from '@nestjs/common';
 import { PlatformConfigService } from './platform-config.service';
-import { 
-  UpdateSystemConfigDto, 
-  ToggleFeatureFlagDto, 
-  CreateIotProfileDto 
+import {
+  UpdateSystemConfigDto,
+  ToggleFeatureFlagDto,
+  CreateIotProfileDto,
 } from './dto/platform-config.dto';
-import { JwtAuthGuard, RolesGuard, Roles, AdminIpWhitelistGuard } from '@app/common';
+import {
+  JwtAuthGuard,
+  RolesGuard,
+  Roles,
+  AdminIpWhitelistGuard,
+} from '@app/common';
 
 @Controller('v1/admin/config')
 @UseGuards(JwtAuthGuard, RolesGuard, AdminIpWhitelistGuard)

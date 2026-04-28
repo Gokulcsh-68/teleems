@@ -1,4 +1,12 @@
-import { IsString, IsOptional, IsEnum, IsInt, Min, Max, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  Min,
+  Max,
+  IsDateString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { IncidentCategory, IncidentSeverity } from './create-incident.dto';
 import { IncidentStatus } from './update-incident.dto';

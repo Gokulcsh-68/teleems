@@ -7,7 +7,10 @@ import * as path from 'path';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
-    const publicKey = fs.readFileSync(path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'), 'utf8');
+    const publicKey = fs.readFileSync(
+      path.join(process.cwd(), 'secrets', 'jwtRS256.key.pub'),
+      'utf8',
+    );
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -19,10 +22,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     // Stateless validation for decoupled microservices
     // Signature & expiration are automatically checked by passport-jwt
-    return { 
-      userId: payload.sub, 
+    return {
+      userId: payload.sub,
       roles: payload.roles || [payload.role],
-      organisationId: payload.org_id
+      organisationId: payload.org_id,
     };
   }
 }

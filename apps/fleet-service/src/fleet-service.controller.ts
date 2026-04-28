@@ -1,10 +1,25 @@
-import { Controller, Get, Post, Body, Query, Req, UseGuards, Param, Put, Patch, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  Req,
+  UseGuards,
+  Param,
+  Put,
+  Patch,
+  Delete,
+} from '@nestjs/common';
 import { FleetServiceService } from './fleet-service.service';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { VehicleQueryDto } from './dto/vehicle-query.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
-import { CreateFleetOperatorDto, UpdateFleetOperatorDto } from './dto/fleet-operator.dto';
+import {
+  CreateFleetOperatorDto,
+  UpdateFleetOperatorDto,
+} from './dto/fleet-operator.dto';
 import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
@@ -19,7 +34,13 @@ export class FleetServiceController {
   constructor(private readonly fleetService: FleetServiceService) {}
 
   @Get('vehicles')
-  @Roles('Fleet Operator', 'Hospital Admin', 'CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)')
+  @Roles(
+    'Fleet Operator',
+    'Hospital Admin',
+    'CureSelect Admin',
+    'CURESELECT_ADMIN',
+    'Call Centre Executive (CCE)',
+  )
   async findAll(@Query() query: VehicleQueryDto, @Req() req: any) {
     return this.fleetService.findAllVehicles(query, req.user);
   }
@@ -38,7 +59,11 @@ export class FleetServiceController {
 
   @Patch('vehicles/:id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async update(@Param('id') id: string, @Body() dto: UpdateVehicleDto, @Req() req: any) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateVehicleDto,
+    @Req() req: any,
+  ) {
     return this.fleetService.updateVehicle(id, dto, req.user);
   }
 
@@ -68,13 +93,20 @@ export class FleetServiceController {
 
   @Put('operators/:id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
-  async updateOperator(@Param('id') id: string, @Body() dto: UpdateFleetOperatorDto, @Req() req: any) {
+  async updateOperator(
+    @Param('id') id: string,
+    @Body() dto: UpdateFleetOperatorDto,
+    @Req() req: any,
+  ) {
     return this.fleetService.updateOperator(id, dto, req.user.userId, req.ip);
   }
- 
+
   @Post('organisations')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
-  async createOrganisation(@Body() dto: CreateFleetOrganisationDto, @Req() req: any) {
+  async createOrganisation(
+    @Body() dto: CreateFleetOrganisationDto,
+    @Req() req: any,
+  ) {
     return this.fleetService.createOrganisation(dto, req.user.userId, req.ip);
   }
 

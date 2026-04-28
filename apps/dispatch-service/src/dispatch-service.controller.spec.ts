@@ -11,7 +11,8 @@ describe('DispatchServiceController', () => {
       providers: [DispatchServiceService],
     }).compile();
 
-    dispatchServiceController = app.get<DispatchServiceController>(DispatchServiceController);
+    dispatchServiceController = app.get<DispatchServiceController>(
+      DispatchServiceController,
+    );
   });
-
 });

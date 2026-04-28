@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, FindOptionsWhere } from 'typeorm';
-import { 
-  SystemConfig, 
-  FeatureFlag, 
-  IotDeviceProfile, 
-  AuditLogService 
+import {
+  SystemConfig,
+  FeatureFlag,
+  IotDeviceProfile,
+  AuditLogService,
 } from '@app/common';
-import { 
-  UpdateSystemConfigDto, 
-  ToggleFeatureFlagDto, 
-  CreateIotProfileDto 
+import {
+  UpdateSystemConfigDto,
+  ToggleFeatureFlagDto,
+  CreateIotProfileDto,
 } from './dto/platform-config.dto';
 
 @Injectable()
@@ -53,10 +53,10 @@ export class PlatformConfigService {
   // --- Feature Flags (Hierarchical Logic) ---
 
   async toggleFlag(dto: ToggleFeatureFlagDto, adminId: string, ip: string) {
-    const where: FindOptionsWhere<FeatureFlag> = { 
-      name: dto.name, 
+    const where: FindOptionsWhere<FeatureFlag> = {
+      name: dto.name,
       scope: dto.scope,
-      scopeId: dto.scopeId || IsNull()
+      scopeId: dto.scopeId || IsNull(),
     };
 
     let flag = await this.flagRepo.findOne({ where });
@@ -64,7 +64,7 @@ export class PlatformConfigService {
     if (!flag) {
       flag = this.flagRepo.create({
         ...dto,
-        scopeId: dto.scopeId || null
+        scopeId: dto.scopeId || null,
       });
     } else {
       flag.isEnabled = dto.isEnabled;
@@ -87,7 +87,11 @@ export class PlatformConfigService {
 
   // --- IoT Device Profiles ---
 
-  async createIotProfile(dto: CreateIotProfileDto, adminId: string, ip: string) {
+  async createIotProfile(
+    dto: CreateIotProfileDto,
+    adminId: string,
+    ip: string,
+  ) {
     const profile = this.iotRepo.create(dto);
     await this.iotRepo.save(profile);
 

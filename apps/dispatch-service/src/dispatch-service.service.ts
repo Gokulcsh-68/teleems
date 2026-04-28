@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
@@ -13,17 +18,24 @@ import { AddPatientDto } from './dto/add-patient.dto';
 import { BulkAddPatientsDto } from './dto/bulk-add-patients.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { IncidentQueryDto } from './dto/incident-query.dto';
-import { SLAStatusDto, SLATimerStatus, SLATimerDetail } from './dto/sla-status.dto';
+import {
+  SLAStatusDto,
+  SLATimerStatus,
+  SLATimerDetail,
+} from './dto/sla-status.dto';
 import { SlaBreachQueryDto } from './dto/sla-breach-query.dto';
 import { EscalateIncidentDto } from './dto/escalate-incident.dto';
 import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
-import { PaginationQueryDto, OffsetPaginationQueryDto } from './dto/pagination-query.dto';
+import {
+  PaginationQueryDto,
+  OffsetPaginationQueryDto,
+} from './dto/pagination-query.dto';
 import { v4 as uuid } from 'uuid';
-import { 
-  PaginatedResponse, 
-  encodeCursor, 
-  decodeCursor, 
-  MapsService, 
+import {
+  PaginatedResponse,
+  encodeCursor,
+  decodeCursor,
+  MapsService,
   AuditLogService,
   Incident,
   Dispatch,
@@ -93,11 +105,11 @@ export class DispatchServiceService {
   }
 
   private async logTimelineEvent(
-    incidentId: string, 
-    type: string, 
-    description: string, 
-    userId?: string, 
-    metadata?: Record<string, any>
+    incidentId: string,
+    type: string,
+    description: string,
+    userId?: string,
+    metadata?: Record<string, any>,
   ) {
     const event = this.timelineRepository.create({
       incident_id: incidentId,
@@ -109,14 +121,21 @@ export class DispatchServiceService {
     await this.timelineRepository.save(event);
   }
 
-  private getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private getDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371; // Radius of the earth in km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in km
   }
@@ -196,18 +215,18 @@ export class DispatchServiceService {
 
   private async findNearestVehicle(lat: number, lon: number): Promise<Vehicle | null> {
     const availableVehicles = await this.vehicleRepository.find({
-      where: { status: VehicleStatus.AVAILABLE }
+      where: { status: VehicleStatus.AVAILABLE },
     });
 
     if (availableVehicles.length === 0) return null;
 
     // 1. Filter to top 5 candidates by physical distance (Haversine)
-    const candidates = availableVehicles.map(vehicle => {
+    const candidates = availableVehicles.map((vehicle) => {
       const distance = this.getHaversine(
-        Number(lat), 
-        Number(lon), 
-        Number(vehicle.gps_lat), 
-        Number(vehicle.gps_lon)
+        Number(lat),
+        Number(lon),
+        Number(vehicle.gps_lat),
+        Number(vehicle.gps_lon),
       );
       return { vehicle, distance };
     });
@@ -222,7 +241,10 @@ export class DispatchServiceService {
     for (const item of topCandidates) {
       const routeData = await this.mapsService.getTravelTime(
         { lat: Number(lat), lng: Number(lon) },
-        { lat: Number(item.vehicle.gps_lat), lng: Number(item.vehicle.gps_lon) }
+        {
+          lat: Number(item.vehicle.gps_lat),
+          lng: Number(item.vehicle.gps_lon),
+        },
       );
 
       if (routeData.duration < minDuration) {
@@ -234,14 +256,21 @@ export class DispatchServiceService {
     return bestVehicle;
   }
 
-  private getHaversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private getHaversine(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
@@ -284,8 +313,8 @@ export class DispatchServiceService {
     await this.incidentRepository.save(incident);
 
     await this.logTimelineEvent(
-      incident.id, 
-      'CREATED', 
+      incident.id,
+      'CREATED',
       `Incident reported by ${incident.caller_id}`,
       fullContext.userId,
       { category: incident.category, severity: incident.severity }
@@ -333,42 +362,69 @@ export class DispatchServiceService {
   }
 
   async findAll(query: IncidentQueryDto, requestUser: any) {
-    const { 
-      status, category, severity, org_id, caller_id, 
-      date_from, date_to, limit, cursor 
+    const {
+      status,
+      category,
+      severity,
+      org_id,
+      caller_id,
+      date_from,
+      date_to,
+      limit,
+      cursor,
     } = query;
 
     const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
 
     // 1. RBAC & Tenant Isolation
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     if (!isPlatformAdmin) {
       // Isolation for Hospital Admins and Fleet Operators
-      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+      if (
+        roles.includes('Hospital Admin') ||
+        roles.includes('Fleet Operator')
+      ) {
         const orgId = requestUser.organisationId || requestUser.org_id;
-        if (!orgId) throw new ForbiddenException('User organization context missing');
+        if (!orgId)
+          throw new ForbiddenException('User organization context missing');
         queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
-      } 
+      }
       // Isolation for Dispatchers / Public Callers (only see their own)
-      else if (roles.includes('Caller (Public)') || roles.includes('Individual Dispatcher')) {
-        queryBuilder.andWhere('incident.caller_id = :userId', { userId: requestUser.userId });
+      else if (
+        roles.includes('Caller (Public)') ||
+        roles.includes('Individual Dispatcher')
+      ) {
+        queryBuilder.andWhere('incident.caller_id = :userId', {
+          userId: requestUser.userId,
+        });
       } else {
-        throw new ForbiddenException('Insufficient permissions to list incidents');
+        throw new ForbiddenException(
+          'Insufficient permissions to list incidents',
+        );
       }
     } else {
       // Platform Admin Filters
-      if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
-      if (caller_id) queryBuilder.andWhere('incident.caller_id = :caller_id', { caller_id });
+      if (org_id)
+        queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+      if (caller_id)
+        queryBuilder.andWhere('incident.caller_id = :caller_id', { caller_id });
     }
 
     // 2. Filters
     if (status) queryBuilder.andWhere('incident.status = :status', { status });
-    if (category) queryBuilder.andWhere('incident.category = :category', { category });
-    if (severity) queryBuilder.andWhere('incident.severity = :severity', { severity });
+    if (category)
+      queryBuilder.andWhere('incident.category = :category', { category });
+    if (severity)
+      queryBuilder.andWhere('incident.severity = :severity', { severity });
 
     // 3. Date Range Filters
     if (date_from) {
@@ -383,11 +439,11 @@ export class DispatchServiceService {
     if (cursor) {
       const decodedCursor = decodeCursor(cursor);
       const [cursorDate, cursorId] = decodedCursor.split('|');
-      
+
       if (cursorDate && cursorId) {
         queryBuilder.andWhere(
           '(incident.createdAt < :cursorDate OR (incident.createdAt = :cursorDate AND incident.id < :cursorId))',
-          { cursorDate, cursorId }
+          { cursorDate, cursorId },
         );
       }
     }
@@ -400,21 +456,28 @@ export class DispatchServiceService {
     queryBuilder.take(limit + 1);
 
     const incidents = await queryBuilder.getMany();
-    
+
     let next_cursor: string | null = null;
     const hasNextPage = incidents.length > limit;
     const data = hasNextPage ? incidents.slice(0, limit) : incidents;
 
     if (hasNextPage) {
       const lastItem = data[data.length - 1];
-      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+      next_cursor = encodeCursor(
+        `${lastItem.createdAt.toISOString()}|${lastItem.id}`,
+      );
     }
 
     const total_count = await queryBuilder.getCount(); // Optional: might be expensive on very large tables
 
-    return new PaginatedResponse(data, next_cursor, total_count, limit, data.length);
+    return new PaginatedResponse(
+      data,
+      next_cursor,
+      total_count,
+      limit,
+      data.length,
+    );
   }
-
 
   async findOne(id: string, requestUser?: any) {
     const incident = await this.incidentRepository.findOneBy({ id });
@@ -425,22 +488,33 @@ export class DispatchServiceService {
     // Security: Enforce Tenant and User Isolation
     if (requestUser) {
       const roles = requestUser.roles || [];
-      const isPlatformAdmin = roles.some((r: string) => 
-        ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+      const isPlatformAdmin = roles.some((r: string) =>
+        [
+          'CureSelect Admin',
+          'CURESELECT_ADMIN',
+          'Call Centre Executive (CCE)',
+          'CCE',
+        ].includes(r),
       );
 
       if (!isPlatformAdmin) {
         // 1. Case-insensitive check for Hospital Admin
-        const isHospitalAdmin = roles.some(r => r.toUpperCase() === 'HOSPITAL ADMIN');
-        
+        const isHospitalAdmin = roles.some(
+          (r) => r.toUpperCase() === 'HOSPITAL ADMIN',
+        );
+
         if (isHospitalAdmin) {
           if (incident.organisationId !== requestUser.org_id) {
-            throw new ForbiddenException('Access denied: You can only access incidents in your own organization');
+            throw new ForbiddenException(
+              'Access denied: You can only access incidents in your own organization',
+            );
           }
-        } 
+        }
         // 2. Regular User / Fleet Operator Isolation (must be the caller)
         else if (incident.caller_id !== requestUser.userId) {
-          throw new ForbiddenException('You do not have permission to access this incident');
+          throw new ForbiddenException(
+            'You do not have permission to access this incident',
+          );
         }
       }
     }
@@ -448,7 +522,11 @@ export class DispatchServiceService {
     return { data: incident };
   }
 
-  async updateIncident(id: string, dto: UpdateIncidentDto, context: AuditContext) {
+  async updateIncident(
+    id: string,
+    dto: UpdateIncidentDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -459,7 +537,9 @@ export class DispatchServiceService {
     if (dto.severity) incident.severity = dto.severity;
     if (dto.address) incident.address = dto.address;
     if (dto.notes) {
-      incident.notes = incident.notes ? `${incident.notes}\n${dto.notes}` : dto.notes;
+      incident.notes = incident.notes
+        ? `${incident.notes}\n${dto.notes}`
+        : dto.notes;
     }
 
     await this.incidentRepository.save(incident);
@@ -469,14 +549,14 @@ export class DispatchServiceService {
       'UPDATED',
       'Incident details updated',
       context.userId,
-      { 
+      {
         updates: dto,
-        previous: { 
-          category: originalData.category, 
-          severity: originalData.severity, 
-          address: originalData.address 
-        } 
-      }
+        previous: {
+          category: originalData.category,
+          severity: originalData.severity,
+          address: originalData.address,
+        },
+      },
     );
 
     await this.logSecurityAudit(
@@ -484,23 +564,31 @@ export class DispatchServiceService {
       'INCIDENT_UPDATED',
       incident.id,
       context,
-      { updates: dto }
+      { updates: dto },
     );
 
     return { data: incident };
   }
 
-  async cancelIncident(id: string, dto: CancelIncidentDto, context: AuditContext) {
+  async cancelIncident(
+    id: string,
+    dto: CancelIncidentDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
     if (incident.status !== 'PENDING') {
-      throw new BadRequestException('Incident can only be cancelled before dispatch (status: PENDING)');
+      throw new BadRequestException(
+        'Incident can only be cancelled before dispatch (status: PENDING)',
+      );
     }
 
     incident.status = 'CANCELLED';
     const cancelNote = `[CANCELLED] Reason: ${dto.reason}`;
-    incident.notes = incident.notes ? `${incident.notes}\n${cancelNote}` : cancelNote;
+    incident.notes = incident.notes
+      ? `${incident.notes}\n${cancelNote}`
+      : cancelNote;
 
     await this.incidentRepository.save(incident);
 
@@ -509,7 +597,7 @@ export class DispatchServiceService {
       'CANCELLED',
       `Incident cancelled: ${dto.reason}`,
       context.userId,
-      { reason: dto.reason }
+      { reason: dto.reason },
     );
 
     await this.logSecurityAudit(
@@ -517,7 +605,7 @@ export class DispatchServiceService {
       'INCIDENT_CANCELLED',
       incident.id,
       context,
-      { reason: dto.reason }
+      { reason: dto.reason },
     );
 
     return { data: incident };
@@ -527,14 +615,20 @@ export class DispatchServiceService {
     return this.auditLogService.getLogsByEntity('incident', id, limit, cursor);
   }
 
-  async updateStatus(id: string, dto: UpdateIncidentStatusDto, context: AuditContext) {
+  async updateStatus(
+    id: string,
+    dto: UpdateIncidentStatusDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
     const oldStatus = incident.status;
     incident.status = dto.status;
     if (dto.notes) {
-      incident.notes = incident.notes ? `${incident.notes}\n${dto.notes}` : dto.notes;
+      incident.notes = incident.notes
+        ? `${incident.notes}\n${dto.notes}`
+        : dto.notes;
     }
 
     await this.incidentRepository.save(incident);
@@ -544,7 +638,7 @@ export class DispatchServiceService {
       'STATUS_CHANGE',
       `Status changed from ${oldStatus} to ${dto.status}`,
       context.userId,
-      { oldStatus, newStatus: dto.status, notes: dto.notes }
+      { oldStatus, newStatus: dto.status, notes: dto.notes },
     );
 
     await this.logSecurityAudit(
@@ -552,21 +646,29 @@ export class DispatchServiceService {
       'INCIDENT_STATUS_CHANGE',
       incident.id,
       context,
-      { oldStatus, newStatus: dto.status }
+      { oldStatus, newStatus: dto.status },
     );
 
     return { data: incident };
   }
 
-  async assignVehicle(id: string, dto: AssignVehicleDto, context: AuditContext) {
+  async assignVehicle(
+    id: string,
+    dto: AssignVehicleDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
-    const vehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.vehicle_id });
+    const vehicle = await this.vehicleRepository.findOneBy({
+      registration_number: dto.vehicle_id,
+    });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
-    
+
     if (vehicle.status !== VehicleStatus.AVAILABLE) {
-      throw new BadRequestException(`Vehicle '${dto.vehicle_id}' is not available (Status: ${vehicle.status})`);
+      throw new BadRequestException(
+        `Vehicle '${dto.vehicle_id}' is not available (Status: ${vehicle.status})`,
+      );
     }
 
     // Update vehicle status
@@ -586,7 +688,7 @@ export class DispatchServiceService {
       'VEHICLE_ASSIGNED',
       `Vehicle ${dto.vehicle_id} assigned to incident`,
       context.userId,
-      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds }
+      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds },
     );
 
     await this.logSecurityAudit(
@@ -594,19 +696,23 @@ export class DispatchServiceService {
       'INCIDENT_VEHICLE_ASSIGNED',
       incident.id,
       context,
-      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds }
+      { vehicle_id: dto.vehicle_id, eta_seconds: dto.eta_seconds },
     );
 
     return { data: incident };
   }
 
-  async dispatchIncident(id: string, dto: DispatchIncidentDto, context: AuditContext) {
+  async dispatchIncident(
+    id: string,
+    dto: DispatchIncidentDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
     if (incident.status !== 'PENDING' && incident.status !== 'ASSIGNED') {
       throw new BadRequestException(
-        `Cannot dispatch incident with status '${incident.status}'. Must be PENDING or ASSIGNED.`
+        `Cannot dispatch incident with status '${incident.status}'. Must be PENDING or ASSIGNED.`,
       );
     }
 
@@ -617,22 +723,42 @@ export class DispatchServiceService {
     let eta: number;
 
     if (isManualOverride) {
-      targetVehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.manual_vehicle_id! });
-      if (!targetVehicle) throw new NotFoundException('Selected vehicle not found');
+      targetVehicle = await this.vehicleRepository.findOneBy({
+        registration_number: dto.manual_vehicle_id!,
+      });
+      if (!targetVehicle)
+        throw new NotFoundException('Selected vehicle not found');
       if (targetVehicle.status !== VehicleStatus.AVAILABLE) {
-        throw new BadRequestException(`Vehicle '${dto.manual_vehicle_id}' is not available.`);
+        throw new BadRequestException(
+          `Vehicle '${dto.manual_vehicle_id}' is not available.`,
+        );
       }
       vehicleId = targetVehicle.registration_number;
       // Simulated ETA for manually selected vehicle (distance based)
-      const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
+      const dist = this.getDistance(
+        Number(incident.gps_lat),
+        Number(incident.gps_lon),
+        Number(targetVehicle.gps_lat),
+        Number(targetVehicle.gps_lon),
+      );
       eta = Math.floor((dist / 30) * 3600); // 30km/h avg speed
     } else {
-      targetVehicle = await this.findNearestVehicle(incident.gps_lat, incident.gps_lon);
+      targetVehicle = await this.findNearestVehicle(
+        incident.gps_lat,
+        incident.gps_lon,
+      );
       if (!targetVehicle) {
-        throw new BadRequestException('No available ambulances found in the system for auto-assignment.');
+        throw new BadRequestException(
+          'No available ambulances found in the system for auto-assignment.',
+        );
       }
       vehicleId = targetVehicle.registration_number;
-      const dist = this.getDistance(incident.gps_lat, incident.gps_lon, targetVehicle.gps_lat, targetVehicle.gps_lon);
+      const dist = this.getDistance(
+        Number(incident.gps_lat),
+        Number(incident.gps_lon),
+        Number(targetVehicle.gps_lat),
+        Number(targetVehicle.gps_lon),
+      );
       eta = Math.floor((dist / 30) * 3600);
     }
 
@@ -644,15 +770,17 @@ export class DispatchServiceService {
     await this.vehicleRepository.save(targetVehicle);
 
     // Create the dispatch record
-    const dispatch = new Dispatch();
-    dispatch.incident_id = incident.id;
-    dispatch.vehicle_id = vehicleId;
-    dispatch.dispatched_by = context.userId;
-    dispatch.status = 'DISPATCHED';
-    dispatch.eta_seconds = eta;
-    dispatch.manual_vehicle_id = dto.manual_vehicle_id || null;
-    dispatch.override_reason = dto.override_reason || null;
-    dispatch.is_manual_override = isManualOverride;
+    const dispatch = this.dispatchRepository.create({
+      incident_id: incident.id,
+      vehicle_id: vehicleId,
+      dispatched_by: context.userId,
+      status: 'DISPATCHED',
+      eta_seconds: eta,
+      manual_vehicle_id: dto.manual_vehicle_id || null,
+      override_reason: dto.override_reason || null,
+      is_manual_override: isManualOverride,
+      organisationId: incident.organisationId,
+    });
     await this.dispatchRepository.save(dispatch);
 
     // Update the incident
@@ -671,7 +799,7 @@ export class DispatchServiceService {
       'DISPATCHED',
       description,
       context.userId,
-      { vehicle_id: vehicleId, eta_seconds: eta, is_manual: isManualOverride }
+      { vehicle_id: vehicleId, eta_seconds: eta, is_manual: isManualOverride },
     );
 
     // Audit log
@@ -680,7 +808,12 @@ export class DispatchServiceService {
       'INCIDENT_DISPATCHED',
       incident.id,
       context,
-      { vehicle_id: vehicleId, eta_seconds: eta, is_manual: isManualOverride, override_reason: dto.override_reason }
+      {
+        vehicle_id: vehicleId,
+        eta_seconds: eta,
+        is_manual: isManualOverride,
+        override_reason: dto.override_reason,
+      },
     );
 
     return {
@@ -693,7 +826,11 @@ export class DispatchServiceService {
     };
   }
 
-  async reassignVehicle(id: string, dto: ReassignVehicleDto, context: AuditContext) {
+  async reassignVehicle(
+    id: string,
+    dto: ReassignVehicleDto,
+    context: AuditContext,
+  ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -701,15 +838,23 @@ export class DispatchServiceService {
     // We look for the most recent record that isn't COMPLETED or CANCELLED
     const currentDispatch = await this.dispatchRepository.findOne({
       where: { incident_id: id },
-      order: { dispatched_at: 'DESC' }
+      order: { dispatched_at: 'DESC' },
     });
 
     if (!currentDispatch) {
-      throw new BadRequestException('No active dispatch found for this incident.');
+      throw new BadRequestException(
+        'No active dispatch found for this incident.',
+      );
     }
 
-    if (incident.status === 'COMPLETED' || incident.status === 'CANCELLED' || incident.status === 'ON_SCENE') {
-      throw new BadRequestException(`Cannot reassign vehicle for incident with status '${incident.status}'.`);
+    if (
+      incident.status === 'COMPLETED' ||
+      incident.status === 'CANCELLED' ||
+      incident.status === 'ON_SCENE'
+    ) {
+      throw new BadRequestException(
+        `Cannot reassign vehicle for incident with status '${incident.status}'.`,
+      );
     }
 
     // 2. Identify and release the old vehicle
@@ -720,26 +865,38 @@ export class DispatchServiceService {
     }
 
     // 3. Identify and lock the new vehicle
-    const newVehicle = await this.vehicleRepository.findOneBy({ registration_number: dto.new_vehicle_id });
-    if (!newVehicle) throw new NotFoundException(`New vehicle '${dto.new_vehicle_id}' not found.`);
+    const newVehicle = await this.vehicleRepository.findOneBy({
+      registration_number: dto.new_vehicle_id,
+    });
+    if (!newVehicle)
+      throw new NotFoundException(
+        `New vehicle '${dto.new_vehicle_id}' not found.`,
+      );
     if (newVehicle.status !== VehicleStatus.AVAILABLE) {
-      throw new BadRequestException(`Vehicle '${dto.new_vehicle_id}' is not available.`);
+      throw new BadRequestException(
+        `Vehicle '${dto.new_vehicle_id}' is not available.`,
+      );
     }
 
     newVehicle.status = VehicleStatus.BUSY;
     await this.vehicleRepository.save(newVehicle);
 
     // 4. Update the Dispatch record
-    // We keep the record history by updating the existing one or marking it as reassigned and creating new. 
+    // We keep the record history by updating the existing one or marking it as reassigned and creating new.
     // Usually, updating the active record is cleaner for active dispatch tracking.
     const oldVehicleId = currentDispatch.vehicle_id;
     currentDispatch.vehicle_id = dto.new_vehicle_id;
-    
+
     // Recalculate ETA from new vehicle location
-    const dist = this.getDistance(incident.gps_lat, incident.gps_lon, newVehicle.gps_lat, newVehicle.gps_lon);
+    const dist = this.getDistance(
+      incident.gps_lat,
+      incident.gps_lon,
+      newVehicle.gps_lat,
+      newVehicle.gps_lon,
+    );
     let newEta = Math.floor((dist / 30) * 3600);
     if (newEta < 120) newEta = 120; // 2 min min
-    
+
     currentDispatch.eta_seconds = newEta;
     currentDispatch.is_manual_override = true; // Reassignment is always manual
     currentDispatch.override_reason = `REASSIGNED: ${dto.reason}`;
@@ -756,7 +913,11 @@ export class DispatchServiceService {
       'REASSIGNED',
       `Vehicle reassigned from ${oldVehicleId} to ${dto.new_vehicle_id}. Reason: ${dto.reason}`,
       context.userId,
-      { old_vehicle: oldVehicleId, new_vehicle: dto.new_vehicle_id, reason: dto.reason }
+      {
+        old_vehicle: oldVehicleId,
+        new_vehicle: dto.new_vehicle_id,
+        reason: dto.reason,
+      },
     );
 
     await this.logSecurityAudit(
@@ -973,7 +1134,7 @@ export class DispatchServiceService {
     // 1. Find the active dispatch
     const currentDispatch = await this.dispatchRepository.findOne({
       where: { incident_id: id },
-      order: { dispatched_at: 'DESC' }
+      order: { dispatched_at: 'DESC' },
     });
 
     if (!currentDispatch || currentDispatch.status === 'CANCELLED') {
@@ -1001,12 +1162,20 @@ export class DispatchServiceService {
       // Note: findNearestVehicle already filters by AVAILABLE, and we just marked the old one as AVAILABLE.
       // To strictly avoid picking the same one, we'd need to modify findNearestVehicle or filter here.
       const availableVehicles = await this.vehicleRepository.find({
-        where: { status: VehicleStatus.AVAILABLE }
+        where: { status: VehicleStatus.AVAILABLE },
       });
 
       const backupVehicle = availableVehicles
-        .filter(v => v.registration_number !== cancelledVehicleId)
-        .map(v => ({ v, dist: this.getDistance(incident.gps_lat, incident.gps_lon, v.gps_lat, v.gps_lon) }))
+        .filter((v) => v.registration_number !== cancelledVehicleId)
+        .map((v) => ({
+          v,
+          dist: this.getDistance(
+            incident.gps_lat,
+            incident.gps_lon,
+            v.gps_lat,
+            v.gps_lon,
+          ),
+        }))
         .sort((a, b) => a.dist - b.dist)[0]?.v;
 
       if (!backupVehicle) {
@@ -1015,13 +1184,13 @@ export class DispatchServiceService {
         incident.assigned_vehicle = null;
         incident.eta_seconds = null;
         await this.incidentRepository.save(incident);
-        
+
         await this.logTimelineEvent(
           incident.id,
           'DISPATCH_CANCELLED',
           `Dispatch for ${cancelledVehicleId} cancelled. Backup requested but none available. Incident reverted to PENDING.`,
           context.userId,
-          { reason: dto.reason }
+          { reason: dto.reason },
         );
       } else {
         // Dispatch backup
@@ -1033,8 +1202,13 @@ export class DispatchServiceService {
         backupDispatch.vehicle_id = backupVehicle.registration_number;
         backupDispatch.dispatched_by = context.userId;
         backupDispatch.status = 'DISPATCHED';
-        
-        const dist = this.getDistance(incident.gps_lat, incident.gps_lon, backupVehicle.gps_lat, backupVehicle.gps_lon);
+
+        const dist = this.getDistance(
+          incident.gps_lat,
+          incident.gps_lon,
+          backupVehicle.gps_lat,
+          backupVehicle.gps_lon,
+        );
         let eta = Math.floor((dist / 30) * 3600);
         if (eta < 120) eta = 120;
         backupDispatch.eta_seconds = eta;
@@ -1051,9 +1225,12 @@ export class DispatchServiceService {
           'BACKUP_DISPATCHED',
           `Dispatch for ${cancelledVehicleId} cancelled. Backup unit ${backupVehicle.registration_number} dispatched.`,
           context.userId,
-          { reason: dto.reason, backup_vehicle: backupVehicle.registration_number }
+          {
+            reason: dto.reason,
+            backup_vehicle: backupVehicle.registration_number,
+          },
         );
-        
+
         responseData = { data: backupDispatch };
       }
     } else {
@@ -1068,7 +1245,7 @@ export class DispatchServiceService {
         'DISPATCH_CANCELLED',
         `Dispatch for ${cancelledVehicleId} cancelled. Incident reverted to PENDING.`,
         context.userId,
-        { reason: dto.reason }
+        { reason: dto.reason },
       );
     }
 
@@ -1078,7 +1255,7 @@ export class DispatchServiceService {
       'INCIDENT_DISPATCH_CANCELLED',
       incident.id,
       context,
-      { reason: dto.reason, backup_requested: dto.request_backup }
+      { reason: dto.reason, backup_requested: dto.request_backup },
     );
 
     return responseData;
@@ -1087,11 +1264,13 @@ export class DispatchServiceService {
   async getActiveDispatch(incidentId: string, requestUser: any) {
     const dispatch = await this.dispatchRepository.findOne({
       where: { incident_id: incidentId },
-      order: { dispatched_at: 'DESC' }
+      order: { dispatched_at: 'DESC' },
     });
 
     if (!dispatch) {
-      throw new NotFoundException(`No dispatch records found for incident ${incidentId}`);
+      throw new NotFoundException(
+        `No dispatch records found for incident ${incidentId}`,
+      );
     }
 
     // RBAC & Personal Isolation
@@ -1126,7 +1305,8 @@ export class DispatchServiceService {
   async recommendVehicles(dto: RecommendVehicleDto) {
     const { gps_lat, gps_lon, vehicle_type_required } = dto;
 
-    const query = this.vehicleRepository.createQueryBuilder('vehicle')
+    const query = this.vehicleRepository
+      .createQueryBuilder('vehicle')
       .where('vehicle.status = :status', { status: VehicleStatus.AVAILABLE });
 
     if (vehicle_type_required) {
@@ -1135,12 +1315,12 @@ export class DispatchServiceService {
 
     const availableVehicles = await query.getMany();
 
-    const recommendations = availableVehicles.map(vehicle => {
+    const recommendations = availableVehicles.map((vehicle) => {
       const distance = this.getDistance(
         Number(gps_lat),
         Number(gps_lon),
         Number(vehicle.gps_lat),
-        Number(vehicle.gps_lon)
+        Number(vehicle.gps_lon),
       );
 
       // ETA simulation (30 km/h average)
@@ -1162,7 +1342,7 @@ export class DispatchServiceService {
     recommendations.sort((a, b) => a.distance_km - b.distance_km);
 
     return {
-      data: recommendations.slice(0, 5) // Return top 5
+      data: recommendations.slice(0, 5), // Return top 5
     };
   }
 
@@ -1177,7 +1357,7 @@ export class DispatchServiceService {
       if (cursorDate && cursorId) {
         queryBuilder.andWhere(
           '(timeline.createdAt > :cursorDate OR (timeline.createdAt = :cursorDate AND timeline.id > :cursorId))',
-          { cursorDate, cursorId }
+          { cursorDate, cursorId },
         );
       }
     }
@@ -1187,14 +1367,16 @@ export class DispatchServiceService {
     queryBuilder.take(limit + 1);
 
     const incidents = await queryBuilder.getMany();
-    
+
     let next_cursor: string | null = null;
     const hasNextPage = incidents.length > limit;
     const data = hasNextPage ? incidents.slice(0, limit) : incidents;
 
     if (hasNextPage) {
       const lastItem = data[data.length - 1];
-      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+      next_cursor = encodeCursor(
+        `${lastItem.createdAt.toISOString()}|${lastItem.id}`,
+      );
     }
 
     const total_count = await queryBuilder.getCount();
@@ -1214,10 +1396,14 @@ export class DispatchServiceService {
     return { dispatch: 3600, on_scene: 7200, total: 28800 };
   }
 
-  private calculateTimer(target: number, actual: number | null): SLATimerDetail {
+  private calculateTimer(
+    target: number,
+    actual: number | null,
+  ): SLATimerDetail {
     let status = SLATimerStatus.PENDING;
     if (actual !== null) {
-      status = actual <= target ? SLATimerStatus.WITHIN_SLA : SLATimerStatus.EXCEEDED;
+      status =
+        actual <= target ? SLATimerStatus.WITHIN_SLA : SLATimerStatus.EXCEEDED;
     }
     return { target_seconds: target, actual_seconds: actual, status };
   }
@@ -1241,33 +1427,44 @@ export class DispatchServiceService {
 
     // 1. Dispatch Timer
     const dispatchedAt = dispatch?.dispatched_at?.getTime() || null;
-    const dispatchActual = dispatchedAt ? Math.floor((dispatchedAt - start) / 1000) : null;
+    const dispatchActual = dispatchedAt
+      ? Math.floor((dispatchedAt - start) / 1000)
+      : null;
     const dispatchTimer = this.calculateTimer(targets.dispatch, dispatchActual);
 
     // 2. On-Scene Timer
-    const onSceneEvent = timeline.find(e => 
-      e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'ON_SCENE'
+    const onSceneEvent = timeline.find(
+      (e) => e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'ON_SCENE',
     );
     const onSceneAt = onSceneEvent?.createdAt?.getTime() || null;
-    const onSceneActual = onSceneAt ? Math.floor((onSceneAt - start) / 1000) : null;
+    const onSceneActual = onSceneAt
+      ? Math.floor((onSceneAt - start) / 1000)
+      : null;
     const onSceneTimer = this.calculateTimer(targets.on_scene, onSceneActual);
 
     // 3. Total Resolution Timer
-    const completedEvent = timeline.find(e => 
-      e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'COMPLETED'
+    const completedEvent = timeline.find(
+      (e) =>
+        e.type === 'STATUS_CHANGE' && e.metadata?.newStatus === 'COMPLETED',
     );
     const completedAt = completedEvent?.createdAt?.getTime() || null;
-    const totalActual = completedAt ? Math.floor((completedAt - start) / 1000) : null;
+    const totalActual = completedAt
+      ? Math.floor((completedAt - start) / 1000)
+      : null;
     const totalTimer = this.calculateTimer(targets.total, totalActual);
 
     // Overall Status
     let overall: 'HEALTHY' | 'WARNING' | 'VIOLATED' = 'HEALTHY';
-    if (dispatchTimer.status === SLATimerStatus.EXCEEDED || 
-        onSceneTimer.status === SLATimerStatus.EXCEEDED || 
-        totalTimer.status === SLATimerStatus.EXCEEDED) {
+    if (
+      dispatchTimer.status === SLATimerStatus.EXCEEDED ||
+      onSceneTimer.status === SLATimerStatus.EXCEEDED ||
+      totalTimer.status === SLATimerStatus.EXCEEDED
+    ) {
       overall = 'VIOLATED';
-    } else if (dispatchTimer.status === SLATimerStatus.PENDING && 
-               (Date.now() - start) / 1000 > targets.dispatch) {
+    } else if (
+      dispatchTimer.status === SLATimerStatus.PENDING &&
+      (Date.now() - start) / 1000 > targets.dispatch
+    ) {
       overall = 'WARNING'; // Approaching or just passed but not yet closed
     }
 
@@ -1281,7 +1478,7 @@ export class DispatchServiceService {
           total_resolution: totalTimer,
         },
         overall_sla_status: overall,
-      }
+      },
     };
   }
 
@@ -1290,7 +1487,9 @@ export class DispatchServiceService {
     const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
 
     // Only active incidents that haven't been dispatched yet are counted as "active dispatch breaches"
-    queryBuilder.where('incident.status IN (:...statuses)', { statuses: ['PENDING', 'ASSIGNED'] });
+    queryBuilder.where('incident.status IN (:...statuses)', {
+      statuses: ['PENDING', 'ASSIGNED'],
+    });
 
     if (org_id) {
       queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
@@ -1307,12 +1506,24 @@ export class DispatchServiceService {
     const lowT = new Date(now.getTime() - 3600 * 1000);
 
     queryBuilder.andWhere(
-      new Brackets(qb => {
-        qb.where("(incident.severity IN ('CRITICAL', 'RED') AND incident.createdAt < :criticalT)", { criticalT })
-          .orWhere("(incident.severity IN ('HIGH', 'YELLOW') AND incident.createdAt < :highT)", { highT })
-          .orWhere("(incident.severity IN ('MEDIUM', 'GREEN') AND incident.createdAt < :mediumT)", { mediumT })
-          .orWhere("(incident.severity = 'LOW' AND incident.createdAt < :lowT)", { lowT });
-      })
+      new Brackets((qb) => {
+        qb.where(
+          "(incident.severity IN ('CRITICAL', 'RED') AND incident.createdAt < :criticalT)",
+          { criticalT },
+        )
+          .orWhere(
+            "(incident.severity IN ('HIGH', 'YELLOW') AND incident.createdAt < :highT)",
+            { highT },
+          )
+          .orWhere(
+            "(incident.severity IN ('MEDIUM', 'GREEN') AND incident.createdAt < :mediumT)",
+            { mediumT },
+          )
+          .orWhere(
+            "(incident.severity = 'LOW' AND incident.createdAt < :lowT)",
+            { lowT },
+          );
+      }),
     );
 
     if (cursor) {
@@ -1321,7 +1532,7 @@ export class DispatchServiceService {
       if (cursorDate && cursorId) {
         queryBuilder.andWhere(
           '(incident.createdAt > :cursorDate OR (incident.createdAt = :cursorDate AND incident.id > :cursorId))',
-          { cursorDate, cursorId }
+          { cursorDate, cursorId },
         );
       }
     }
@@ -1331,14 +1542,16 @@ export class DispatchServiceService {
     queryBuilder.take(limit + 1);
 
     const incidents = await queryBuilder.getMany();
-    
+
     let next_cursor: string | null = null;
     const hasNextPage = incidents.length > limit;
     const data = hasNextPage ? incidents.slice(0, limit) : incidents;
 
     if (hasNextPage) {
       const lastItem = data[data.length - 1];
-      next_cursor = encodeCursor(`${lastItem.createdAt.toISOString()}|${lastItem.id}`);
+      next_cursor = encodeCursor(
+        `${lastItem.createdAt.toISOString()}|${lastItem.id}`,
+      );
     }
 
     const total_count = await queryBuilder.getCount();
@@ -1346,11 +1559,17 @@ export class DispatchServiceService {
     return { data, meta: { next_cursor, total_count } };
   }
 
-  async addPatient(incidentId: string, dto: BulkAddPatientsDto, context: AuditContext) {
-    const incident = await this.incidentRepository.findOneBy({ id: incidentId });
+  async addPatient(
+    incidentId: string,
+    dto: BulkAddPatientsDto,
+    context: AuditContext,
+  ) {
+    const incident = await this.incidentRepository.findOneBy({
+      id: incidentId,
+    });
     if (!incident) throw new NotFoundException('Incident not found');
 
-    const newPatients = dto.patients.map(p => ({
+    const newPatients = dto.patients.map((p) => ({
       id: uuid(),
       name: p.name,
       age: p.age,
@@ -1380,39 +1599,59 @@ export class DispatchServiceService {
       'INCIDENT_BULK_PATIENT_ADDED',
       incident.id,
       context,
-      { count: newPatients.length, total: incident.patients.length }
+      { count: newPatients.length, total: incident.patients.length },
     );
 
-    return { 
+    return {
       message: 'Patients added successfully',
       data: newPatients,
-      total_count: incident.patients.length 
+      total_count: incident.patients.length,
     };
   }
 
-  async getPatients(incidentId: string, requestUser: any, query: OffsetPaginationQueryDto) {
+  async getPatients(
+    incidentId: string,
+    requestUser: any,
+    query: OffsetPaginationQueryDto,
+  ) {
     const { limit, offset } = query;
     const incidentWrapper = await this.findOne(incidentId, requestUser);
     const patients = incidentWrapper.data.patients || [];
-    
+
     // Slice for simple offset-based pagination on the JSONB array
     const paginatedPatients = patients.slice(offset, offset + limit);
-    
+
     const mapped = paginatedPatients.map(({ id, ...rest }) => ({
       id,
-      ...rest
+      ...rest,
     }));
 
-    return new PaginatedResponse(mapped, null, patients.length, limit, mapped.length);
+    return new PaginatedResponse(
+      mapped,
+      null,
+      patients.length,
+      limit,
+      mapped.length,
+    );
   }
 
-  async updatePatient(incidentId: string, patientId: string, dto: UpdatePatientDto, context: AuditContext) {
-    const incidentWrapper = await this.findOne(incidentId, { roles: ['CureSelect Admin'], userId: context.userId });
+  async updatePatient(
+    incidentId: string,
+    patientId: string,
+    dto: UpdatePatientDto,
+    context: AuditContext,
+  ) {
+    const incidentWrapper = await this.findOne(incidentId, {
+      roles: ['CureSelect Admin'],
+      userId: context.userId,
+    });
     const incident = incidentWrapper.data;
 
-    const patientIndex = incident.patients.findIndex(p => p.id === patientId);
+    const patientIndex = incident.patients.findIndex((p) => p.id === patientId);
     if (patientIndex === -1) {
-      throw new NotFoundException(`Patient with ID ${patientId} not found in this incident`);
+      throw new NotFoundException(
+        `Patient with ID ${patientId} not found in this incident`,
+      );
     }
 
     const patient = incident.patients[patientIndex];
@@ -1432,7 +1671,7 @@ export class DispatchServiceService {
       'PATIENT_UPDATED',
       `Patient update: ${dto.triage_level ? `Triage changed to ${dto.triage_level}` : 'Profile updated.'}`,
       context.userId,
-      { patient_id: patientId, updates: dto }
+      { patient_id: patientId, updates: dto },
     );
 
     await this.logSecurityAudit(
@@ -1440,15 +1679,20 @@ export class DispatchServiceService {
       'INCIDENT_PATIENT_UPDATED',
       incident.id,
       context,
-      { patient_id: patientId, updates: dto }
+      { patient_id: patientId, updates: dto },
     );
 
-    return { 
-      data: patient 
+    return {
+      data: patient,
     };
   }
 
-  async escalateIncident(id: string, requestUser: any, dto: EscalateIncidentDto, context: AuditContext) {
+  async escalateIncident(
+    id: string,
+    requestUser: any,
+    dto: EscalateIncidentDto,
+    context: AuditContext,
+  ) {
     // Use findOne with requestUser to automatically enforce tenant isolation
     const incidentWrapper = await this.findOne(id, requestUser);
     const incident = incidentWrapper.data;
@@ -1479,39 +1723,65 @@ export class DispatchServiceService {
     await this.timelineRepository.save(timeline);
 
     // 3. Security Audit Log
-    await this.logSecurityAudit(escalatedBy, 'MANUAL_ESCALATION_RECORDED', id, {
-      ip: context.ip,
-      userAgent: context.userAgent,
-    }, {
-      escalateTo: dto.escalate_to,
-      reason: dto.reason,
-    });
+    await this.logSecurityAudit(
+      escalatedBy,
+      'MANUAL_ESCALATION_RECORDED',
+      id,
+      {
+        ip: context.ip,
+        userAgent: context.userAgent,
+      },
+      {
+        escalateTo: dto.escalate_to,
+        reason: dto.reason,
+      },
+    );
 
     return { data: saved };
   }
 
-  async getAnalyticsSummary(query: IncidentAnalyticsQueryDto, requestUser: any) {
+  async getAnalyticsSummary(
+    query: IncidentAnalyticsQueryDto,
+    requestUser: any,
+  ) {
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     const applyFilters = (qb: any) => {
       if (!isPlatformAdmin) {
-        const isHospitalAdmin = roles.some(r => r.toUpperCase() === 'HOSPITAL ADMIN');
-        const isFleetOperator = roles.some(r => r.toUpperCase() === 'FLEET OPERATOR');
-        
+        const isHospitalAdmin = roles.some(
+          (r) => r.toUpperCase() === 'HOSPITAL ADMIN',
+        );
+        const isFleetOperator = roles.some(
+          (r) => r.toUpperCase() === 'FLEET OPERATOR',
+        );
+
         if (isHospitalAdmin || isFleetOperator) {
-          qb.andWhere('incident.organisationId = :orgId', { orgId: requestUser.org_id });
+          qb.andWhere('incident.organisationId = :orgId', {
+            orgId: requestUser.org_id,
+          });
         } else {
-          throw new ForbiddenException('Insufficient permissions for analytics');
+          throw new ForbiddenException(
+            'Insufficient permissions for analytics',
+          );
         }
       } else if (query.org_id) {
-        qb.andWhere('incident.organisationId = :orgId', { orgId: query.org_id });
+        qb.andWhere('incident.organisationId = :orgId', {
+          orgId: query.org_id,
+        });
       }
 
       if (query.date_from) {
-        qb.andWhere('incident.createdAt >= :dateFrom', { dateFrom: query.date_from });
+        qb.andWhere('incident.createdAt >= :dateFrom', {
+          dateFrom: query.date_from,
+        });
       }
       if (query.date_to) {
         qb.andWhere('incident.createdAt <= :dateTo', { dateTo: query.date_to });
@@ -1519,27 +1789,39 @@ export class DispatchServiceService {
       return qb;
     };
 
-    const format = (arr: any[]) => arr.reduce((acc, curr) => ({ ...acc, [curr.key]: parseInt(curr.count, 10) }), {});
+    const format = (arr: any[]) =>
+      arr.reduce(
+        (acc, curr) => ({ ...acc, [curr.key]: parseInt(curr.count, 10) }),
+        {},
+      );
 
-    const byStatus = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+    const byStatus = await applyFilters(
+      this.incidentRepository.createQueryBuilder('incident'),
+    )
       .select('incident.status', 'key')
       .addSelect('COUNT(*)', 'count')
       .groupBy('incident.status')
       .getRawMany();
 
-    const byCategory = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+    const byCategory = await applyFilters(
+      this.incidentRepository.createQueryBuilder('incident'),
+    )
       .select('incident.category', 'key')
       .addSelect('COUNT(*)', 'count')
       .groupBy('incident.category')
       .getRawMany();
 
-    const bySeverity = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+    const bySeverity = await applyFilters(
+      this.incidentRepository.createQueryBuilder('incident'),
+    )
       .select('incident.severity', 'key')
       .addSelect('COUNT(*)', 'count')
       .groupBy('incident.severity')
       .getRawMany();
 
-    const totalCount = await applyFilters(this.incidentRepository.createQueryBuilder('incident'))
+    const totalCount = await applyFilters(
+      this.incidentRepository.createQueryBuilder('incident'),
+    )
       .select('COUNT(*)', 'total')
       .getRawOne();
 
@@ -1548,8 +1830,8 @@ export class DispatchServiceService {
         total_incidents: parseInt(totalCount?.total || '0', 10),
         by_status: format(byStatus),
         by_category: format(byCategory),
-        by_severity: format(bySeverity)
-      }
+        by_severity: format(bySeverity),
+      },
     };
   }
 }

@@ -1,29 +1,37 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
-import { 
-  PatientProfile, 
-  PatientAssessment, 
+import {
+  PatientProfile,
+  PatientAssessment,
   PatientAssessmentNote,
-  PatientIntervention, 
+  PatientIntervention,
   PatientCondition,
   PatientAllergy,
   PatientMedication,
   PatientSurgery,
   PatientHospitalisation,
   PatientMedicationLog,
+  PatientPhoto,
+  PatientDocument,
+  PatientValuable,
   VehicleInventory,
   Dispatch,
-  AuditLogService 
+  AuditLogService,
+  StorageService,
 } from '@app/common';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { RecordVitalsDto } from './dto/record-vitals.dto';
 import { RecordGcsDto } from './dto/record-gcs.dto';
-import { 
-  CreateInterventionDto, 
-  RecordCprDto, 
-  RecordDefibDto, 
-  RecordIntubationDto 
+import {
+  CreateInterventionDto,
+  RecordCprDto,
+  RecordDefibDto,
+  RecordIntubationDto,
 } from './dto/clinical-intervention.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
 import { FullUpdatePatientDto } from './dto/full-update-patient.dto';
@@ -34,11 +42,15 @@ import { RecordMedicationDto } from './dto/record-medication.dto';
 import { LogMedicationDto } from './dto/medication-administration.dto';
 import { RecordAllergyDto } from './dto/record-allergy.dto';
 import { UpdateMedicalHistoryDto } from './dto/update-medical-history.dto';
-import { 
-  CreateClinicalAssessmentDto, 
-  UpdateClinicalAssessmentDto, 
-  CreateAssessmentNoteDto 
+import {
+  CreateClinicalAssessmentDto,
+  UpdateClinicalAssessmentDto,
+  CreateAssessmentNoteDto,
 } from './dto/clinical-assessment.dto';
+import { UploadPhotoDto } from './dto/upload-photo.dto';
+import { UploadDocumentDto } from './dto/upload-document.dto';
+import { LogValuableDto } from './dto/log-valuable.dto';
+import { Express } from 'express';
 import { DataSource } from 'typeorm';
 
 @Injectable()
@@ -68,13 +80,26 @@ export class PatientService {
     private readonly vehicleInventoryRepo: Repository<VehicleInventory>,
     @InjectRepository(Dispatch)
     private readonly dispatchRepo: Repository<Dispatch>,
+    @InjectRepository(PatientPhoto)
+    private readonly photoRepo: Repository<PatientPhoto>,
+    @InjectRepository(PatientDocument)
+    private readonly documentRepo: Repository<PatientDocument>,
+    @InjectRepository(PatientValuable)
+    private readonly valuableRepo: Repository<PatientValuable>,
     private readonly auditLogService: AuditLogService,
+    private readonly storageService: StorageService,
     private readonly dataSource: DataSource,
   ) {}
 
-  async createPatient(dto: CreatePatientDto, reqUser: any, ip: string, userAgent: string) {
-    const orgId = dto.organisationId || reqUser.organisationId || reqUser.org_id;
-    
+  async createPatient(
+    dto: CreatePatientDto,
+    reqUser: any,
+    ip: string,
+    userAgent: string,
+  ) {
+    const orgId =
+      dto.organisationId || reqUser.organisationId || reqUser.org_id;
+
     const patient = await this.patientRepo.save(
       this.patientRepo.create({
         ...dto,
@@ -87,18 +112,23 @@ export class PatientService {
       action: 'PATIENT_PROFILE_CREATED',
       ipAddress: ip,
       userAgent,
-      metadata: { 
-        patientId: patient.id, 
+      metadata: {
+        patientId: patient.id,
         incident_id: dto.incident_id,
         trip_id: dto.trip_id,
-        orgId
+        orgId,
       },
     });
 
     return { data: patient };
   }
 
-  async recordVitals(patientId: string, dto: RecordVitalsDto, reqUser: any, ip: string) {
+  async recordVitals(
+    patientId: string,
+    dto: RecordVitalsDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
 
     const vitals = this.assessmentRepo.create({
@@ -130,7 +160,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async recordGcs(patientId: string, dto: RecordGcsDto, reqUser: any, ip: string) {
+  async recordGcs(
+    patientId: string,
+    dto: RecordGcsDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
 
     const total = dto.eye + dto.verbal + dto.motor;
@@ -164,7 +199,12 @@ export class PatientService {
 
   // --- Spec 5.3: Clinical Assessment ---
 
-  async recordAssessment(patientId: string, dto: CreateClinicalAssessmentDto, reqUser: any, ip: string) {
+  async recordAssessment(
+    patientId: string,
+    dto: CreateClinicalAssessmentDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
@@ -176,7 +216,7 @@ export class PatientService {
       gcs_eye: dto.gcs?.eye,
       gcs_verbal: dto.gcs?.verbal,
       gcs_motor: dto.gcs?.motor,
-      gcs_total: dto.gcs ? (dto.gcs.eye + dto.gcs.verbal + dto.gcs.motor) : null,
+      gcs_total: dto.gcs ? dto.gcs.eye + dto.gcs.verbal + dto.gcs.motor : null,
       avpu: dto.avpu,
       // Pupils
       pupil_left_size: dto.pupils?.left?.size,
@@ -194,7 +234,7 @@ export class PatientService {
       hpi_radiation: dto.hpi?.radiation,
       hpi_associated_symptoms: dto.hpi?.associated_symptoms,
       trauma_json: dto.trauma_json,
-      type: 'CLINICAL'
+      type: 'CLINICAL',
     });
 
     const saved = await this.assessmentRepo.save(assessment);
@@ -215,11 +255,11 @@ export class PatientService {
 
   async getAssessments(patientId: string, reqUser: any) {
     await this.findOneWithIsolation(patientId, reqUser);
-    
+
     const assessments = await this.assessmentRepo.find({
       where: { patient_id: patientId },
       order: { taken_at: 'DESC' },
-      relations: ['notes']
+      relations: ['notes'],
     });
 
     return { data: assessments };
@@ -231,16 +271,23 @@ export class PatientService {
     const latest = await this.assessmentRepo.findOne({
       where: { patient_id: patientId },
       order: { taken_at: 'DESC' },
-      relations: ['notes']
+      relations: ['notes'],
     });
 
     return { data: latest };
   }
 
-  async updateAssessment(assessmentId: string, dto: UpdateClinicalAssessmentDto, reqUser: any, ip: string) {
-    const assessment = await this.assessmentRepo.findOneBy({ id: assessmentId });
+  async updateAssessment(
+    assessmentId: string,
+    dto: UpdateClinicalAssessmentDto,
+    reqUser: any,
+    ip: string,
+  ) {
+    const assessment = await this.assessmentRepo.findOneBy({
+      id: assessmentId,
+    });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    
+
     await this.findOneWithIsolation(assessment.patient_id, reqUser);
 
     if (dto.gcs) {
@@ -263,7 +310,8 @@ export class PatientService {
       assessment.hpi_character = dto.hpi.character ?? assessment.hpi_character;
       assessment.hpi_severity = dto.hpi.severity ?? assessment.hpi_severity;
       assessment.hpi_radiation = dto.hpi.radiation ?? assessment.hpi_radiation;
-      assessment.hpi_associated_symptoms = dto.hpi.associated_symptoms ?? assessment.hpi_associated_symptoms;
+      assessment.hpi_associated_symptoms =
+        dto.hpi.associated_symptoms ?? assessment.hpi_associated_symptoms;
     }
 
     if (dto.avpu) assessment.avpu = dto.avpu;
@@ -281,14 +329,24 @@ export class PatientService {
         metadata: { assessmentId, patientId: assessment.patient_id },
       });
     } catch (e) {
-      console.error('Audit Log failed for clinical assessment update:', e.message);
+      console.error(
+        'Audit Log failed for clinical assessment update:',
+        e.message,
+      );
     }
 
     return { data: saved };
   }
 
-  async addAssessmentNote(assessmentId: string, dto: CreateAssessmentNoteDto, reqUser: any, ip: string) {
-    const assessment = await this.assessmentRepo.findOneBy({ id: assessmentId });
+  async addAssessmentNote(
+    assessmentId: string,
+    dto: CreateAssessmentNoteDto,
+    reqUser: any,
+    ip: string,
+  ) {
+    const assessment = await this.assessmentRepo.findOneBy({
+      id: assessmentId,
+    });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
     const note = this.noteRepo.create({
@@ -314,14 +372,19 @@ export class PatientService {
     return { data: saved };
   }
 
-  async addCondition(patientId: string, dto: AddConditionDto, reqUser: any, ip: string) {
+  async addCondition(
+    patientId: string,
+    dto: AddConditionDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
     const condition = this.conditionRepo.create({
       ...dto,
       patient_id: patientId,
-      recorded_by_id: recordedBy
+      recorded_by_id: recordedBy,
     });
     await this.conditionRepo.save(condition);
 
@@ -339,7 +402,12 @@ export class PatientService {
     return { data: condition };
   }
 
-  async administerMedication(patientId: string, dto: LogMedicationDto, reqUser: any, ip: string) {
+  async administerMedication(
+    patientId: string,
+    dto: LogMedicationDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
@@ -362,7 +430,7 @@ export class PatientService {
         // We find the active dispatch for the patient's current (last) incident
         const latestDispatch = await this.dispatchRepo.findOne({
           where: { emt_id: recordedBy, status: 'TRANSPORTING' }, // Or just active status
-          order: { dispatched_at: 'DESC' }
+          order: { dispatched_at: 'DESC' },
         });
 
         if (latestDispatch) {
@@ -375,17 +443,24 @@ export class PatientService {
           if (inventory && inventory.quantity > 0) {
             inventory.quantity -= 1;
             await this.vehicleInventoryRepo.save(inventory);
-            
+
             await this.auditLogService.log({
               userId: recordedBy,
               action: 'VEHICLE_INVENTORY_DEDUCTED',
               ipAddress: ip || '0.0.0.0',
-              metadata: { vehicleId, itemId: dto.inventory_item_id, remaining: inventory.quantity },
+              metadata: {
+                vehicleId,
+                itemId: dto.inventory_item_id,
+                remaining: inventory.quantity,
+              },
             });
           }
         }
       } catch (e) {
-        console.error('Inventory deduction failed, but medication log saved:', e.message);
+        console.error(
+          'Inventory deduction failed, but medication log saved:',
+          e.message,
+        );
       }
     }
 
@@ -412,9 +487,17 @@ export class PatientService {
     return { data: logs };
   }
 
-  async deleteMedicationLog(patientId: string, logId: string, reqUser: any, ip: string) {
+  async deleteMedicationLog(
+    patientId: string,
+    logId: string,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
-    const log = await this.medLogRepo.findOneBy({ id: logId, patient_id: patientId });
+    const log = await this.medLogRepo.findOneBy({
+      id: logId,
+      patient_id: patientId,
+    });
     if (!log) throw new NotFoundException('Medication log not found');
 
     await this.medLogRepo.remove(log);
@@ -427,14 +510,19 @@ export class PatientService {
     });
   }
 
-  async recordAllergy(patientId: string, dto: RecordAllergyDto, reqUser: any, ip: string) {
+  async recordAllergy(
+    patientId: string,
+    dto: RecordAllergyDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
     const allergy = this.allergyRepo.create({
       ...dto,
       patient_id: patientId,
-      recorded_by_id: recordedBy
+      recorded_by_id: recordedBy,
     });
     await this.allergyRepo.save(allergy);
 
@@ -455,12 +543,12 @@ export class PatientService {
   async removeCondition(patientId: string, condId: string, reqUser: any) {
     await this.findOneWithIsolation(patientId, reqUser);
     await this.conditionRepo.delete({ id: condId, patient_id: patientId });
-    
+
     await this.auditLogService.log({
       userId: reqUser.userId || 'SYSTEM',
       action: 'PATIENT_CONDITION_REMOVED',
       metadata: { patientId, condId },
-      ipAddress: '0.0.0.0'
+      ipAddress: '0.0.0.0',
     });
   }
 
@@ -472,7 +560,7 @@ export class PatientService {
       userId: reqUser.userId || 'SYSTEM',
       action: 'PATIENT_MEDICATION_REMOVED',
       metadata: { patientId, medId },
-      ipAddress: '0.0.0.0'
+      ipAddress: '0.0.0.0',
     });
   }
 
@@ -484,13 +572,13 @@ export class PatientService {
       userId: reqUser.userId || 'SYSTEM',
       action: 'PATIENT_ALLERGY_REMOVED',
       metadata: { patientId, allergyId },
-      ipAddress: '0.0.0.0'
+      ipAddress: '0.0.0.0',
     });
   }
 
   async getInterventions(patientId: string, reqUser: any) {
     await this.findOneWithIsolation(patientId, reqUser);
-    
+
     const interventions = await this.interventionRepo.find({
       where: { patient_id: patientId },
       order: { timestamp: 'DESC' },
@@ -499,10 +587,18 @@ export class PatientService {
     return { data: interventions };
   }
 
-  async deleteIntervention(patientId: string, interventionId: string, reqUser: any, ip: string) {
+  async deleteIntervention(
+    patientId: string,
+    interventionId: string,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
 
-    const intervention = await this.interventionRepo.findOneBy({ id: interventionId, patient_id: patientId });
+    const intervention = await this.interventionRepo.findOneBy({
+      id: interventionId,
+      patient_id: patientId,
+    });
     if (!intervention) throw new NotFoundException('Intervention not found');
 
     await this.interventionRepo.remove(intervention);
@@ -519,7 +615,12 @@ export class PatientService {
     }
   }
 
-  async recordIntervention(patientId: string, dto: CreateInterventionDto, reqUser: any, ip: string) {
+  async recordIntervention(
+    patientId: string,
+    dto: CreateInterventionDto,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser?.userId || 'SYSTEM';
 
@@ -549,7 +650,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async recordCpr(patientId: string, dto: RecordCprDto, reqUser: any, ip: string) {
+  async recordCpr(
+    patientId: string,
+    dto: RecordCprDto,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser?.userId || 'SYSTEM';
 
@@ -577,7 +683,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async recordDefibrillation(patientId: string, dto: RecordDefibDto, reqUser: any, ip: string) {
+  async recordDefibrillation(
+    patientId: string,
+    dto: RecordDefibDto,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser?.userId || 'SYSTEM';
 
@@ -605,7 +716,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async recordIntubation(patientId: string, dto: RecordIntubationDto, reqUser: any, ip: string) {
+  async recordIntubation(
+    patientId: string,
+    dto: RecordIntubationDto,
+    reqUser: any,
+    ip: string,
+  ) {
     await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser?.userId || 'SYSTEM';
 
@@ -633,7 +749,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async fullUpdatePatient(id: string, dto: FullUpdatePatientDto, requestUser: any, ip: string) {
+  async fullUpdatePatient(
+    id: string,
+    dto: FullUpdatePatientDto,
+    requestUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(id, requestUser);
 
     Object.assign(patient, dto);
@@ -649,7 +770,12 @@ export class PatientService {
     return { data: saved };
   }
 
-  async updatePatient(id: string, dto: UpdatePatientDto, requestUser: any, ip: string) {
+  async updatePatient(
+    id: string,
+    dto: UpdatePatientDto,
+    requestUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(id, requestUser);
 
     Object.assign(patient, dto);
@@ -670,8 +796,13 @@ export class PatientService {
     if (!patient) throw new NotFoundException('Patient not found');
 
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     if (!isPlatformAdmin) {
@@ -709,28 +840,29 @@ export class PatientService {
   async getMedicalHistory(patientId: string, reqUser: any) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
 
-    const [conditions, medications, allergies, surgeries, hospitalisations] = await Promise.all([
-      this.conditionRepo.find({ 
-        where: { patient_id: patientId },
-        order: { createdAt: 'DESC' }
-      }),
-      this.medicationRepo.find({ 
-        where: { patient_id: patientId },
-        order: { createdAt: 'DESC' }
-      }),
-      this.allergyRepo.find({ 
-        where: { patient_id: patientId },
-        order: { createdAt: 'DESC' }
-      }),
-      this.surgeryRepo.find({
-        where: { patient_id: patientId },
-        order: { createdAt: 'DESC' }
-      }),
-      this.hospitalisationRepo.find({
-        where: { patient_id: patientId },
-        order: { createdAt: 'DESC' }
-      })
-    ]);
+    const [conditions, medications, allergies, surgeries, hospitalisations] =
+      await Promise.all([
+        this.conditionRepo.find({
+          where: { patient_id: patientId },
+          order: { createdAt: 'DESC' },
+        }),
+        this.medicationRepo.find({
+          where: { patient_id: patientId },
+          order: { createdAt: 'DESC' },
+        }),
+        this.allergyRepo.find({
+          where: { patient_id: patientId },
+          order: { createdAt: 'DESC' },
+        }),
+        this.surgeryRepo.find({
+          where: { patient_id: patientId },
+          order: { createdAt: 'DESC' },
+        }),
+        this.hospitalisationRepo.find({
+          where: { patient_id: patientId },
+          order: { createdAt: 'DESC' },
+        }),
+      ]);
 
     return {
       data: {
@@ -739,12 +871,16 @@ export class PatientService {
         medications,
         allergies,
         surgeries,
-        hospitalisations
-      }
+        hospitalisations,
+      },
     };
   }
 
-  async updateMedicalHistory(patientId: string, dto: UpdateMedicalHistoryDto, reqUser: any) {
+  async updateMedicalHistory(
+    patientId: string,
+    dto: UpdateMedicalHistoryDto,
+    reqUser: any,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
@@ -758,19 +894,54 @@ export class PatientService {
 
       // 2. Bulk Insert new history
       if (dto.conditions?.length) {
-        await manager.save(PatientCondition, dto.conditions.map(c => ({ ...c, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientCondition,
+          dto.conditions.map((c) => ({
+            ...c,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.medications?.length) {
-        await manager.save(PatientMedication, dto.medications.map(m => ({ ...m, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientMedication,
+          dto.medications.map((m) => ({
+            ...m,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.allergies?.length) {
-        await manager.save(PatientAllergy, dto.allergies.map(a => ({ ...a, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientAllergy,
+          dto.allergies.map((a) => ({
+            ...a,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.surgeries?.length) {
-        await manager.save(PatientSurgery, dto.surgeries.map(s => ({ ...s, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientSurgery,
+          dto.surgeries.map((s) => ({
+            ...s,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.hospitalisations?.length) {
-        await manager.save(PatientHospitalisation, dto.hospitalisations.map(h => ({ ...h, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientHospitalisation,
+          dto.hospitalisations.map((h) => ({
+            ...h,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
     });
 
@@ -778,40 +949,83 @@ export class PatientService {
       userId: recordedBy,
       action: 'PATIENT_MEDICAL_HISTORY_SYNCED',
       metadata: { patient_id: patientId },
-      ipAddress: '0.0.0.0'
+      ipAddress: '0.0.0.0',
     });
 
     return this.getMedicalHistory(patientId, reqUser);
   }
 
-  async recordMedicalHistory(patientId: string, dto: UpdateMedicalHistoryDto, reqUser: any, ip: string) {
+  async recordMedicalHistory(
+    patientId: string,
+    dto: UpdateMedicalHistoryDto,
+    reqUser: any,
+    ip: string,
+  ) {
     const patient = await this.findOneWithIsolation(patientId, reqUser);
     const recordedBy = reqUser.userId || 'SYSTEM';
 
     await this.dataSource.transaction(async (manager) => {
       // Append Mode: Directly insert without deleting existing records
       if (dto.conditions?.length) {
-        await manager.save(PatientCondition, dto.conditions.map(c => ({ ...c, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientCondition,
+          dto.conditions.map((c) => ({
+            ...c,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.medications?.length) {
-        await manager.save(PatientMedication, dto.medications.map(m => ({ ...m, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientMedication,
+          dto.medications.map((m) => ({
+            ...m,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.allergies?.length) {
-        await manager.save(PatientAllergy, dto.allergies.map(a => ({ ...a, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientAllergy,
+          dto.allergies.map((a) => ({
+            ...a,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.surgeries?.length) {
-        await manager.save(PatientSurgery, dto.surgeries.map(s => ({ ...s, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientSurgery,
+          dto.surgeries.map((s) => ({
+            ...s,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
       if (dto.hospitalisations?.length) {
-        await manager.save(PatientHospitalisation, dto.hospitalisations.map(h => ({ ...h, patient_id: patientId, recorded_by_id: recordedBy })));
+        await manager.save(
+          PatientHospitalisation,
+          dto.hospitalisations.map((h) => ({
+            ...h,
+            patient_id: patientId,
+            recorded_by_id: recordedBy,
+          })),
+        );
       }
     });
 
     await this.auditLogService.log({
       userId: recordedBy,
       action: 'PATIENT_MEDICAL_HISTORY_RECORDED',
-      metadata: { patient_id: patientId, types: Object.keys(dto).filter(k => (dto as any)[k]?.length) },
-      ipAddress: ip || '0.0.0.0'
+      metadata: {
+        patient_id: patientId,
+        types: Object.keys(dto).filter((k) => (dto as any)[k]?.length),
+      },
+      ipAddress: ip || '0.0.0.0',
     });
 
     return this.getMedicalHistory(patientId, reqUser);
@@ -821,7 +1035,7 @@ export class PatientService {
     const primaryPatient = await this.findOneWithIsolation(id, requestUser);
 
     // Identify unique linking keys
-    const keys: { mrn?: string, abha_id?: string, phone?: string } = {
+    const keys: { mrn?: string; abha_id?: string; phone?: string } = {
       mrn: primaryPatient.mrn,
       abha_id: primaryPatient.abha_id,
       phone: primaryPatient.phone,
@@ -833,7 +1047,8 @@ export class PatientService {
     }
 
     // Build query for matching profiles
-    const query = this.patientRepo.createQueryBuilder('patient')
+    const query = this.patientRepo
+      .createQueryBuilder('patient')
       .where('patient.id != :primaryId', { primaryId: id });
 
     const conditions: string[] = [];
@@ -841,17 +1056,22 @@ export class PatientService {
     if (keys.abha_id) conditions.push('patient.abha_id = :abha');
     if (keys.phone) conditions.push('patient.phone = :phone');
 
-    query.andWhere(`(${conditions.join(' OR ')})`, { 
-      mrn: keys.mrn, 
-      abha: keys.abha_id, 
-      phone: keys.phone 
+    query.andWhere(`(${conditions.join(' OR ')})`, {
+      mrn: keys.mrn,
+      abha: keys.abha_id,
+      phone: keys.phone,
     });
 
     // Security Isolation: For now, we restrict to records the user can actually see
     // unless this is a platform admin.
     const roles = requestUser.roles || [];
-    const isPlatformAdmin = roles.some((r: string) => 
-      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r)
+    const isPlatformAdmin = roles.some((r: string) =>
+      [
+        'CureSelect Admin',
+        'CURESELECT_ADMIN',
+        'Call Centre Executive (CCE)',
+        'CCE',
+      ].includes(r),
     );
 
     if (!isPlatformAdmin) {
@@ -866,14 +1086,15 @@ export class PatientService {
   }
 
   async lookupByMrn(dto: MrnLookupDto, requestUser: any) {
-    const orgId = dto.hospitalId || requestUser.organisationId || requestUser.org_id;
+    const orgId =
+      dto.hospitalId || requestUser.organisationId || requestUser.org_id;
 
     const patient = await this.patientRepo.findOne({
-      where: { 
+      where: {
         mrn: ILike(dto.mrn),
-        organisationId: orgId
+        organisationId: orgId,
       },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
 
     return { data: patient };
@@ -883,10 +1104,10 @@ export class PatientService {
     // If consent_artefact_id is provided, we perform a global search (Multi-Tenant PHR)
     // without enforcing the requestUser's organisationId restriction.
     const patient = await this.patientRepo.findOne({
-      where: { 
-        abha_id: ILike(dto.abha_id) 
+      where: {
+        abha_id: ILike(dto.abha_id),
       },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
 
     if (!patient) return { data: null };
@@ -896,10 +1117,10 @@ export class PatientService {
       userId: requestUser.userId,
       action: 'PATIENT_ABHA_LOOKUP',
       ipAddress: '0.0.0.0', // Placeholders if needed
-      metadata: { 
-        abha_id: dto.abha_id, 
+      metadata: {
+        abha_id: dto.abha_id,
         consent_artefact_id: dto.consent_artefact_id,
-        matchedPatientId: patient.id
+        matchedPatientId: patient.id,
       },
     });
 
@@ -920,5 +1141,301 @@ export class PatientService {
 
   async findOne(id: string) {
     return this.patientRepo.findOneBy({ id });
+  }
+
+  // --- Spec 5.6: Documents & Photos ---
+
+  async uploadPhoto(
+    patientId: string,
+    file: any,
+    dto: UploadPhotoDto,
+    reqUser: any,
+    ip: string,
+  ) {
+    const patient = await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    // 1. Storage Folder Convention: /patients/:id/photos/:category/
+    const folder = `patients/${patientId}/photos/${dto.category.toLowerCase()}/`;
+    const extension = file.originalname.split('.').pop() || 'png';
+    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${extension}`;
+
+    // 2. Upload to S3
+    const { dbUrl, readUrl } = await this.storageService.uploadBuffer(
+      file.buffer,
+      folder,
+      fileName,
+      file.mimetype,
+    );
+
+    // 3. Save metadata to DB
+    const photo = this.photoRepo.create({
+      patient_id: patientId,
+      url: dbUrl,
+      category: dto.category,
+      description: dto.description,
+      uploaded_by_id: recordedBy,
+    });
+    const saved = await this.photoRepo.save(photo);
+
+    // 4. Special Logic: Update Patient Profile Picture if category is PATIENT_FACE
+    if (dto.category === 'PATIENT_FACE') {
+      patient.photo_url = dbUrl;
+      await this.patientRepo.save(patient);
+    }
+
+    // 5. Audit Log
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_PHOTO_UPLOADED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, photoId: saved.id, category: dto.category },
+      });
+    } catch (e) {
+      console.error('Audit Log failed for photo upload:', e.message);
+    }
+
+    return { data: { ...saved, url: readUrl } };
+  }
+
+  async getPhotos(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const photos = await this.photoRepo.find({
+      where: { patient_id: patientId },
+      order: { timestamp: 'DESC' },
+    });
+
+    const data = await Promise.all(
+      photos.map(async (p) => {
+        if (p.url && !p.url.includes('X-Amz-Algorithm')) {
+          p.url = await this.storageService.generatePresignedGetUrl(p.url);
+        }
+        return p;
+      }),
+    );
+
+    return { data };
+  }
+
+  async deletePhoto(
+    patientId: string,
+    photoId: string,
+    reqUser: any,
+    ip: string,
+  ) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const photo = await this.photoRepo.findOneBy({
+      id: photoId,
+      patient_id: patientId,
+    });
+    if (!photo) throw new NotFoundException('Photo not found');
+
+    await this.photoRepo.remove(photo);
+
+    try {
+      await this.auditLogService.log({
+        userId: reqUser?.userId || 'SYSTEM',
+        action: 'PATIENT_PHOTO_DELETED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, photoId, category: photo.category },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+  }
+
+  // --- Spec 5.6: Documents ---
+  async uploadDocument(
+    patientId: string,
+    file: any,
+    dto: UploadDocumentDto,
+    reqUser: any,
+    ip: string,
+  ) {
+    const patient = await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    const folder = `patients/${patientId}/documents/${dto.doc_type.toLowerCase()}/`;
+    const extension = file.originalname.split('.').pop() || 'pdf';
+    const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${extension}`;
+
+    const { dbUrl, readUrl } = await this.storageService.uploadBuffer(
+      file.buffer,
+      folder,
+      fileName,
+      file.mimetype,
+    );
+
+    const doc = this.documentRepo.create({
+      patient_id: patientId,
+      url: dbUrl,
+      doc_type: dto.doc_type,
+      description: dto.description,
+      uploaded_by_id: recordedBy,
+    });
+    const saved = await this.documentRepo.save(doc);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_DOCUMENT_UPLOADED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, documentId: saved.id, type: dto.doc_type },
+      });
+    } catch (e) {
+      console.error('Audit Log failed for document upload:', e.message);
+    }
+
+    return { data: { ...saved, url: readUrl } };
+  }
+
+  async getDocuments(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const docs = await this.documentRepo.find({
+      where: { patient_id: patientId },
+      order: { timestamp: 'DESC' },
+    });
+
+    const data = await Promise.all(
+      docs.map(async (d) => {
+        if (d.url && !d.url.includes('X-Amz-Algorithm')) {
+          d.url = await this.storageService.generatePresignedGetUrl(d.url);
+        }
+        return d;
+      }),
+    );
+
+    return { data };
+  }
+
+  async deleteDocument(
+    patientId: string,
+    documentId: string,
+    reqUser: any,
+    ip: string,
+  ) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const doc = await this.documentRepo.findOneBy({
+      id: documentId,
+      patient_id: patientId,
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    await this.documentRepo.remove(doc);
+
+    try {
+      await this.auditLogService.log({
+        userId: reqUser?.userId || 'SYSTEM',
+        action: 'PATIENT_DOCUMENT_DELETED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, documentId, type: doc.doc_type },
+      });
+    } catch (e) {
+      console.error('Audit Log failed:', e.message);
+    }
+  }
+
+  // --- Spec 5.6: Valuables ---
+  async logValuable(
+    patientId: string,
+    file: any,
+    dto: LogValuableDto,
+    reqUser: any,
+    ip: string,
+  ) {
+    await this.findOneWithIsolation(patientId, reqUser);
+    const recordedBy = reqUser?.userId || 'SYSTEM';
+
+    let finalPhotoUrl = dto.photo_url;
+
+    // 1. Handle Multipart File if present
+    if (file) {
+      const folder = `patients/${patientId}/valuables/`;
+      const extension = file.originalname.split('.').pop() || 'png';
+      const fileName = `${Date.now()}_valuable.${extension}`;
+      const { dbUrl } = await this.storageService.uploadBuffer(
+        file.buffer,
+        folder,
+        fileName,
+        file.mimetype,
+      );
+      finalPhotoUrl = dbUrl;
+    }
+    // 2. Fallback to Base64 if photo_url is provided as data URI
+    else if (dto.photo_url && dto.photo_url.startsWith('data:')) {
+      const folder = `patients/${patientId}/valuables/`;
+      const fileName = `${Date.now()}_valuable.png`;
+      const { dbUrl } = await this.storageService.uploadBase64(
+        dto.photo_url,
+        folder,
+        fileName,
+      );
+      finalPhotoUrl = dbUrl;
+    }
+
+    const valuable = this.valuableRepo.create({
+      patient_id: patientId,
+      description: dto.description,
+      photo_url: finalPhotoUrl,
+      location_type: dto.location_type,
+      gps_lat: dto.gps_lat,
+      gps_lon: dto.gps_lon,
+      logged_by_id: recordedBy,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+    });
+
+    const saved = await this.valuableRepo.save(valuable);
+
+    try {
+      await this.auditLogService.log({
+        userId: recordedBy,
+        action: 'PATIENT_VALUABLE_LOGGED',
+        ipAddress: ip || '0.0.0.0',
+        metadata: { patientId, valuableId: saved.id },
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    // Attach signed URL if it's an S3 link
+    let readUrl = saved.photo_url;
+    if (saved.photo_url && saved.photo_url.includes('s3')) {
+      readUrl = await this.storageService.generatePresignedGetUrl(
+        saved.photo_url,
+      );
+    }
+
+    return { data: { ...saved, photo_url: readUrl } };
+  }
+
+  async getValuables(patientId: string, reqUser: any) {
+    await this.findOneWithIsolation(patientId, reqUser);
+
+    const records = await this.valuableRepo.find({
+      where: { patient_id: patientId },
+      order: { timestamp: 'DESC' },
+    });
+
+    const data = await Promise.all(
+      records.map(async (record) => {
+        if (
+          record.photo_url &&
+          record.photo_url.includes('s3') &&
+          !record.photo_url.includes('X-Amz-Algorithm')
+        ) {
+          record.photo_url = await this.storageService.generatePresignedGetUrl(
+            record.photo_url,
+          );
+        }
+        return record;
+      }),
+    );
+
+    return { data };
   }
 }

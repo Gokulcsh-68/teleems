@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+  AfterLoad,
+} from 'typeorm';
 
 @Entity()
 export class User {
@@ -10,9 +18,33 @@ export class User {
 
   @Column({ type: 'simple-array', default: 'CALLER' })
   roles: string[];
-  
+
   @Column({ nullable: true })
   name: string;
+
+  @Column({ name: 'profile_image', nullable: true })
+  profileImage: string;
+
+  profileImageUrl: string | null;
+
+  @AfterLoad()
+  computeProfileImageUrl() {
+    if (this.profileImage && this.profileImage.trim() !== '') {
+      const publicBaseUrl =
+        process.env.S3_PUBLIC_BASE_PATH ||
+        'https://a2ztelehealth.s3.amazonaws.com/';
+      // Use the first role in lowercase as the folder path, default to 'user' if none
+      const primaryRole =
+        this.roles && this.roles.length > 0
+          ? this.roles[0].toLowerCase().replace(/\s+/g, '')
+          : 'user';
+      const folderPath = `temp/${primaryRole}/`;
+
+      this.profileImageUrl = `${publicBaseUrl}${folderPath}${this.profileImage}`;
+    } else {
+      this.profileImageUrl = null;
+    }
+  }
 
   @Column({ default: 'ACTIVE' })
   status: 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'PENDING';
@@ -72,6 +104,9 @@ export class User {
 
   @Column({ type: 'timestamptz', nullable: true })
   lockedUntil: Date;
+
+  @Column({ name: 'is_available', default: true })
+  isAvailable: boolean;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

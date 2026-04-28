@@ -1,4 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { PatientProfile } from './patient-profile.entity';
 
 @Entity('patient_assessments')
@@ -46,7 +55,7 @@ export class PatientAssessment {
   gcs_total: number | null;
 
   // --- Spec 5.3: Clinical Assessment ---
-  
+
   @Column({ type: 'varchar', nullable: true })
   avpu: 'A' | 'V' | 'P' | 'U' | null;
 

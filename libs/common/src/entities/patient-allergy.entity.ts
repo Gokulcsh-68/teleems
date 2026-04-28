@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { PatientProfile } from './patient-profile.entity';
 
 @Entity('patient_allergies')
@@ -16,7 +24,7 @@ export class PatientAllergy {
   @Column({
     type: 'enum',
     enum: ['MILD', 'MODERATE', 'SEVERE', 'ANAPHYLACTIC'],
-    default: 'MODERATE'
+    default: 'MODERATE',
   })
   severity: string;
 

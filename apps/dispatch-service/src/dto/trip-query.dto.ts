@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsISO8601, IsUUID, IsNumberString } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsISO8601,
+  IsUUID,
+  IsNumberString,
+} from 'class-validator';
 
 export class TripQueryDto {
   @IsOptional()

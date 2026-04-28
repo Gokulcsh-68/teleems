@@ -38,7 +38,10 @@ export class AuditLogService {
     return { data, total, limit, offset };
   }
 
-  async getAllLogs(limit = 50, offset = 0): Promise<{ logs: AuditLog[]; total: number }> {
+  async getAllLogs(
+    limit = 50,
+    offset = 0,
+  ): Promise<{ logs: AuditLog[]; total: number }> {
     const [logs, total] = await this.auditRepo.findAndCount({
       order: { createdAt: 'DESC' },
       take: limit,
@@ -47,8 +50,14 @@ export class AuditLogService {
     return { logs, total };
   }
 
-  async getLogsByEntity(entityType: string, entityId: string, limit = 50, cursor?: string) {
-    const query = this.auditRepo.createQueryBuilder('log')
+  async getLogsByEntity(
+    entityType: string,
+    entityId: string,
+    limit = 50,
+    cursor?: string,
+  ) {
+    const query = this.auditRepo
+      .createQueryBuilder('log')
       .where("log.metadata->>'entityType' = :entityType", { entityType })
       .andWhere("log.metadata->>'entityId' = :entityId", { entityId });
 

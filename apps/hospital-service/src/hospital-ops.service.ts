@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Hospital, HospitalStatus, AuditLogService } from '@app/common';
@@ -37,7 +41,8 @@ export class HospitalOpsService {
     }
 
     if (dto.beds) status.beds = { ...status.beds, ...dto.beds };
-    if (dto.equipment) status.equipment = { ...status.equipment, ...dto.equipment };
+    if (dto.equipment)
+      status.equipment = { ...status.equipment, ...dto.equipment };
     if (dto.systemStatus) status.systemStatus = dto.systemStatus as any;
     status.updatedBy = userId;
 
@@ -57,7 +62,8 @@ export class HospitalOpsService {
 
   async getDashboard(hospitalId: string) {
     const hospital = await this.hospitalRepo.findOneBy({ id: hospitalId });
-    if (!hospital) throw new NotFoundException(`Hospital ${hospitalId} not found`);
+    if (!hospital)
+      throw new NotFoundException(`Hospital ${hospitalId} not found`);
 
     const status = await this.getStatus(hospitalId);
 

@@ -1,4 +1,13 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsArray, IsObject, IsNumber, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsArray,
+  IsObject,
+  IsNumber,
+  IsUUID,
+} from 'class-validator';
 import { RoutingStrategy } from '@app/common';
 
 export class CreateCCEDto {

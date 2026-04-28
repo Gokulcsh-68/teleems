@@ -1,4 +1,11 @@
-import { IsString, IsEmail, IsNotEmpty, IsOptional, ValidateNested, IsPhoneNumber } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  ValidateNested,
+  IsPhoneNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateHospitalDto } from '../../../hospital-service/src/dto/hospital.dto';
 

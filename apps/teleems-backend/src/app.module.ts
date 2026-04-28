@@ -14,14 +14,16 @@ import { HospitalServiceModule } from '../../hospital-service/src/hospital-servi
 import { NotificationServiceModule } from '../../notification-service/src/notification-service.module';
 import { RtvsServiceModule } from '../../rtvs-service/src/rtvs-service.module';
 import { PatientServiceModule } from '../../patient-service/src/patient-service.module';
+import { TelelinkModule } from './telelink/telelink.module';
+import { ConsultModule } from './consult/consult.module';
 
-import { 
-  Organisation, 
-  Hospital, 
+import {
+  Organisation,
+  Hospital,
   Department,
-  AuditLog, 
-  SymptomMaster, 
-  IncidentCategoryMaster, 
+  AuditLog,
+  SymptomMaster,
+  IncidentCategoryMaster,
   InventoryItemMaster,
   CCEProfile,
   SystemConfig,
@@ -61,9 +63,7 @@ import {
 } from '@app/common';
 
 // Entities for global TypeORM config
-import { User } from '../../auth-service/src/entities/user.entity';
-import { Role } from '../../auth-service/src/entities/role.entity';
-import { Session } from '../../auth-service/src/entities/session.entity';
+import { User, Role, Session } from '@app/common';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
@@ -80,9 +80,11 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
         type: 'postgres',
         host: config.get('DB_HOST') || 'localhost',
         port: parseInt(config.get('DB_PORT') || '5433', 10),
-        username: config.get('DB_USER') || config.get('DB_USERNAME') || 'postgres',
+        username:
+          config.get('DB_USER') || config.get('DB_USERNAME') || 'postgres',
         password: config.get('DB_PASSWORD') || '',
-        database: config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
+        database:
+          config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
         entities: [
           User, AuditLog, Role, Session, 
           Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
@@ -109,6 +111,8 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
     NotificationServiceModule,
     RtvsServiceModule,
     PatientServiceModule,
+    TelelinkModule,
+    ConsultModule,
   ],
   controllers: [AppController],
   providers: [AppService],

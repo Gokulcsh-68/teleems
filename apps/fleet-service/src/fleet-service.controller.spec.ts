@@ -11,8 +11,8 @@ describe('FleetServiceController', () => {
       providers: [FleetServiceService],
     }).compile();
 
-    fleetServiceController = app.get<FleetServiceController>(FleetServiceController);
+    fleetServiceController = app.get<FleetServiceController>(
+      FleetServiceController,
+    );
   });
-
-  
 });

@@ -11,7 +11,9 @@ describe('RtvsServiceController', () => {
       providers: [RtvsServiceService],
     }).compile();
 
-    rtvsServiceController = app.get<RtvsServiceController>(RtvsServiceController);
+    rtvsServiceController = app.get<RtvsServiceController>(
+      RtvsServiceController,
+    );
   });
 
   describe('root', () => {

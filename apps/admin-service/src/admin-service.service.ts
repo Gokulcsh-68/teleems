@@ -1,8 +1,23 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Organisation, OrganisationStatus, SubscriptionPlan, AuditLogService, Hospital, FleetOperator } from '@app/common';
-import { CreateOrganisationDto, UpdateOrganisationDto } from './dto/organisation.dto';
+import {
+  Organisation,
+  OrganisationStatus,
+  SubscriptionPlan,
+  AuditLogService,
+  Hospital,
+  FleetOperator,
+} from '@app/common';
+import {
+  CreateOrganisationDto,
+  UpdateOrganisationDto,
+} from './dto/organisation.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { RegisterFleetOperatorDto } from './dto/register-fleet-operator.dto';
 import { FleetOperatorQueryDto } from './dto/fleet-operator-query.dto';
@@ -24,9 +39,16 @@ export class AdminServiceService {
     private readonly authService: AuthService,
   ) {}
 
-  async createOrganisation(dto: CreateOrganisationDto, adminId: string, ip: string) {
+  async createOrganisation(
+    dto: CreateOrganisationDto,
+    adminId: string,
+    ip: string,
+  ) {
     const existing = await this.orgRepo.findOne({ where: { name: dto.name } });
-    if (existing) throw new ConflictException(`Organisation with name '${dto.name}' already exists`);
+    if (existing)
+      throw new ConflictException(
+        `Organisation with name '${dto.name}' already exists`,
+      );
 
     const org = this.orgRepo.create(dto);
     await this.orgRepo.save(org);
@@ -47,13 +69,19 @@ export class AdminServiceService {
 
   async findOneOrganisation(id: string) {
     const org = await this.orgRepo.findOneBy({ id });
-    if (!org) throw new NotFoundException(`Organisation with ID ${id} not found`);
+    if (!org)
+      throw new NotFoundException(`Organisation with ID ${id} not found`);
     return org;
   }
 
-  async updateOrganisation(id: string, dto: UpdateOrganisationDto, adminId: string, ip: string) {
+  async updateOrganisation(
+    id: string,
+    dto: UpdateOrganisationDto,
+    adminId: string,
+    ip: string,
+  ) {
     const org = await this.findOneOrganisation(id);
-    
+
     Object.assign(org, dto);
     await this.orgRepo.save(org);
 
@@ -67,22 +95,33 @@ export class AdminServiceService {
     return org;
   }
 
-  async updateFleetOperatorDetails(id: string, dto: UpdateOrganisationDto, user: any, ip: string) {
+  async updateFleetOperatorDetails(
+    id: string,
+    dto: UpdateOrganisationDto,
+    user: any,
+    ip: string,
+  ) {
     const roles = user.roles || [];
-    const isSuperAdmin = roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
+    const isSuperAdmin = roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+    );
     const userOrgId = user.org_id || user.organisationId;
 
     // Security Check: If not Super Admin, can only update own organisation
     if (!isSuperAdmin) {
       if (id !== userOrgId) {
-        throw new ForbiddenException('You are not authorized to update this fleet operator record');
+        throw new ForbiddenException(
+          'You are not authorized to update this fleet operator record',
+        );
       }
     }
 
     const updatedOrg = await this.updateOrganisation(id, dto, user.userId, ip);
 
     // Sync changes to FleetOperator profile(s)
-    const fleetOps = await this.fleetOperatorRepo.find({ where: { organisationId: id } });
+    const fleetOps = await this.fleetOperatorRepo.find({
+      where: { organisationId: id },
+    });
     for (const op of fleetOps) {
       if (dto.name) op.name = dto.name;
       if (dto.address) op.address = dto.address;
@@ -90,14 +129,19 @@ export class AdminServiceService {
       if (dto.contact_phone) op.contact_phone = dto.contact_phone;
       if (dto.vehicle_capacity) op.vehicle_count_cap = dto.vehicle_capacity;
       if (dto.status) op.status = dto.status as any;
-      
+
       await this.fleetOperatorRepo.save(op);
     }
 
     return updatedOrg;
   }
 
-  async setOrganisationStatus(id: string, status: OrganisationStatus, adminId: string, ip: string) {
+  async setOrganisationStatus(
+    id: string,
+    status: OrganisationStatus,
+    adminId: string,
+    ip: string,
+  ) {
     const org = await this.findOneOrganisation(id);
     org.status = status;
     await this.orgRepo.save(org);
@@ -127,8 +171,10 @@ export class AdminServiceService {
 
     // Role-based filtering:
     const roles = user.roles || [];
-    const isSuperAdmin = roles.some((r: string) => ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r));
-    
+    const isSuperAdmin = roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r),
+    );
+
     if (roles.includes('Fleet Operator') && !isSuperAdmin) {
       where.organisationId = user.org_id || user.organisationId;
     }
@@ -141,12 +187,20 @@ export class AdminServiceService {
     });
 
     const totalPages = Math.ceil(total / limit);
-    return new PaginatedResponse(items, null, total, limit, items.length, page, totalPages);
+    return new PaginatedResponse(
+      items,
+      null,
+      total,
+      limit,
+      items.length,
+      page,
+      totalPages,
+    );
   }
 
   async generateInvoice(orgId: string, adminId: string, ip: string) {
     const org = await this.findOneOrganisation(orgId);
-    
+
     // Simulate billing logic based on plan
     const rates = {
       [SubscriptionPlan.BASIC]: 500,
@@ -191,9 +245,11 @@ export class AdminServiceService {
           .replace(/[^a-zA-Z]/g, '')
           .slice(0, 4)
           .toUpperCase();
-          
+
         // Check if code exists, if so append a random digit
-        const exists = await manager.findOne(Hospital, { where: { code: hospitalData.code } });
+        const exists = await manager.findOne(Hospital, {
+          where: { code: hospitalData.code },
+        });
         if (exists) {
           hospitalData.code = `${hospitalData.code}${Math.floor(10 + Math.random() * 89)}`;
         }
@@ -204,17 +260,25 @@ export class AdminServiceService {
       const savedHospital = await manager.save(hospital);
 
       // 3. Create the Admin User for this Hospital (Passing the manager)
-      const adminUser = await this.authService.createUser({
-        ...dto.admin,
-        role: 'Hospital Admin',
-        org_id: savedHospital.id,
-      }, creator, manager);
+      const adminUser = await this.authService.createUser(
+        {
+          ...dto.admin,
+          role: 'Hospital Admin',
+          org_id: savedHospital.id,
+        },
+        creator,
+        manager,
+      );
 
       await this.auditLogService.log({
         userId: creator.userId,
         action: 'HOSPITAL_REGISTERED_WITH_ADMIN',
         ipAddress: ip,
-        metadata: { hospitalId: savedHospital.id, adminId: adminUser.id, code: savedHospital.code },
+        metadata: {
+          hospitalId: savedHospital.id,
+          adminId: adminUser.id,
+          code: savedHospital.code,
+        },
       });
 
       return {
@@ -225,7 +289,7 @@ export class AdminServiceService {
           employee_id: adminUser.employeeId,
           email: adminUser.email,
           roles: adminUser.roles,
-        }
+        },
       };
     });
   }
@@ -252,7 +316,7 @@ export class AdminServiceService {
         registration_number: dto.organisation.reg_number,
         country: dto.organisation.country || 'India',
       };
-      
+
       const org = manager.create(Organisation, orgData);
       const savedOrg = await manager.save(org);
 
@@ -264,26 +328,34 @@ export class AdminServiceService {
         contact_phone: savedOrg.contact_phone,
         address: savedOrg.address,
         vehicle_count_cap: dto.organisation.vehicle_capacity || 10,
-        status: savedOrg.status as any || 'ACTIVE'
+        status: (savedOrg.status as any) || 'ACTIVE',
       });
       const savedOperator = await manager.save(operatorProfile);
 
       // 3. Create Admin User (with fallbacks if admin details are missing)
-      const adminUser = await this.authService.createUser({
-        name: dto.admin.name || savedOrg.contact_name || savedOrg.name,
-        email: dto.admin.email || savedOrg.contact_email,
-        phone: dto.admin.phone || savedOrg.contact_phone,
-        username: dto.admin.username,
-        password: dto.admin.password,
-        role: 'Fleet Operator',
-        org_id: savedOrg.id,
-      }, creator, manager);
+      const adminUser = await this.authService.createUser(
+        {
+          name: dto.admin.name || savedOrg.contact_name || savedOrg.name,
+          email: dto.admin.email || savedOrg.contact_email,
+          phone: dto.admin.phone || savedOrg.contact_phone,
+          username: dto.admin.username,
+          password: dto.admin.password,
+          role: 'Fleet Operator',
+          org_id: savedOrg.id,
+        },
+        creator,
+        manager,
+      );
 
       await this.auditLogService.log({
         userId: creator.userId,
         action: 'FLEET_OPERATOR_REGISTERED',
         ipAddress: ip,
-        metadata: { orgId: savedOrg.id, operatorId: savedOperator.id, adminId: adminUser.id },
+        metadata: {
+          orgId: savedOrg.id,
+          operatorId: savedOperator.id,
+          adminId: adminUser.id,
+        },
       });
 
       return {
@@ -295,7 +367,7 @@ export class AdminServiceService {
           phone: adminUser.phone,
           email: adminUser.email,
           roles: adminUser.roles,
-        }
+        },
       };
     });
   }

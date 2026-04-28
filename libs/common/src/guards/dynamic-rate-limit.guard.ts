@@ -11,21 +11,23 @@ export class DynamicRateLimitGuard extends ThrottlerGuard {
   }
 
   // Override handleRequest to inject dynamic limits based on 1.4 specs
-  protected async handleRequest(requestProps: ThrottlerRequest): Promise<boolean> {
+  protected async handleRequest(
+    requestProps: ThrottlerRequest,
+  ): Promise<boolean> {
     const { context, throttler } = requestProps;
     const req = context.switchToHttp().getRequest();
     const url = req.url || '';
-    
+
     // Default Unauthenticated Limits
     let targetLimit = 100;
-    let targetTtl = 60000; 
+    let targetTtl = 60000;
 
     if (url.includes('otp/request')) {
       targetLimit = 5;
       targetTtl = 60000;
     } else if (url.includes('telelink/session')) {
       targetLimit = 10;
-      targetTtl = 60000; 
+      targetTtl = 60000;
     } else if (req.user) {
       if (req.user.role === 'SYSTEM') {
         targetLimit = 10000;

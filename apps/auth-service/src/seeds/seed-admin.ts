@@ -1,9 +1,9 @@
 /**
  * Seed script to create the initial CURESELECT_ADMIN user.
- * 
+ *
  * Usage:
  *   npx ts-node apps/auth-service/src/seeds/seed-admin.ts
- * 
+ *
  * Environment variables required:
  *   ADMIN_USERNAME (default: admin)
  *   ADMIN_PASSWORD (default: Admin@1234)
@@ -12,8 +12,7 @@
  */
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
-import { User } from '../entities/user.entity';
-import { AuditLog } from '../entities/audit-log.entity';
+import { User, AuditLog } from '@app/common';
 import * as bcrypt from 'bcrypt';
 
 const BCRYPT_SALT_ROUNDS = 12;
@@ -40,11 +39,17 @@ async function seed() {
   const existing = await userRepo.findOneBy({ username });
   if (existing) {
     if (!existing.roles.includes('CURESELECT_ADMIN')) {
-      console.log(`[SEED] Promoting existing user "${username}" to CURESELECT_ADMIN.`);
-      existing.roles = Array.from(new Set([...existing.roles, 'CURESELECT_ADMIN']));
+      console.log(
+        `[SEED] Promoting existing user "${username}" to CURESELECT_ADMIN.`,
+      );
+      existing.roles = Array.from(
+        new Set([...existing.roles, 'CURESELECT_ADMIN']),
+      );
       await userRepo.save(existing);
     } else {
-      console.log(`[SEED] Admin user "${username}" already exists and has correct roles. Skipping.`);
+      console.log(
+        `[SEED] Admin user "${username}" already exists and has correct roles. Skipping.`,
+      );
     }
     await dataSource.destroy();
     return;
@@ -70,7 +75,9 @@ async function seed() {
   console.log(`       Password: ${password}`);
   console.log(`       Role:     CURESELECT_ADMIN`);
   console.log(`       ID:       ${admin.id}`);
-  console.log(`\n⚠️  Change the default password immediately and enable MFA via POST /v1/auth/mfa/setup`);
+  console.log(
+    `\n⚠️  Change the default password immediately and enable MFA via POST /v1/auth/mfa/setup`,
+  );
 
   await dataSource.destroy();
 }

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Client, TravelMode, UnitSystem } from '@googlemaps/google-maps-services-js';
+import {
+  Client,
+  TravelMode,
+  UnitSystem,
+} from '@googlemaps/google-maps-services-js';
 
 @Injectable()
 export class MapsService {
@@ -17,7 +21,10 @@ export class MapsService {
    * Calculates travel time and distance between origin and destination.
    * Returns duration in seconds and distance in meters.
    */
-  async getTravelTime(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) {
+  async getTravelTime(
+    origin: { lat: number; lng: number },
+    destination: { lat: number; lng: number },
+  ) {
     if (!this.apiKey || this.apiKey === 'your-key') {
       this.logger.warn('Google Maps API Key not set. Using simulation.');
       return this.simulateTravelTime(origin, destination);
@@ -52,9 +59,12 @@ export class MapsService {
    * Gets optimized directions between two points.
    * Returns the encoded polyline for the route.
    */
-  async getDirections(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) {
+  async getDirections(
+    origin: { lat: number; lng: number },
+    destination: { lat: number; lng: number },
+  ) {
     if (!this.apiKey || this.apiKey === 'your-key') {
-        return { polyline: 'SIMULATED_POLYLINE', steps: [] };
+      return { polyline: 'SIMULATED_POLYLINE', steps: [] };
     }
 
     try {
@@ -71,11 +81,11 @@ export class MapsService {
       return {
         polyline: route.overview_polyline.points,
         bounds: route.bounds,
-        steps: route.legs[0].steps.map(s => ({
-            instruction: s.html_instructions,
-            distance: s.distance.text,
-            duration: s.duration.text
-        }))
+        steps: route.legs[0].steps.map((s) => ({
+          instruction: s.html_instructions,
+          distance: s.distance.text,
+          duration: s.duration.text,
+        })),
       };
     } catch (err) {
       this.logger.error('Google Maps Directions Error', err);
@@ -101,18 +111,25 @@ export class MapsService {
     const duration = Math.floor((dist / 30) * 3600);
     return {
       duration: duration < 120 ? 120 : duration,
-      distance: dist * 1000
+      distance: dist * 1000,
     };
   }
 
-  private haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  private haversine(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   }
