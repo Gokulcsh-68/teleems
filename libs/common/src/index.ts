@@ -57,6 +57,14 @@ export * from './entities/base.entity';
 export * from './entities/consult.entity';
 export * from './entities/epcr.entity';
 export * from './entities/epcr-signature.entity';
+export * from './entities/patient-photo.entity';
+export * from './entities/patient-document.entity';
+export * from './entities/patient-valuable.entity';
+export * from './entities/telelink-session.entity';
+export { PatientPhoto, PatientPhotoCategory } from './entities/patient-photo.entity';
+export { PatientDocument, PatientDocumentType } from './entities/patient-document.entity';
+export { PatientValuable, ValuableLocationType } from './entities/patient-valuable.entity';
+export { TeleLinkSession, TeleLinkSessionStatus } from './entities/telelink-session.entity';
 
 export * from './constants/icd-codes.constants';
 export * from './constants/allergens.constants';

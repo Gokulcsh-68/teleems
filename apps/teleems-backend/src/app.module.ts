@@ -44,6 +44,10 @@ import {
   SurgeryMaster,
   HospitalisationMaster,
   PatientMedicationLog,
+  PatientPhoto,
+  PatientDocument,
+  PatientValuable,
+  TeleLinkSession,
   VehicleInventory,
   MedicationRouteMaster,
   ChiefComplaintMaster,
@@ -97,7 +101,8 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
           VehicleInventory, InventoryLog, DutyRoster,
-          CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile
+          CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile,
+          PatientPhoto, PatientDocument, PatientValuable, TeleLinkSession
         ],
         synchronize: true, // Auto-create tables; revert for prod migrations
       }),
