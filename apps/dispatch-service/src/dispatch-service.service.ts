@@ -769,12 +769,22 @@ export class DispatchServiceService {
     targetVehicle.status = VehicleStatus.BUSY;
     await this.vehicleRepository.save(targetVehicle);
 
+    // 3. Find the Active Shift to get Driver/EMT IDs
+    const activeShift = await this.dutyShiftRepository.findOne({
+      where: { 
+        vehicleId: targetVehicle.id, 
+        status: 'ON_DUTY' as any 
+      }
+    });
+
     // Create the dispatch record
     const dispatch = this.dispatchRepository.create({
       incident_id: incident.id,
       vehicle_id: vehicleId,
       dispatched_by: context.userId,
       status: 'DISPATCHED',
+      driver_id: activeShift?.driverId,
+      emt_id: activeShift?.staffId,
       eta_seconds: eta,
       manual_vehicle_id: dto.manual_vehicle_id || null,
       override_reason: dto.override_reason || null,
@@ -782,6 +792,29 @@ export class DispatchServiceService {
       organisationId: incident.organisationId,
     });
     await this.dispatchRepository.save(dispatch);
+
+    // --- REAL-TIME NOTIFICATION: WebSocket Alert ---
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driverProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driverProfile?.userId) crewUserIds.push(driverProfile.userId);
+      }
+      if (dispatch.emt_id) {
+        const emtProfile = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emtProfile?.userId) crewUserIds.push(emtProfile.userId);
+      }
+
+      for (const userId of crewUserIds) {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:assigned', {
+          id: dispatch.id,
+          incident,
+          eta_seconds: eta,
+        });
+      }
+    } catch (err) {
+      console.warn(`[DISPATCH] Failed to send real-time notification: ${err.message}`);
+    }
 
     // Update the incident
     incident.assigned_vehicle = vehicleId;
@@ -1061,14 +1094,29 @@ export class DispatchServiceService {
       await this.vehicleRepository.save(vehicle);
     }
 
-    // 4. Log Events
-    await this.logTimelineEvent(
-      incident.id,
-      'DISPATCH_ACCEPTED',
-      `Vehicle ${dispatch.vehicle_id} has ACCEPTED the trip.`,
-      requestUser.id || requestUser.userId,
-      { dispatch_id: dispatchId }
-    );
+    // 5. Notify assigned crew members via WebSocket
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (dispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
+          dispatch_id: dispatchId,
+          status: 'DISPATCHED',
+          action: 'ACCEPTED',
+          by: requestUser.userId
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of acceptance:', e);
+    }
 
     return { message: 'Dispatch accepted successfully', data: dispatch };
   }
@@ -1110,13 +1158,39 @@ export class DispatchServiceService {
       await this.vehicleRepository.save(vehicle);
     }
 
-    // 2. Log Rejection
+    // 3. Log Timeline
     await this.logTimelineEvent(
       dispatch.incident_id,
       'DISPATCH_REJECTED',
-      `Vehicle ${dispatch.vehicle_id} REJECTED the trip. Reason: ${reason}`,
-      requestUser.id || requestUser.userId
+      `Crew member rejected the trip. Reason: ${reason}`,
+      requestUser.userId,
+      { reason }
     );
+
+    // 4. Notify other crew members via WebSocket
+    try {
+      const crewUserIds: string[] = [];
+      if (dispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: dispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (dispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: dispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
+          dispatch_id: dispatchId,
+          status: 'REJECTED',
+          action: 'REJECTED',
+          by: requestUser.userId,
+          reason
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of rejection:', e);
+    }
 
     // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
     // We pass a mock context or use the one from the rejection request
@@ -1258,6 +1332,31 @@ export class DispatchServiceService {
       { reason: dto.reason, backup_requested: dto.request_backup },
     );
 
+    // 6. Notify crew about cancellation
+    try {
+      const crewUserIds: string[] = [];
+      if (currentDispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: currentDispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (currentDispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: currentDispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
+          dispatch_id: currentDispatch.id,
+          status: 'CANCELLED',
+          action: 'CANCELLED',
+          by: context.userId,
+          reason: dto.reason
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of cancellation:', e);
+    }
+
     return responseData;
   }
 
@@ -1297,6 +1396,45 @@ export class DispatchServiceService {
       } else {
         throw new ForbiddenException('Access denied: Insufficient permissions to view dispatch details');
       }
+    }
+
+    return { data: dispatch };
+  }
+
+  /**
+   * Finds the latest active dispatch for the current crew member
+   */
+  async findActiveDispatchForUser(requestUser: any) {
+    const staffProfile = await this.staffProfileRepository.findOneBy({ userId: requestUser.userId });
+    if (!staffProfile) {
+      throw new NotFoundException('Staff profile not found');
+    }
+
+    // Find any dispatch assigned to this user that is still active
+    // Active means: PENDING_ACCEPTANCE, navigating, at_scene, etc.
+    const dispatch = await this.dispatchRepository.findOne({
+      where: [
+        { driver_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
+        { emt_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
+        { driver_id: staffProfile.id, status: 'DISPATCHED' as any },
+        { emt_id: staffProfile.id, status: 'DISPATCHED' as any },
+        { driver_id: staffProfile.id, status: 'EN_ROUTE_SCENE' as any },
+        { emt_id: staffProfile.id, status: 'EN_ROUTE_SCENE' as any },
+        { driver_id: staffProfile.id, status: 'AT_SCENE' as any },
+        { emt_id: staffProfile.id, status: 'AT_SCENE' as any },
+        { driver_id: staffProfile.id, status: 'PATIENT_LOADED' as any },
+        { emt_id: staffProfile.id, status: 'PATIENT_LOADED' as any },
+        { driver_id: staffProfile.id, status: 'EN_ROUTE_HOSPITAL' as any },
+        { emt_id: staffProfile.id, status: 'EN_ROUTE_HOSPITAL' as any },
+        { driver_id: staffProfile.id, status: 'AT_HOSPITAL' as any },
+        { emt_id: staffProfile.id, status: 'AT_HOSPITAL' as any },
+      ],
+      relations: ['incident'],
+      order: { dispatched_at: 'DESC' }
+    });
+
+    if (!dispatch) {
+      return { data: null };
     }
 
     return { data: dispatch };
