@@ -37,6 +37,7 @@ import {
 } from '@app/common';
 
 import { TripStatus } from './enums/trip-status.enum';
+import { DispatchGateway } from './dispatch.gateway';
 
 @Injectable()
 export class TripService {
@@ -59,6 +60,7 @@ export class TripService {
     private readonly staffProfileRepo: Repository<StaffProfile>,
     private readonly storageService: StorageService,
     private readonly mapsService: MapsService,
+    private readonly dispatchGateway: DispatchGateway,
   ) {}
 
   private async getStaffProfileId(userId: string): Promise<string | null> {
@@ -403,6 +405,9 @@ export class TripService {
       user_id: requestUser.userId,
     });
     await this.timelineRepo.save(timeline);
+
+    // 7. Emit WebSocket update to crew
+    this.dispatchGateway.notifyStatusUpdate(trip, dto.status);
 
     return { data: trip };
   }
