@@ -48,17 +48,6 @@ services:
       - key: ENFORCE_MFA
         value: "false"
 
-  # The Telelink Service (Kept as separate Microservice)
-  - type: web
-    name: telelink-service
-    env: node
-    plan: free
-    buildCommand: npm install --include=dev && npm run build:telelink
-    startCommand: node dist/apps/telelink-service/main.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-
   - type: keyvalue
     name: teleems-redis
     plan: free
