@@ -966,7 +966,7 @@ export class DispatchServiceService {
 
   // --- NEW: Sequential Auto-Assignment (Phase 3) ---
 
-  async startAutoAssignment(incidentId: string, context: AuditContext) {
+  async startAutoAssignment(incidentId: string, context: AuditContext, extraExcludeIds: string[] = []) {
     const incident = await this.incidentRepository.findOneBy({ id: incidentId });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -974,7 +974,8 @@ export class DispatchServiceService {
     const previousDispatches = await this.dispatchRepository.find({
       where: { incident_id: incidentId, status: 'REJECTED' }
     });
-    const excludeIds = previousDispatches.map(d => d.vehicle_id).filter(id => !!id);
+    const dbExcludeIds = previousDispatches.map(d => d.vehicle_id).filter(id => !!id);
+    const excludeIds = [...new Set([...dbExcludeIds, ...extraExcludeIds])];
 
     // 2. Find Next Best Ambulance
     const target = await this.findNextBestAmbulance(
@@ -1193,12 +1194,11 @@ export class DispatchServiceService {
     }
 
     // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
-    // We pass a mock context or use the one from the rejection request
     return this.startAutoAssignment(dispatch.incident_id, { 
       userId: requestUser.id || requestUser.userId,
       ip: '0.0.0.0',
       userAgent: 'sequential-reassignment'
-    });
+    }, [dispatch.vehicle_id]);
   }
 
   async cancelDispatch(id: string, dto: CancelDispatchDto, context: AuditContext) {
