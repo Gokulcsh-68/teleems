@@ -183,4 +183,39 @@ export class StorageService {
       );
     }
   }
+
+  async downloadBuffer(keyOrPath: string): Promise<Buffer> {
+    if (!this.s3Client) {
+      throw new InternalServerErrorException('S3 storage is not configured.');
+    }
+
+    try {
+      let key = keyOrPath;
+      if (this.publicBaseUrl && key.startsWith(this.publicBaseUrl)) {
+        key = key.replace(this.publicBaseUrl, '');
+      } else if (!key.startsWith(this.basePath)) {
+        key = `${this.basePath}${key}`;
+      }
+
+      const command = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+      });
+
+      const response = await this.s3Client.send(command);
+      const stream = response.Body as any;
+
+      return new Promise((resolve, reject) => {
+        const chunks: any[] = [];
+        stream.on('data', (chunk: any) => chunks.push(chunk));
+        stream.on('error', reject);
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+      });
+    } catch (error) {
+      this.logger.error('S3 File Download Error', error);
+      throw new InternalServerErrorException(
+        `Failed to download file from storage: ${error.message}`,
+      );
+    }
+  }
 }

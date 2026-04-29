@@ -27,6 +27,15 @@ export class IncidentCategoryMaster {
     upgrade_to?: string;
   };
 
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column({ default: false })
+  isCommon: boolean;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

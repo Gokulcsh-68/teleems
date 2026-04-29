@@ -40,6 +40,10 @@ export class CreateIncidentCategoryDto {
 
   @IsString()
   @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
   color_code?: string;
 
   @IsString()
@@ -53,6 +57,48 @@ export class CreateIncidentCategoryDto {
     timer_minutes?: number;
     upgrade_to?: string;
   };
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
+}
+
+export class UpdateIncidentCategoryDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  color_code?: string;
+
+  @IsString()
+  @IsOptional()
+  hex_color?: string;
+
+  @IsObject()
+  @IsOptional()
+  auto_escalation_rules?: {
+    enabled: boolean;
+    timer_minutes?: number;
+    upgrade_to?: string;
+  };
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  isCommon?: boolean;
 }
 
 export class CreateInventoryItemDto {

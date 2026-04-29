@@ -57,6 +57,11 @@ export * from './entities/base.entity';
 export * from './entities/consult.entity';
 export * from './entities/epcr.entity';
 export * from './entities/epcr-signature.entity';
+export * from './entities/epcr-acknowledgement.entity';
+export * from './entities/print-job.entity';
+export * from './entities/epcr-delivery-log.entity';
+export * from './entities/epcr-mlc-record.entity';
+export * from './entities/epcr-export-job.entity';
 export * from './entities/patient-photo.entity';
 export * from './entities/patient-document.entity';
 export * from './entities/patient-valuable.entity';
@@ -65,6 +70,7 @@ export { PatientPhoto, PatientPhotoCategory } from './entities/patient-photo.ent
 export { PatientDocument, PatientDocumentType } from './entities/patient-document.entity';
 export { PatientValuable, ValuableLocationType } from './entities/patient-valuable.entity';
 export { TeleLinkSession, TeleLinkSessionStatus } from './entities/telelink-session.entity';
+export { EpcrExportJob, ExportJobStatus } from './entities/epcr-export-job.entity';
 
 export * from './constants/icd-codes.constants';
 export * from './constants/allergens.constants';

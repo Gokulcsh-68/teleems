@@ -4,12 +4,12 @@ import { EpcrServiceService } from './epcr-service.service';
 import { CommonModule } from '../../../libs/common/src';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Epcr, EpcrSignature } from '@app/common';
+import { Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob } from '@app/common';
 
 @Module({
   imports: [
     CommonModule,
-    TypeOrmModule.forFeature([Epcr, EpcrSignature]),
+    TypeOrmModule.forFeature([Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob]),
   ],
   controllers: [EpcrServiceController],
   providers: [EpcrServiceService],

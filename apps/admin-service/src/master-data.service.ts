@@ -29,6 +29,7 @@ import {
   COMMON_INTERVENTIONS,
   COMMON_MEDICATION_ROUTES,
   COMMON_ACUTE_MEDICATIONS,
+  COMMON_INCIDENT_CATEGORIES,
   PaginatedResponse,
 } from '@app/common';
 import {
@@ -44,6 +45,7 @@ import {
   CreateChiefComplaintDto,
   CreateInterventionMasterDto,
   CreateMedicationRouteDto,
+  UpdateIncidentCategoryDto,
 } from './dto/master-data.dto';
 import { ILike } from 'typeorm';
 import { AuthService } from '../../auth-service/src/auth.service';
@@ -89,6 +91,7 @@ export class MasterDataService {
     await this.seedInterventionMasters();
     await this.seedAcuteMedications();
     await this.seedMedicationRoutes();
+    await this.seedIncidentCategories();
   }
 
   private async seedIcdCodes() {
@@ -196,6 +199,100 @@ export class MasterDataService {
       page,
       Math.ceil(total / limit),
     );
+  }
+
+  async updateCategory(
+    id: string,
+    dto: UpdateIncidentCategoryDto,
+    adminId: string,
+    ip: string,
+  ) {
+    const category = await this.categoryRepo.findOneBy({ id });
+    if (!category)
+      throw new NotFoundException(`Category with ID ${id} not found`);
+
+    Object.assign(category, dto);
+    await this.categoryRepo.save(category);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CATEGORY_UPDATED',
+      ipAddress: ip,
+      metadata: { categoryId: id, updates: dto },
+    });
+
+    return category;
+  }
+
+  async toggleCategoryStatus(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    ip: string,
+  ) {
+    const category = await this.categoryRepo.findOneBy({ id });
+    if (!category)
+      throw new NotFoundException(`Category with ID ${id} not found`);
+
+    category.isActive = isActive;
+    await this.categoryRepo.save(category);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CATEGORY_STATUS_UPDATED',
+      ipAddress: ip,
+      metadata: { categoryId: id, isActive },
+    });
+
+    return category;
+  }
+
+  async deleteCategory(id: string, adminId: string, ip: string) {
+    const category = await this.categoryRepo.findOneBy({ id });
+    if (!category)
+      throw new NotFoundException(`Category with ID ${id} not found`);
+
+    await this.categoryRepo.remove(category);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CATEGORY_DELETED',
+      ipAddress: ip,
+      metadata: { categoryId: id, name: category.name },
+    });
+
+    return { success: true };
+  }
+
+  private async seedIncidentCategories() {
+    console.log('[SEED] Synchronizing Incident Category Master Registry...');
+    let count = 0;
+    for (const catDef of COMMON_INCIDENT_CATEGORIES) {
+      const existing = await this.categoryRepo.findOneBy({ id: catDef.id });
+      if (!existing) {
+        await this.categoryRepo.save(this.categoryRepo.create(catDef));
+        count++;
+      } else {
+        // Sync existing categories with default values if they differ
+        let changed = false;
+        if (existing.description !== catDef.description) {
+          existing.description = catDef.description;
+          changed = true;
+        }
+        if (existing.name !== catDef.name) {
+          existing.name = catDef.name;
+          changed = true;
+        }
+        if (existing.hex_color !== catDef.hex_color) {
+          existing.hex_color = catDef.hex_color;
+          changed = true;
+        }
+        if (changed) {
+          await this.categoryRepo.save(existing);
+        }
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new incident categories.`);
   }
 
   // --- Inventory Item Master ---
