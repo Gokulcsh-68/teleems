@@ -1180,7 +1180,7 @@ export class DispatchServiceService {
       }
 
       crewUserIds.forEach(userId => {
-        this.dispatchGateway.server.to(`user_${userId}`).emit('incident:updated', {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
           dispatch_id: dispatchId,
           status: 'REJECTED',
           action: 'REJECTED',
@@ -1331,6 +1331,31 @@ export class DispatchServiceService {
       context,
       { reason: dto.reason, backup_requested: dto.request_backup },
     );
+
+    // 6. Notify crew about cancellation
+    try {
+      const crewUserIds: string[] = [];
+      if (currentDispatch.driver_id) {
+        const driver = await this.staffProfileRepository.findOneBy({ id: currentDispatch.driver_id });
+        if (driver?.userId) crewUserIds.push(driver.userId);
+      }
+      if (currentDispatch.emt_id) {
+        const emt = await this.staffProfileRepository.findOneBy({ id: currentDispatch.emt_id });
+        if (emt?.userId) crewUserIds.push(emt.userId);
+      }
+
+      crewUserIds.forEach(userId => {
+        this.dispatchGateway.server.to(`user_${userId}`).emit('dispatch:updated', {
+          dispatch_id: currentDispatch.id,
+          status: 'CANCELLED',
+          action: 'CANCELLED',
+          by: context.userId,
+          reason: dto.reason
+        });
+      });
+    } catch (e) {
+      console.warn('[WS] Failed to notify crew of cancellation:', e);
+    }
 
     return responseData;
   }
