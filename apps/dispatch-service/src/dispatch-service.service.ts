@@ -1194,11 +1194,18 @@ export class DispatchServiceService {
     }
 
     // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
-    return this.startAutoAssignment(dispatch.incident_id, { 
-      userId: requestUser.id || requestUser.userId,
-      ip: '0.0.0.0',
-      userAgent: 'sequential-reassignment'
-    }, [dispatch.vehicle_id]);
+    // Add a small delay (1500ms) to allow mobile UI to show the rejection alert before the next one pops up
+    setTimeout(() => {
+      this.startAutoAssignment(dispatch.incident_id, { 
+        userId: requestUser.id || requestUser.userId,
+        ip: '0.0.0.0',
+        userAgent: 'sequential-reassignment'
+      }, [dispatch.vehicle_id]).catch(err => {
+        console.error('[AUTO-ASSIGN] Background assignment failed:', err.message);
+      });
+    }, 1500);
+
+    return { status: 'REJECTED_AND_REASSIGNING' };
   }
 
   async cancelDispatch(id: string, dto: CancelDispatchDto, context: AuditContext) {
