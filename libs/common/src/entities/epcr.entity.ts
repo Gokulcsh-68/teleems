@@ -40,6 +40,17 @@ export class Epcr {
   @Column({ default: 'DRAFT' })
   status: string;
 
+  @Column({ nullable: true })
+  @Index()
+  mrn: string;
+
+  @Column({ nullable: true })
+  @Index()
+  hmis_record_id: string;
+
+  @Column({ type: 'jsonb', default: [] })
+  special_flags: string[];
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

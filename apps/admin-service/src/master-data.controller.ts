@@ -24,6 +24,7 @@ import {
   CreateChiefComplaintDto,
   CreateInterventionMasterDto,
   CreateMedicationRouteDto,
+  UpdateIncidentCategoryDto,
 } from './dto/master-data.dto';
 import {
   JwtAuthGuard,
@@ -70,6 +71,46 @@ export class MasterDataController {
   @Get('categories')
   async listCategories(@Query() query: MasterQueryDto) {
     const result = await this.masterDataService.findAllCategories(query);
+    return { data: result };
+  }
+
+  @Put('categories/:id')
+  async updateCategory(
+    @Param('id') id: string,
+    @Body() dto: UpdateIncidentCategoryDto,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.updateCategory(
+      id,
+      dto,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Patch('categories/:id/status')
+  async toggleCategoryStatus(
+    @Param('id') id: string,
+    @Body('isActive') isActive: boolean,
+    @Req() req: any,
+  ) {
+    const result = await this.masterDataService.toggleCategoryStatus(
+      id,
+      isActive,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Post('categories/:id/delete') // Or DELETE if preferred, but following some conventions
+  async deleteCategory(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteCategory(
+      id,
+      req.user.userId,
+      req.ip,
+    );
     return { data: result };
   }
 

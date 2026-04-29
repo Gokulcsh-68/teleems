@@ -365,3 +365,62 @@ export const COMMON_ACUTE_MEDICATIONS = [
     isCommon: true,
   },
 ];
+
+export const COMMON_INCIDENT_CATEGORIES = [
+  {
+    id: 'IMMEDIATE',
+    name: 'Immediate',
+    description: 'Life-threatening injuries or illnesses requiring immediate intervention.',
+    color_code: 'RED',
+    hex_color: '#FF0000',
+    isCommon: true,
+  },
+  {
+    id: 'URGENT',
+    name: 'Urgent',
+    description: 'Serious but not immediately life-threatening conditions.',
+    color_code: 'ORANGE',
+    hex_color: '#FFA500',
+    isCommon: true,
+  },
+  {
+    id: 'DELAYED',
+    name: 'Delayed',
+    description: 'Non-life-threatening injuries that can wait for treatment.',
+    color_code: 'GREEN',
+    hex_color: '#008000',
+    isCommon: true,
+  },
+  {
+    id: 'MINIMAL',
+    name: 'Minimal',
+    description: 'Minor injuries requiring minimal care.',
+    color_code: 'WHITE',
+    hex_color: '#FFFFFF',
+    isCommon: true,
+  },
+  {
+    id: 'EXPECTANT',
+    name: 'Expectant',
+    description: 'Deceased or injuries so severe that survival is unlikely even with care.',
+    color_code: 'BLACK',
+    hex_color: '#000000',
+    isCommon: true,
+  },
+  {
+    id: 'IFT',
+    name: 'Inter-facility Transfer',
+    description: 'Transfer of patients between medical facilities.',
+    color_code: 'BLUE',
+    hex_color: '#0000FF',
+    isCommon: true,
+  },
+  {
+    id: 'MORTUARY',
+    name: 'Mortuary Van',
+    description: 'Transportation of deceased individuals.',
+    color_code: 'GREY',
+    hex_color: '#808080',
+    isCommon: true,
+  },
+];

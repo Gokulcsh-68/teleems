@@ -13,6 +13,7 @@ export enum SignerRole {
   EMT = 'EMT',
   DOCTOR = 'DOCTOR',
   PATIENT = 'PATIENT',
+  CLINICIAN = 'CLINICIAN',
 }
 
 @Entity('epcr_signatures')
@@ -32,6 +33,9 @@ export class EpcrSignature {
 
   @Column()
   signer_id: string; // User ID or Name
+
+  @Column({ nullable: true })
+  designation: string;
 
   @Column()
   signature_url: string;

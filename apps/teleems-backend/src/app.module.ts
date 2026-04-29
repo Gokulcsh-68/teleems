@@ -63,7 +63,16 @@ import {
   DutyShift,
   DutyShiftStatus,
   InventoryLog,
-  DutyRoster
+  DutyRoster,
+  Epcr,
+  EpcrSignature,
+  EpcrAcknowledgement,
+  PrintJob,
+  EpcrDeliveryLog,
+  EpcrMlcRecord,
+  EpcrExportJob,
+  Consult,
+  HospitalStatus
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -102,9 +111,10 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
           VehicleInventory, InventoryLog, DutyRoster,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile,
-          PatientPhoto, PatientDocument, PatientValuable, TeleLinkSession
+          PatientPhoto, PatientDocument, PatientValuable, TeleLinkSession,
+          Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob, Consult, HospitalStatus
         ],
-        synchronize: true, // Auto-create tables; revert for prod migrations
+        synchronize: true,
       }),
     }),
     AuthModule,
