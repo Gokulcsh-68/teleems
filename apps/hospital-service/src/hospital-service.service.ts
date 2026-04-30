@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Hospital, AuditLogService } from '@app/common';
+import { Hospital, AuditLogService, MapsService } from '@app/common';
 import { CreateHospitalDto, UpdateHospitalDto } from './dto/hospital.dto';
 
 @Injectable()
@@ -10,11 +10,21 @@ export class HospitalServiceService {
     @InjectRepository(Hospital)
     private readonly hospitalRepo: Repository<Hospital>,
     private readonly auditLogService: AuditLogService,
+    private readonly mapsService: MapsService,
   ) {}
 
   async createHospital(dto: CreateHospitalDto, adminId: string, ip: string) {
+    const hospitalData = { ...dto };
+
+    // Automatic Geocoding if coordinates are missing but address is present
+    if ((!hospitalData.gps_lat || !hospitalData.gps_lon) && hospitalData.address) {
+      const coords = await this.mapsService.geocode(hospitalData.address);
+      hospitalData.gps_lat = coords.lat;
+      hospitalData.gps_lon = coords.lng;
+    }
+
     const hospital = await this.hospitalRepo.save(
-      this.hospitalRepo.create(dto),
+      this.hospitalRepo.create(hospitalData),
     );
 
     await this.auditLogService.log({
@@ -45,6 +55,14 @@ export class HospitalServiceService {
     ip: string,
   ) {
     const hospital = await this.findOne(id);
+    
+    // Automatic Geocoding if address is updated and coordinates are not provided
+    if (dto.address && (!dto.gps_lat || !dto.gps_lon)) {
+      const coords = await this.mapsService.geocode(dto.address);
+      dto.gps_lat = coords.lat;
+      dto.gps_lon = coords.lng;
+    }
+
     Object.assign(hospital, dto);
     await this.hospitalRepo.save(hospital);
 

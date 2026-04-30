@@ -33,7 +33,8 @@ import {
   MapsService,
   Incident,
   Dispatch,
-  StaffProfile
+  StaffProfile,
+  Hospital
 } from '@app/common';
 
 import { TripStatus } from './enums/trip-status.enum';
@@ -58,6 +59,8 @@ export class TripService {
     private readonly interventionRepo: Repository<PatientIntervention>,
     @InjectRepository(StaffProfile)
     private readonly staffProfileRepo: Repository<StaffProfile>,
+    @InjectRepository(Hospital)
+    private readonly hospitalRepo: Repository<Hospital>,
     private readonly storageService: StorageService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
@@ -452,14 +455,11 @@ export class TripService {
     let eta_seconds = 120; // Default fallback
 
     if (incident) {
-      const distance = this.getDistance(
-        Number(dto.gps_lat),
-        Number(dto.gps_lon),
-        Number(incident.gps_lat),
-        Number(incident.gps_lon),
+      const travelData = await this.mapsService.getTravelTime(
+        { lat: Number(dto.gps_lat), lng: Number(dto.gps_lon) },
+        { lat: Number(incident.gps_lat), lng: Number(incident.gps_lon) },
       );
-      // Rough estimate: distance in km / 45 km/h * 3600 seconds
-      eta_seconds = Math.round((distance / 45) * 3600);
+      eta_seconds = travelData.duration;
       if (eta_seconds < 60) eta_seconds = 60; // Min 1 min
     }
 
@@ -493,10 +493,14 @@ export class TripService {
     trip.destination_hospital_id = dto.destination_hospital_id;
     await this.dispatchRepo.save(trip);
 
-    // Simulation: ETA to Hospital (Defaulting to 8 mins if no location service)
-    const eta_to_hospital = 480;
+    // Calculate Real ETA to Hospital
+    const hospitalCoords = await this.getHospitalLocation(dto.destination_hospital_id);
+    const travelData = await this.mapsService.getTravelTime(
+      { lat: Number(dto.gps_lat), lng: Number(dto.gps_lon) },
+      { lat: hospitalCoords.lat, lng: hospitalCoords.lon },
+    );
 
-    return { data: trip, eta_to_hospital };
+    return { data: trip, eta_to_hospital: travelData.duration };
   }
 
   async markAtHospital(id: string, dto: AtHospitalDto, requestUser: any) {
@@ -781,7 +785,7 @@ export class TripService {
     const vehicle = await this.vehicleRepo.findOneBy({ registration_number: trip.vehicle_id! });
     if (!vehicle) throw new NotFoundException('Vehicle not found');
 
-    const hospitalCoords = this.getHospitalLocation(
+    const hospitalCoords = await this.getHospitalLocation(
       trip.destination_hospital_id || 'HOSP-DEFAULT',
     );
     const routeData = await this.mapsService.getTravelTime(
@@ -927,7 +931,7 @@ export class TripService {
           lng: Number(trip.incident.gps_lon),
         }
       : await (async () => {
-          const h = this.getHospitalLocation(
+          const h = await this.getHospitalLocation(
             trip.destination_hospital_id || 'HOSP-DEFAULT',
           );
           return { lat: h.lat, lng: h.lon };
@@ -994,15 +998,21 @@ export class TripService {
     };
   }
 
-  private getHospitalLocation(id: string): { lat: number; lon: number } {
-    // Mock Hospital Database (centered around a sample city)
-    const hospitals: Record<string, { lat: number; lon: number }> = {
-      'HOSP-001': { lat: 12.9716, lon: 77.5946 },
-      'HOSP-002': { lat: 12.9352, lon: 77.6245 },
-      'HOSP-DEFAULT': { lat: 12.95, lon: 77.6 },
-    };
+  private async getHospitalLocation(id: string): Promise<{ lat: number; lon: number }> {
+    // 1. Try to find by UUID (standard lookup)
+    const hospital = await this.hospitalRepo.findOne({
+      where: [{ id }, { code: id }]
+    });
 
-    return hospitals[id] || hospitals['HOSP-DEFAULT'];
+    if (hospital && hospital.gps_lat && hospital.gps_lon) {
+      return { 
+        lat: Number(hospital.gps_lat), 
+        lon: Number(hospital.gps_lon) 
+      };
+    }
+
+    // 2. Fallback to default if not found (using Bangalore coordinates as base)
+    return { lat: 12.9716, lon: 77.5946 };
   }
 
   private getDistance(

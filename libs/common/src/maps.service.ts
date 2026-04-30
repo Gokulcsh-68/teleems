@@ -94,6 +94,37 @@ export class MapsService {
   }
 
   /**
+   * Converts an address to coordinates.
+   */
+  async geocode(address: string) {
+    if (!this.apiKey || this.apiKey === 'your-key') {
+      this.logger.warn('Google Maps API Key not set. Returning Bangalore default.');
+      return { lat: 12.9716, lng: 77.5946 };
+    }
+
+    try {
+      const response = await this.client.geocode({
+        params: {
+          address,
+          key: this.apiKey,
+        },
+      });
+
+      if (response.data.results.length > 0) {
+        const location = response.data.results[0].geometry.location;
+        return {
+          lat: location.lat,
+          lng: location.lng,
+        };
+      }
+      throw new Error('No results found for address');
+    } catch (err) {
+      this.logger.error(`Geocoding Error for address: ${address}`, err);
+      return { lat: 12.9716, lng: 77.5946 };
+    }
+  }
+
+  /**
    * Internal simulation for local dev without API key
    */
   private simulateTravelTime(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) {
