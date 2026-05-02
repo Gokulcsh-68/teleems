@@ -512,6 +512,50 @@ export class DispatchServiceService implements OnModuleInit {
     );
   }
 
+  async findAllWithoutPagination(query: IncidentQueryDto, requestUser: any) {
+    const { status, category, severity, org_id, caller_id, date_from, date_to } = query;
+    const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
+
+    // 1. RBAC & Tenant Isolation
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r),
+    );
+
+    if (!isPlatformAdmin) {
+      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+        const orgId = requestUser.organisationId || requestUser.org_id;
+        if (!orgId) throw new ForbiddenException('User organization context missing');
+        queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
+      } else if (roles.includes('Caller (Public)') || roles.includes('Individual Dispatcher')) {
+        queryBuilder.andWhere('incident.caller_id = :userId', { userId: requestUser.userId });
+      } else {
+        throw new ForbiddenException('Insufficient permissions to list incidents');
+      }
+    } else {
+      if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+      if (caller_id) queryBuilder.andWhere('incident.caller_id = :caller_id', { caller_id });
+    }
+
+    // 2. Filters
+    if (status) queryBuilder.andWhere('incident.status = :status', { status });
+    if (category) queryBuilder.andWhere('incident.category = :category', { category });
+    if (severity) queryBuilder.andWhere('incident.severity = :severity', { severity });
+    if (date_from) queryBuilder.andWhere('incident.createdAt >= :date_from', { date_from });
+    if (date_to) queryBuilder.andWhere('incident.createdAt <= :date_to', { date_to });
+
+    queryBuilder.orderBy('incident.createdAt', 'DESC');
+    queryBuilder.addOrderBy('incident.id', 'DESC');
+
+    const data = await queryBuilder.getMany();
+    return {
+      status: 200,
+      message: 'Success',
+      data,
+      total: data.length
+    };
+  }
+
   async findOne(id: string, requestUser?: any) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) {
