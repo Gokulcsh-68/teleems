@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
@@ -56,7 +57,7 @@ export interface AuditContext {
 import { DispatchGateway } from './dispatch.gateway';
 
 @Injectable()
-export class DispatchServiceService {
+export class DispatchServiceService implements OnModuleInit {
   constructor(
     @InjectRepository(Incident)
     private readonly incidentRepository: Repository<Incident>,
@@ -78,6 +79,38 @@ export class DispatchServiceService {
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
   ) {}
+
+  onModuleInit() {
+    // Periodically retry auto-assignment for PENDING incidents
+    // This handles the case where staff wasn't on duty when the incident was booked.
+    setInterval(() => {
+      this.retryPendingIncidents();
+    }, 15000); // Check every 15 seconds
+  }
+
+  private async retryPendingIncidents() {
+    try {
+      const pendingIncidents = await this.incidentRepository.find({
+        where: { status: 'PENDING' },
+        order: { createdAt: 'ASC' }
+      });
+
+      for (const incident of pendingIncidents) {
+        try {
+          await this.startAutoAssignment(incident.id, {
+            userId: 'SYSTEM',
+            ip: '127.0.0.1',
+            userAgent: 'Auto-Retry-Cron',
+          });
+        } catch (err) {
+          // If startAutoAssignment fails (e.g. still no vehicle available), it throws an error.
+          // We can safely ignore it and it will retry next time.
+        }
+      }
+    } catch (err) {
+      console.error('[DispatchService] Error in retryPendingIncidents:', err);
+    }
+  }
 
   private async getStaffProfileId(userId: string): Promise<string | null> {
     const profile = await this.staffProfileRepository.findOneBy({ userId });
