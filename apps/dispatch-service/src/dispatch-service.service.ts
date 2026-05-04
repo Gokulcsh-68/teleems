@@ -6,7 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, In, Not } from 'typeorm';
 import { IncidentTimeline } from './entities/incident-timeline.entity';
 import { IncidentEscalation } from './entities/incident-escalation.entity';
 import { DispatchIncidentDto } from './dto/dispatch-incident.dto';
@@ -43,8 +43,10 @@ import {
   Vehicle,
   VehicleStatus,
   DutyShift,
+  DutyShiftStatus,
   VehicleInventory,
-  StaffProfile
+  StaffProfile,
+  StaffType
 } from '@app/common';
 
 export interface AuditContext {
@@ -1494,28 +1496,57 @@ export class DispatchServiceService implements OnModuleInit {
       throw new NotFoundException('Staff profile not found');
     }
 
-    // Find any dispatch assigned to this user that is still active
-    // Active means: PENDING_ACCEPTANCE, navigating, at_scene, etc.
-    const dispatch = await this.dispatchRepository.findOne({
+    // 1. Primary search: Check if they are already linked to a dispatch record
+    const activeStatuses = [
+      'PENDING_ACCEPTANCE', 
+      'DISPATCHED', 
+      'EN_ROUTE_SCENE', 
+      'AT_SCENE', 
+      'PATIENT_LOADED', 
+      'EN_ROUTE_HOSPITAL', 
+      'AT_HOSPITAL'
+    ];
+
+    let dispatch = await this.dispatchRepository.findOne({
       where: [
-        { driver_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
-        { emt_id: staffProfile.id, status: 'PENDING_ACCEPTANCE' as any },
-        { driver_id: staffProfile.id, status: 'DISPATCHED' as any },
-        { emt_id: staffProfile.id, status: 'DISPATCHED' as any },
-        { driver_id: staffProfile.id, status: 'EN_ROUTE_SCENE' as any },
-        { emt_id: staffProfile.id, status: 'EN_ROUTE_SCENE' as any },
-        { driver_id: staffProfile.id, status: 'AT_SCENE' as any },
-        { emt_id: staffProfile.id, status: 'AT_SCENE' as any },
-        { driver_id: staffProfile.id, status: 'PATIENT_LOADED' as any },
-        { emt_id: staffProfile.id, status: 'PATIENT_LOADED' as any },
-        { driver_id: staffProfile.id, status: 'EN_ROUTE_HOSPITAL' as any },
-        { emt_id: staffProfile.id, status: 'EN_ROUTE_HOSPITAL' as any },
-        { driver_id: staffProfile.id, status: 'AT_HOSPITAL' as any },
-        { emt_id: staffProfile.id, status: 'AT_HOSPITAL' as any },
+        { driver_id: staffProfile.id, status: In(activeStatuses) },
+        { emt_id: staffProfile.id, status: In(activeStatuses) },
       ],
       relations: ['incident'],
       order: { dispatched_at: 'DESC' }
     });
+
+    // 2. Fallback: If no direct link exists, check if their vehicle has an active dispatch
+    if (!dispatch) {
+      const activeShift = await this.dutyShiftRepository.findOne({
+        where: [
+          { driverId: staffProfile.id, status: DutyShiftStatus.ON_DUTY as any },
+          { staffId: staffProfile.id, status: DutyShiftStatus.ON_DUTY as any }
+        ],
+        relations: ['vehicle']
+      });
+
+      if (activeShift && activeShift.vehicle) {
+        dispatch = await this.dispatchRepository.findOne({
+          where: {
+            vehicle_id: activeShift.vehicle.registration_number,
+            status: Not(In(['COMPLETED', 'CANCELLED', 'REJECTED']))
+          },
+          relations: ['incident'],
+          order: { dispatched_at: 'DESC' }
+        });
+
+        // Auto-link the user to the dispatch record for seamless sync
+        if (dispatch) {
+          if (staffProfile.type === StaffType.DRIVER) {
+            dispatch.driver_id = staffProfile.id;
+          } else {
+            dispatch.emt_id = staffProfile.id;
+          }
+          await this.dispatchRepository.save(dispatch);
+        }
+      }
+    }
 
     if (!dispatch) {
       return { data: null };
