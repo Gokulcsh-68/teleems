@@ -205,9 +205,16 @@ export class DispatchServiceService implements OnModuleInit {
 
     if (candidateVehicles.length === 0) {
       // FOR TESTING/LOCAL: Fallback to ANY available vehicle if no shifts are found
-      const anyAvailable = await this.vehicleRepository.findOne({
-        where: { status: VehicleStatus.AVAILABLE }
-      });
+      // But still MUST respect the exclusion list (already rejected)
+      const qb = this.vehicleRepository.createQueryBuilder('vehicle')
+        .where('vehicle.status = :status', { status: VehicleStatus.AVAILABLE });
+      
+      if (excludeVehicleIds.length > 0) {
+        qb.andWhere('vehicle.registration_number NOT IN (:...excludes)', { excludes: excludeVehicleIds });
+        qb.andWhere('vehicle.id NOT IN (:...excludes)', { excludes: excludeVehicleIds });
+      }
+
+      const anyAvailable = await qb.getOne();
       if (anyAvailable) return { vehicle: anyAvailable, duration: 300 };
       return null;
     }
@@ -1509,6 +1516,7 @@ export class DispatchServiceService implements OnModuleInit {
    * Finds the latest active dispatch for the current crew member
    */
   async findActiveDispatchForUser(requestUser: any) {
+    console.log(`[DISPATCH] Fetching active dispatch for user: ${requestUser.userId} (${requestUser.roles})`);
     const staffProfile = await this.staffProfileRepository.findOneBy({ userId: requestUser.userId });
     if (!staffProfile) {
       throw new NotFoundException('Staff profile not found');
@@ -1548,7 +1556,7 @@ export class DispatchServiceService implements OnModuleInit {
         dispatch = await this.dispatchRepository.findOne({
           where: {
             vehicle_id: activeShift.vehicle.registration_number,
-            status: Not(In(['COMPLETED', 'CANCELLED', 'REJECTED']))
+            status: Not(In(['COMPLETED', 'CANCELLED', 'REJECTED', 'HANDOFF_COMPLETE']))
           },
           relations: ['incident'],
           order: { dispatched_at: 'DESC' }
