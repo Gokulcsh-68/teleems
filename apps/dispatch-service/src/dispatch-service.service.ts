@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
@@ -56,7 +57,7 @@ export interface AuditContext {
 import { DispatchGateway } from './dispatch.gateway';
 
 @Injectable()
-export class DispatchServiceService {
+export class DispatchServiceService implements OnModuleInit {
   constructor(
     @InjectRepository(Incident)
     private readonly incidentRepository: Repository<Incident>,
@@ -78,6 +79,38 @@ export class DispatchServiceService {
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
   ) {}
+
+  onModuleInit() {
+    // Periodically retry auto-assignment for PENDING incidents
+    // This handles the case where staff wasn't on duty when the incident was booked.
+    setInterval(() => {
+      this.retryPendingIncidents();
+    }, 15000); // Check every 15 seconds
+  }
+
+  private async retryPendingIncidents() {
+    try {
+      const pendingIncidents = await this.incidentRepository.find({
+        where: { status: 'PENDING' },
+        order: { createdAt: 'ASC' }
+      });
+
+      for (const incident of pendingIncidents) {
+        try {
+          await this.startAutoAssignment(incident.id, {
+            userId: 'SYSTEM',
+            ip: '127.0.0.1',
+            userAgent: 'Auto-Retry-Cron',
+          });
+        } catch (err) {
+          // If startAutoAssignment fails (e.g. still no vehicle available), it throws an error.
+          // We can safely ignore it and it will retry next time.
+        }
+      }
+    } catch (err) {
+      console.error('[DispatchService] Error in retryPendingIncidents:', err);
+    }
+  }
 
   private async getStaffProfileId(userId: string): Promise<string | null> {
     const profile = await this.staffProfileRepository.findOneBy({ userId });
@@ -484,6 +517,50 @@ export class DispatchServiceService {
       limit,
       data.length,
     );
+  }
+
+  async findAllWithoutPagination(query: IncidentQueryDto, requestUser: any) {
+    const { status, category, severity, org_id, caller_id, date_from, date_to } = query;
+    const queryBuilder = this.incidentRepository.createQueryBuilder('incident');
+
+    // 1. RBAC & Tenant Isolation
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) =>
+      ['CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'CCE'].includes(r),
+    );
+
+    if (!isPlatformAdmin) {
+      if (roles.includes('Hospital Admin') || roles.includes('Fleet Operator')) {
+        const orgId = requestUser.organisationId || requestUser.org_id;
+        if (!orgId) throw new ForbiddenException('User organization context missing');
+        queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
+      } else if (roles.includes('Caller (Public)') || roles.includes('Individual Dispatcher')) {
+        queryBuilder.andWhere('incident.caller_id = :userId', { userId: requestUser.userId });
+      } else {
+        throw new ForbiddenException('Insufficient permissions to list incidents');
+      }
+    } else {
+      if (org_id) queryBuilder.andWhere('incident.organisationId = :org_id', { org_id });
+      if (caller_id) queryBuilder.andWhere('incident.caller_id = :caller_id', { caller_id });
+    }
+
+    // 2. Filters
+    if (status) queryBuilder.andWhere('incident.status = :status', { status });
+    if (category) queryBuilder.andWhere('incident.category = :category', { category });
+    if (severity) queryBuilder.andWhere('incident.severity = :severity', { severity });
+    if (date_from) queryBuilder.andWhere('incident.createdAt >= :date_from', { date_from });
+    if (date_to) queryBuilder.andWhere('incident.createdAt <= :date_to', { date_to });
+
+    queryBuilder.orderBy('incident.createdAt', 'DESC');
+    queryBuilder.addOrderBy('incident.id', 'DESC');
+
+    const data = await queryBuilder.getMany();
+    return {
+      status: 200,
+      message: 'Success',
+      data,
+      total: data.length
+    };
   }
 
   async findOne(id: string, requestUser?: any) {
@@ -984,7 +1061,7 @@ export class DispatchServiceService {
 
   // --- NEW: Sequential Auto-Assignment (Phase 3) ---
 
-  async startAutoAssignment(incidentId: string, context: AuditContext) {
+  async startAutoAssignment(incidentId: string, context: AuditContext, extraExcludeIds: string[] = []) {
     const incident = await this.incidentRepository.findOneBy({ id: incidentId });
     if (!incident) throw new NotFoundException('Incident not found');
 
@@ -992,7 +1069,8 @@ export class DispatchServiceService {
     const previousDispatches = await this.dispatchRepository.find({
       where: { incident_id: incidentId, status: 'REJECTED' }
     });
-    const excludeIds = previousDispatches.map(d => d.vehicle_id).filter(id => !!id);
+    const dbExcludeIds = previousDispatches.map(d => d.vehicle_id).filter(id => !!id);
+    const excludeIds = [...new Set([...dbExcludeIds, ...extraExcludeIds])];
 
     // 2. Find Next Best Ambulance
     const target = await this.findNextBestAmbulance(
@@ -1211,12 +1289,18 @@ export class DispatchServiceService {
     }
 
     // 3. TRIGGER AUTO-ASSIGNMENT for NEXT NEAREST
-    // We pass a mock context or use the one from the rejection request
-    return this.startAutoAssignment(dispatch.incident_id, { 
-      userId: requestUser.id || requestUser.userId,
-      ip: '0.0.0.0',
-      userAgent: 'sequential-reassignment'
-    });
+    // Add a small delay (1500ms) to allow mobile UI to show the rejection alert before the next one pops up
+    setTimeout(() => {
+      this.startAutoAssignment(dispatch.incident_id, { 
+        userId: requestUser.id || requestUser.userId,
+        ip: '0.0.0.0',
+        userAgent: 'sequential-reassignment'
+      }, [dispatch.vehicle_id]).catch(err => {
+        console.error('[AUTO-ASSIGN] Background assignment failed:', err.message);
+      });
+    }, 1500);
+
+    return { status: 'REJECTED_AND_REASSIGNING' };
   }
 
   async cancelDispatch(id: string, dto: CancelDispatchDto, context: AuditContext) {

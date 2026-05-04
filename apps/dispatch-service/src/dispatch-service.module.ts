@@ -15,7 +15,8 @@ import {
   Incident,
   Dispatch,
   Vehicle,
-  StaffProfile
+  StaffProfile,
+  Hospital
 } from '@app/common';
 import { DutyShift } from '@app/common';
 import { VehicleInventory } from '@app/common';
@@ -31,7 +32,8 @@ import { DispatchGateway } from './dispatch.gateway';
     TypeOrmModule.forFeature([
       Incident, IncidentTimeline, Dispatch, IncidentEscalation, 
       PatientProfile, PatientAssessment, PatientIntervention,
-      Vehicle, LocationLog, DutyShift, VehicleInventory, StaffProfile
+      Vehicle, LocationLog, DutyShift, VehicleInventory, StaffProfile,
+      Hospital
     ]),
     AuthModule,
     CommonModule,

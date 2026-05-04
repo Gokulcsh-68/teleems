@@ -85,6 +85,18 @@ export class DispatchServiceController {
     return this.dispatchService.findAll(query, req.user);
   }
 
+  @Get('all')
+  @Roles(
+    'Call Centre Executive (CCE)',
+    'Fleet Operator',
+    'CureSelect Admin',
+    'Caller (Public)',
+    'Hospital Admin',
+  )
+  async listAllIncidents(@Query() query: IncidentQueryDto, @Req() req: any) {
+    return this.dispatchService.findAllWithoutPagination(query, req.user);
+  }
+
   @Get('sla-breaches')
   @Roles('Call Centre Executive (CCE)', 'CureSelect Admin', 'Hospital Admin')
   async getSlaBreaches(@Query() query: SlaBreachQueryDto, @Req() req: any) {

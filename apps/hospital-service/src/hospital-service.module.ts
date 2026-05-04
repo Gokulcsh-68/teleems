@@ -9,11 +9,13 @@ import { Hospital, HospitalStatus, Department } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 import { DepartmentController } from './department.controller';
 import { DepartmentService } from './department.service';
+import { CommonModule } from '../../../libs/common/src';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Hospital, HospitalStatus, Department]),
     AuthModule,
+    CommonModule,
   ],
   controllers: [
     HospitalServiceController,

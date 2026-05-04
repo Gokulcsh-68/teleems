@@ -54,4 +54,24 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
       this.logger.log(`Notified EMT ${emt_id} about dispatch ${dispatch.id}`);
     }
   }
+
+  /**
+   * Notify crew members about mission status updates
+   */
+  notifyStatusUpdate(dispatch: any, status: string) {
+    const { driver_id, emt_id, id: tripId } = dispatch;
+    const payload = {
+      trip_id: tripId,
+      status: status,
+      timestamp: new Date(),
+    };
+
+    if (driver_id) {
+      this.server.to(`user_${driver_id}`).emit('dispatch:status_updated', payload);
+    }
+    if (emt_id) {
+      this.server.to(`user_${emt_id}`).emit('dispatch:status_updated', payload);
+    }
+    this.logger.log(`Broadcast status update [${status}] for Trip ${tripId}`);
+  }
 }
