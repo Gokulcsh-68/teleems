@@ -96,6 +96,7 @@ export class AuthController {
   // ─────────────────────────────────────────────
 
   @Post('otp/request')
+  @HttpCode(202)
   requestOtp(@Body() body: RequestOtpDto) {
     return this.authService.sendOtp(body.phone, body.purpose);
   }

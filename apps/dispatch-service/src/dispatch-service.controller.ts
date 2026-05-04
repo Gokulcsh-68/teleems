@@ -349,6 +349,7 @@ export class DispatchServiceController {
     'Call Centre Executive (CCE)',
     'EMT / Paramedic',
     'Hospital Admin',
+    'Caller (Public)',
   )
   async updatePatient(
     @Param('id') id: string,

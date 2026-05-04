@@ -32,6 +32,7 @@ import {
   Roles,
   AdminIpWhitelistGuard,
 } from '@app/common';
+import { Public } from '../../../libs/common/src/decorators/public.decorator';
 
 @Controller('v1/admin/master')
 @UseGuards(JwtAuthGuard, RolesGuard, AdminIpWhitelistGuard)
@@ -68,6 +69,7 @@ export class MasterDataController {
     return { data: result };
   }
 
+  @Public()
   @Get('categories')
   async listCategories(@Query() query: MasterQueryDto) {
     const result = await this.masterDataService.findAllCategories(query);

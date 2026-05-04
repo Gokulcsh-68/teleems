@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   Injectable,
   UnauthorizedException,
@@ -22,7 +24,7 @@ import { SYSTEM_ROLES } from './constants/roles.constants';
 import { PERMISSION_MASTER } from './constants/permissions.constants';
 import { CreateUserDto, UpdateUserDto, UserQueryDto, UpdateMeDto } from './dto/user-management.dto';
 import { CreateRoleDto, UpdateRolePermissionsDto } from './dto/role-management.dto';
-import { 
+import {
   PaginatedResponse, encodeCursor, decodeCursor, AuditLog, Hospital,
   StaffProfile, DutyRoster, DutyShift, Vehicle, DutyShiftStatus
 } from '@app/common';
@@ -56,11 +58,13 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(Vehicle) private vehicleRepo: Repository<Vehicle>,
     private auditLogService: AuditLogService,
     private storageService: StorageService,
-  ) {}
+  ) { }
 
   async onModuleInit() {
     await this.seedRoles();
   }
+
+
 
   private async seedRoles() {
     console.log('[SEED] Synchronizing system roles and permissions...');
@@ -102,12 +106,17 @@ export class AuthService implements OnModuleInit {
       data: {
         otp_ref: otpRef,
         expires_in: expiresIn,
-        otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+        otp_code: otp,
       },
     };
   }
 
-  async verifyOtpAndIssueTokens(phone: string, otp: string, otpRef: string) {
+  async verifyOtpAndIssueTokens(phone: string, otp?: string, otpRef?: string) {
+
+    if (!otp || !otpRef) {
+      throw new BadRequestException('OTP and OTP Reference are required if no Firebase token is provided');
+    }
+
     const stored = this.otpStore.get(phone);
     if (
       !stored ||
@@ -126,6 +135,8 @@ export class AuthService implements OnModuleInit {
     }
     return this.issueTokens(user, '0.0.0.0', 'unknown');
   }
+
+
 
   /**
    * Helper to issue stateful Session and JWT tokens
@@ -826,10 +837,10 @@ export class AuthService implements OnModuleInit {
         'If an account with that email exists, a password reset link has been sent.',
       ...(process.env.NODE_ENV !== 'production'
         ? {
-            reset_url: resetUrl,
-            otp,
-            otp_ref: otpRef,
-          }
+          reset_url: resetUrl,
+          otp,
+          otp_ref: otpRef,
+        }
         : {}),
     };
   }
