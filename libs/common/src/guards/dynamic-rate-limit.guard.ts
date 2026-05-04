@@ -23,7 +23,7 @@ export class DynamicRateLimitGuard extends ThrottlerGuard {
     let targetTtl = 60000;
 
     if (url.includes('otp/request')) {
-      targetLimit = 5;
+      targetLimit = 20; // Increased for development ease
       targetTtl = 60000;
     } else if (url.includes('telelink/session')) {
       targetLimit = 10;

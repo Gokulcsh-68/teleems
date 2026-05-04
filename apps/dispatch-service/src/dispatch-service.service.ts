@@ -1208,7 +1208,7 @@ export class DispatchServiceService implements OnModuleInit {
 
     // 2. Update Incident Status
     const incident = dispatch.incident;
-    incident.status = 'ASSIGNED';
+    incident.status = 'DISPATCHED';
     incident.assigned_vehicle = dispatch.vehicle_id;
     await this.incidentRepository.save(incident);
 

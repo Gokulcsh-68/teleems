@@ -98,6 +98,7 @@ export class AuthController {
   @Post('otp/request')
   @HttpCode(202)
   requestOtp(@Body() body: RequestOtpDto) {
+    console.log(`[AUTH] OTP Request for: ${body.phone}, purpose: ${body.purpose}`);
     return this.authService.sendOtp(body.phone, body.purpose);
   }
 
@@ -106,6 +107,7 @@ export class AuthController {
     @Body() body: VerifyOtpDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    console.log(`[AUTH] OTP Verify for: ${body.phone}, ref: ${body.otp_ref}`);
     const { accessToken, refreshToken, user } =
       await this.authService.verifyOtpAndIssueTokens(
         body.phone,
@@ -140,6 +142,8 @@ export class AuthController {
   ) {
     const ip = extractIp(req);
     const userAgent = req.headers['user-agent'] || 'unknown';
+
+    console.log(`[AUTH] Login attempt for: ${body.username}, IP: ${ip}`);
 
     const result = await this.authService.login(body, ip, userAgent);
 

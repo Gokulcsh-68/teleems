@@ -179,6 +179,7 @@ export class AuthService implements OnModuleInit {
       .getOne();
 
     if (!user || !user.password) {
+      console.warn(`[AUTH] Login failed: User not found or no password set for: ${username}`);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -187,6 +188,7 @@ export class AuthService implements OnModuleInit {
       const minutesLeft = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 60000,
       );
+      console.warn(`[AUTH] Login blocked: Account locked for ${username} until ${user.lockedUntil}`);
       await this.auditLogService.log({
         userId: user.id,
         action: 'LOGIN_BLOCKED_LOCKED',
@@ -213,6 +215,8 @@ export class AuthService implements OnModuleInit {
       }
 
       await this.userRepo.update(user.id, updates);
+
+      console.warn(`[AUTH] Login failed: Invalid password for ${username}. Attempt ${newAttempts}`);
 
       await this.auditLogService.log({
         userId: user.id,
@@ -253,6 +257,8 @@ export class AuthService implements OnModuleInit {
         ipAddress,
         userAgent,
       });
+
+      console.log(`[AUTH] Login: MFA Setup required for admin: ${username}`);
 
       return {
         accessToken: null,
@@ -302,6 +308,8 @@ export class AuthService implements OnModuleInit {
         userAgent,
       });
 
+      console.log(`[AUTH] Login: MFA Verification required for: ${username}`);
+
       return {
         accessToken: null,
         refreshToken: null,
@@ -325,6 +333,8 @@ export class AuthService implements OnModuleInit {
       ipAddress,
       userAgent,
     });
+
+    console.log(`[AUTH] Login SUCCESS for: ${username}`);
 
     const { vehicle: assignedVehicle, isOnDuty } = await this.getAssignedVehicle(user.id);
 
