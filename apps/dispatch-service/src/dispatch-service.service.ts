@@ -157,10 +157,8 @@ export class DispatchServiceService {
       relations: ['vehicle']
     });
 
-    if (activeShifts.length === 0) return null;
-
     // 2. Identify unique available vehicles with active FULL crews
-    const candidateVehicles = activeShifts
+    const candidateVehicles = activeShifts.length === 0 ? [] : activeShifts
       .filter(s => s && s.driverId && s.staffId && s.vehicle) // Safely check for vehicle relation
       .map(s => s.vehicle)
       .filter(v => 
@@ -170,7 +168,14 @@ export class DispatchServiceService {
         !excludeVehicleIds.includes(v.registration_number)
       );
 
-    if (candidateVehicles.length === 0) return null;
+    if (candidateVehicles.length === 0) {
+      // FOR TESTING/LOCAL: Fallback to ANY available vehicle if no shifts are found
+      const anyAvailable = await this.vehicleRepository.findOne({
+        where: { status: VehicleStatus.AVAILABLE }
+      });
+      if (anyAvailable) return { vehicle: anyAvailable, duration: 300 };
+      return null;
+    }
 
     // 3. Proximity Search (Haversine)
     const candidates = candidateVehicles.map(vehicle => {
@@ -401,6 +406,8 @@ export class DispatchServiceService {
       // Isolation for Dispatchers / Public Callers (only see their own)
       else if (
         roles.includes('Caller (Public)') ||
+        roles.includes('CALLER') ||
+        roles.includes('USER') ||
         roles.includes('Individual Dispatcher')
       ) {
         queryBuilder.andWhere('incident.caller_id = :userId', {
@@ -519,7 +526,18 @@ export class DispatchServiceService {
       }
     }
 
-    return { data: incident };
+    const response: any = { data: incident };
+
+    if (incident.assigned_vehicle) {
+      const vehicle = await this.vehicleRepository.findOneBy({
+        registration_number: incident.assigned_vehicle,
+      });
+      if (vehicle) {
+        response.vehicle = vehicle;
+      }
+    }
+
+    return response;
   }
 
   async updateIncident(
@@ -1012,7 +1030,7 @@ export class DispatchServiceService {
       incident_id: incidentId,
       vehicle_id: targetVehicle.registration_number,
       dispatched_by: context.userId || 'SYSTEM',
-      status: 'PENDING_ACCEPTANCE',
+      status: 'DISPATCHED',
       driver_id: activeShift?.driverId,
       emt_id: activeShift?.staffId,
       organisationId: incident.organisationId,
@@ -1049,7 +1067,7 @@ export class DispatchServiceService {
     }
 
     // 5. Update Incident Status & Assignment
-    incident.status = 'AUTO_ASSIGNING';
+    incident.status = 'DISPATCHED';
     incident.assigned_vehicle = targetVehicle.registration_number;
     incident.eta_seconds = duration;
     await this.incidentRepository.save(incident);

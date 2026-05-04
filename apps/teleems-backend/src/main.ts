@@ -40,7 +40,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = process.env.PORT ?? 3000;
+  const port = 3005;
   await app.listen(port, '0.0.0.0');
   console.log(`Unified API is running on: http://localhost:${port}`);
 }
