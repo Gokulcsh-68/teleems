@@ -16,9 +16,10 @@ import {
   Dispatch,
   Vehicle,
   StaffProfile,
-  Hospital
+  Hospital,
+  IncidentFeedback
 } from '@app/common';
-import { DutyShift } from '@app/common';
+import { DutyShift, User } from '@app/common';
 import { VehicleInventory } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -33,7 +34,7 @@ import { DispatchGateway } from './dispatch.gateway';
       Incident, IncidentTimeline, Dispatch, IncidentEscalation, 
       PatientProfile, PatientAssessment, PatientIntervention,
       Vehicle, LocationLog, DutyShift, VehicleInventory, StaffProfile,
-      Hospital
+      Hospital, User, IncidentFeedback
     ]),
     AuthModule,
     CommonModule,

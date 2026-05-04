@@ -74,4 +74,27 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
     }
     this.logger.log(`Broadcast status update [${status}] for Trip ${tripId}`);
   }
+
+  /**
+   * Notify the person who reported the incident about updates
+   */
+  notifyCaller(callerId: string, event: string, payload: any) {
+    if (callerId) {
+      this.server.to(`user_${callerId}`).emit(event, payload);
+      this.logger.log(`Notified Caller ${callerId} with event ${event}`);
+    }
+  }
+
+  /**
+   * Broadcast live vehicle location to the caller
+   */
+  notifyVehicleLocation(callerId: string, vehicleId: string, location: { lat: number; lon: number; speed?: number }) {
+    if (callerId) {
+      this.server.to(`user_${callerId}`).emit('vehicle:location_updated', {
+        vehicle_id: vehicleId,
+        ...location,
+        timestamp: new Date(),
+      });
+    }
+  }
 }
