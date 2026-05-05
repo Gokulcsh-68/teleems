@@ -40,7 +40,7 @@ export class FleetServiceController {
     'CureSelect Admin',
     'CURESELECT_ADMIN',
     'Call Centre Executive (CCE)',
-    'Caller (Public)',
+    'CALLER',
   )
   async findAll(@Query() query: VehicleQueryDto, @Req() req: any) {
     return this.fleetService.findAllVehicles(query, req.user);
