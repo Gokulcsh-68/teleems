@@ -83,6 +83,8 @@ export class HospitalServiceService {
             { lat: dto.lat, lng: dto.lng },
             { lat: hLat, lng: hLon },
           );
+        } else {
+          console.warn(`[HOSPITAL] ${h.name} is missing GPS coordinates (Lat/Lon).`);
         }
         
         return { ...h, distance };

@@ -10,11 +10,7 @@ import {
 } from 'class-validator';
 import { HospitalType } from '@app/common';
 
-export class CreateHospitalDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
+export class BaseHospitalDto {
   @IsEnum(HospitalType)
   @IsOptional()
   type?: HospitalType;
@@ -81,7 +77,17 @@ export class CreateHospitalDto {
   routing_rules?: any;
 }
 
-export class UpdateHospitalDto extends CreateHospitalDto {
+export class CreateHospitalDto extends BaseHospitalDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+}
+
+export class UpdateHospitalDto extends BaseHospitalDto {
+  @IsString()
+  @IsOptional()
+  name?: string;
+
   @IsString()
   @IsOptional()
   status?: 'ACTIVE' | 'INACTIVE';
