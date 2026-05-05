@@ -50,17 +50,22 @@ export class HospitalServiceService {
 
     const result = hospitals
       .map((h) => {
-        const distance = this.mapsService['haversine'](
-          dto.lat,
-          dto.lng,
-          h.gps_lat,
-          h.gps_lon,
+        const distance = this.mapsService.calculateDistance(
+          { lat: dto.lat, lng: dto.lng },
+          { lat: Number(h.gps_lat), lng: Number(h.gps_lon) },
         );
         return { ...h, distance };
       })
-      .filter((h) => h.distance <= radius)
+      .filter((h) => {
+        const isInRadius = h.distance <= radius;
+        if (!isInRadius) {
+           // console.log(`[HOSPITAL] ${h.name} filtered out. Distance: ${h.distance}km, Radius: ${radius}km`);
+        }
+        return isInRadius;
+      })
       .sort((a, b) => a.distance - b.distance);
 
+    console.log(`[HOSPITAL] Found ${result.length} hospitals within ${radius}km of ${dto.lat}, ${dto.lng}`);
     return result;
   }
 

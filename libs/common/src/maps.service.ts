@@ -125,6 +125,13 @@ export class MapsService {
   }
 
   /**
+   * Calculates the straight-line distance between two points in km.
+   */
+  calculateDistance(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }): number {
+    return this.haversine(origin.lat, origin.lng, destination.lat, destination.lng);
+  }
+
+  /**
    * Internal simulation for local dev without API key
    */
   private simulateTravelTime(origin: { lat: number; lng: number }, destination: { lat: number; lng: number }) {
@@ -146,7 +153,7 @@ export class MapsService {
     };
   }
 
-  private haversine(
+  public haversine(
     lat1: number,
     lon1: number,
     lat2: number,
