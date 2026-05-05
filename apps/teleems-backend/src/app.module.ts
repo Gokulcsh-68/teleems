@@ -72,7 +72,8 @@ import {
   EpcrMlcRecord,
   EpcrExportJob,
   Consult,
-  HospitalStatus
+  HospitalStatus,
+  TriageMaster
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -112,7 +113,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           VehicleInventory, InventoryLog, DutyRoster,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile,
           PatientPhoto, PatientDocument, PatientValuable, TeleLinkSession,
-          Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob, Consult, HospitalStatus
+          Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob, Consult, HospitalStatus, TriageMaster
         ],
         synchronize: true,
       }),
