@@ -82,4 +82,13 @@ export class CreatePatientProfileDto {
   @IsString()
   @IsOptional()
   mlc_officer_contact?: string;
+
+  @IsOptional()
+  conditions?: string[];
+
+  @IsOptional()
+  medications?: string[];
+
+  @IsOptional()
+  allergies?: {name: string; severity: string}[];
 }

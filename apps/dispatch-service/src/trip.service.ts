@@ -869,6 +869,42 @@ export class TripService {
     }
 
     const savedPatient = await this.patientRepo.save(patient!);
+
+    // Handle Medical History (Conditions, Medications, Allergies)
+    if (dto.conditions) {
+      await this.patientRepo.manager.delete('patient_conditions', { patient_id: savedPatient.id });
+      for (const cond of dto.conditions) {
+        await this.patientRepo.manager.insert('patient_conditions', {
+          patient_id: savedPatient.id,
+          name: cond,
+          recorded_by_id: requestUser.userId,
+        });
+      }
+    }
+
+    if (dto.medications) {
+      await this.patientRepo.manager.delete('patient_medications', { patient_id: savedPatient.id });
+      for (const med of dto.medications) {
+        await this.patientRepo.manager.insert('patient_medications', {
+          patient_id: savedPatient.id,
+          name: med,
+          recorded_by_id: requestUser.userId,
+        });
+      }
+    }
+
+    if (dto.allergies) {
+      await this.patientRepo.manager.delete('patient_allergies', { patient_id: savedPatient.id });
+      for (const allergy of dto.allergies) {
+        await this.patientRepo.manager.insert('patient_allergies', {
+          patient_id: savedPatient.id,
+          allergen: allergy.name,
+          severity: allergy.severity,
+          recorded_by_id: requestUser.userId,
+        });
+      }
+    }
+
     return { data: savedPatient };
   }
 
