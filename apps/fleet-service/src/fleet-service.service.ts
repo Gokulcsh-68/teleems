@@ -68,8 +68,10 @@ export class FleetServiceService {
       queryBuilder.andWhere('vehicle.isActive = :isActive', { isActive: true });
     }
 
+    const isPublicCaller = requestUser.roles?.includes('CALLER');
+
     // Tenant Isolation
-    if (!isPlatformAdmin) {
+    if (!isPlatformAdmin && !isPublicCaller) {
       queryBuilder.andWhere('vehicle.organisationId = :orgId', { orgId: requestUser.organisationId });
     } else if (query.org_id) {
       queryBuilder.andWhere('vehicle.organisationId = :orgId', { orgId: query.org_id });
