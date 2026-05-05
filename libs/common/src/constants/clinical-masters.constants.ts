@@ -424,3 +424,48 @@ export const COMMON_INCIDENT_CATEGORIES = [
     isCommon: true,
   },
 ];
+
+export const COMMON_TRIAGE_LEVELS = [
+  {
+    code: 'black',
+    name: 'Black',
+    hex_color: '#000000',
+    description: 'Deceased / Expectant',
+    priority: 5,
+  },
+  {
+    code: 'red',
+    name: 'Red',
+    hex_color: '#FF0000',
+    description: 'Immediate / Life-threatening',
+    priority: 1,
+  },
+  {
+    code: 'yellow',
+    name: 'Yellow',
+    hex_color: '#FFFF00',
+    description: 'Urgent / Serious',
+    priority: 2,
+  },
+  {
+    code: 'green',
+    name: 'Green',
+    hex_color: '#008000',
+    description: 'Delayed / Non-urgent',
+    priority: 3,
+  },
+  {
+    code: 'white',
+    name: 'White',
+    hex_color: '#FFFFFF',
+    description: 'Minimal / Minor',
+    priority: 4,
+  },
+  {
+    code: 'blue',
+    name: 'Blue',
+    hex_color: '#0000FF',
+    description: 'Inter-facility Transfer / Special',
+    priority: 6,
+  },
+];

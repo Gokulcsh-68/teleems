@@ -54,6 +54,7 @@ export * from './entities/intervention-master.entity';
 export * from './entities/incident.entity';
 export * from './entities/dispatch.entity';
 export * from './entities/incident-feedback.entity';
+export * from './entities/triage-master.entity';
 export * from './entities/base.entity';
 export * from './entities/consult.entity';
 export * from './entities/epcr.entity';

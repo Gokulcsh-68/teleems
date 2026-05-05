@@ -426,4 +426,11 @@ export class MasterDataController {
     );
     return { data: result };
   }
+
+  @Public()
+  @Get('triage')
+  async listTriageLevels() {
+    const result = await this.masterDataService.findAllTriageLevels();
+    return { data: result };
+  }
 }

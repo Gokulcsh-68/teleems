@@ -17,6 +17,7 @@ import { SystemConfig } from './entities/system-config.entity';
 import { FeatureFlag } from './entities/feature-flag.entity';
 import { IotDeviceProfile } from './entities/iot-device-profile.entity';
 import { HospitalStatus } from './entities/hospital-status.entity';
+import { TriageMaster } from './entities/triage-master.entity';
 
 @Global()
 @Module({
@@ -33,6 +34,7 @@ import { HospitalStatus } from './entities/hospital-status.entity';
       FeatureFlag,
       IotDeviceProfile,
       HospitalStatus,
+      TriageMaster,
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super-secret',
