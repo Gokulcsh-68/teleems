@@ -8,6 +8,7 @@ import {
   Param,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { HospitalServiceService } from './hospital-service.service';
 import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
@@ -44,14 +45,14 @@ export class HospitalServiceController {
     'HOSPITAL_ADMIN',
     'EMT / Paramedic',
   )
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.hospitalService.findOne(id);
   }
 
   @Put(':id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
   async update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateHospitalDto,
     @Req() req: any,
   ) {
@@ -60,7 +61,7 @@ export class HospitalServiceController {
 
   @Delete(':id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
-  async remove(@Param('id') id: string, @Req() req: any) {
+  async remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     return this.hospitalService.remove(id, req.user.userId, req.ip);
   }
 }
