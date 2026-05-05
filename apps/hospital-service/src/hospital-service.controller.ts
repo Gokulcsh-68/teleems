@@ -42,6 +42,7 @@ export class HospitalServiceController {
     'CURESELECT_ADMIN',
     'Hospital Admin',
     'HOSPITAL_ADMIN',
+    'EMT / Paramedic',
   )
   async findOne(@Param('id') id: string) {
     return this.hospitalService.findOne(id);
