@@ -68,30 +68,28 @@ export class HospitalServiceService {
   }
 
   async findNearest(dto: NearestHospitalDto) {
-    const hospitals = await this.hospitalRepo.find({
-      where: { status: 'ACTIVE' },
-    });
-
-    const radius = dto.radius_km || 50; // Default 50km radius
-
+    const hospitals = await this.hospitalRepo.find();
+    
     const result = hospitals
       .map((h) => {
-        const distance = this.mapsService.calculateDistance(
-          { lat: dto.lat, lng: dto.lng },
-          { lat: Number(h.gps_lat), lng: Number(h.gps_lon) },
-        );
-        return { ...h, distance };
-      })
-      .filter((h) => {
-        const isInRadius = h.distance <= radius;
-        if (!isInRadius) {
-           // console.log(`[HOSPITAL] ${h.name} filtered out. Distance: ${h.distance}km, Radius: ${radius}km`);
+        // Handle cases where coordinates might be strings or missing
+        const hLat = h.gps_lat != null ? Number(h.gps_lat) : null;
+        const hLon = h.gps_lon != null ? Number(h.gps_lon) : null;
+        
+        let distance = 999999; // Default for hospitals without coords
+        
+        if (hLat !== null && hLon !== null && hLat !== 0 && hLon !== 0) {
+          distance = this.mapsService.calculateDistance(
+            { lat: dto.lat, lng: dto.lng },
+            { lat: hLat, lng: hLon },
+          );
         }
-        return isInRadius;
+        
+        return { ...h, distance };
       })
       .sort((a, b) => a.distance - b.distance);
 
-    console.log(`[HOSPITAL] Found ${result.length} hospitals within ${radius}km of ${dto.lat}, ${dto.lng}`);
+    console.log(`[HOSPITAL] Returning ${result.length} hospitals for EMT at ${dto.lat}, ${dto.lng}`);
     return result;
   }
 
