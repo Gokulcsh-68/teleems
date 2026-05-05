@@ -7,6 +7,7 @@ import {
   UseGuards,
   Param,
   Put,
+  Patch,
   Body,
 } from '@nestjs/common';
 import { TripService } from './trip.service';
