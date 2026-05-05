@@ -86,3 +86,17 @@ export class UpdateHospitalDto extends CreateHospitalDto {
   @IsOptional()
   status?: 'ACTIVE' | 'INACTIVE';
 }
+
+export class NearestHospitalDto {
+  @IsNumber()
+  @IsNotEmpty()
+  lat: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  lng: number;
+
+  @IsNumber()
+  @IsOptional()
+  radius_km?: number;
+}

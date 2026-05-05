@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { HospitalServiceService } from './hospital-service.service';
-import { CreateHospitalDto, UpdateHospitalDto } from './dto/hospital.dto';
+import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 
 @Controller('v1/hospitals')
@@ -25,9 +25,15 @@ export class HospitalServiceController {
   }
 
   @Get()
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
   async findAll() {
     return this.hospitalService.findAll();
+  }
+
+  @Post('nearest')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
+  async findNearest(@Body() dto: NearestHospitalDto) {
+    return this.hospitalService.findNearest(dto);
   }
 
   @Get(':id')

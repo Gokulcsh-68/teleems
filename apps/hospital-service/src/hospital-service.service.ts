@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Hospital, AuditLogService, MapsService } from '@app/common';
-import { CreateHospitalDto, UpdateHospitalDto } from './dto/hospital.dto';
+import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
 
 @Injectable()
 export class HospitalServiceService {
@@ -39,6 +39,29 @@ export class HospitalServiceService {
 
   async findAll() {
     return this.hospitalRepo.find({ order: { name: 'ASC' } });
+  }
+
+  async findNearest(dto: NearestHospitalDto) {
+    const hospitals = await this.hospitalRepo.find({
+      where: { status: 'ACTIVE' },
+    });
+
+    const radius = dto.radius_km || 50; // Default 50km radius
+
+    const result = hospitals
+      .map((h) => {
+        const distance = this.mapsService['haversine'](
+          dto.lat,
+          dto.lng,
+          h.gps_lat,
+          h.gps_lon,
+        );
+        return { ...h, distance };
+      })
+      .filter((h) => h.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
+    return result;
   }
 
   async findOne(id: string) {
