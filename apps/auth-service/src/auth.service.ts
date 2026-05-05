@@ -155,6 +155,7 @@ export class AuthService implements OnModuleInit {
       sub: user.id,
       roles: user.roles,
       org_id: user.organisationId,
+      hospital_id: user.hospitalId,
       sid: session.id,
     };
 
