@@ -13,11 +13,28 @@ import {
 import { HospitalServiceService } from './hospital-service.service';
 import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
+import { Query } from '@nestjs/common';
 
 @Controller('v1/hospitals')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HospitalServiceController {
   constructor(private readonly hospitalService: HospitalServiceService) {}
+
+  @Get('nearest')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
+  async findNearestGet(@Query('lat') lat: string, @Query('lng') lng: string, @Query('radius') radius?: string) {
+    return this.hospitalService.findNearest({
+      lat: parseFloat(lat),
+      lng: parseFloat(lng),
+      radius_km: radius ? parseFloat(radius) : 100,
+    });
+  }
+
+  @Post('nearest')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
+  async findNearest(@Body() dto: NearestHospitalDto) {
+    return this.hospitalService.findNearest(dto);
+  }
 
   @Post()
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
@@ -29,12 +46,6 @@ export class HospitalServiceController {
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
   async findAll() {
     return this.hospitalService.findAll();
-  }
-
-  @Post('nearest')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
-  async findNearest(@Body() dto: NearestHospitalDto) {
-    return this.hospitalService.findNearest(dto);
   }
 
   @Get(':id')
