@@ -78,4 +78,30 @@ export class HospitalOpsService {
       status,
     };
   }
+
+  async updateProfile(hospitalId: string, dto: any, userId: string, ip: string) {
+    const hospital = await this.hospitalRepo.findOneBy({ id: hospitalId });
+    if (!hospital) throw new NotFoundException(`Hospital ${hospitalId} not found`);
+
+    // Allowed fields for self-update
+    if (dto.name) hospital.name = dto.name;
+    if (dto.address) hospital.address = dto.address;
+    if (dto.emergency_phone) hospital.emergency_phone = dto.emergency_phone;
+    if (dto.contact_phone) hospital.contact_phone = dto.contact_phone;
+    if (dto.contact_email) hospital.contact_email = dto.contact_email;
+    if (dto.gps_lat) hospital.gps_lat = dto.gps_lat;
+    if (dto.gps_lon) hospital.gps_lon = dto.gps_lon;
+    if (dto.nabh_status !== undefined) hospital.nabh_status = dto.nabh_status;
+
+    await this.hospitalRepo.save(hospital);
+
+    await this.auditLogService.log({
+      userId,
+      action: 'HOSPITAL_PROFILE_SELF_UPDATED',
+      ipAddress: ip,
+      metadata: { hospitalId, updates: dto },
+    });
+
+    return hospital;
+  }
 }

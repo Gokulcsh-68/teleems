@@ -51,4 +51,10 @@ export class HospitalOpsController {
   async getDashboard(@Req() req: any) {
     return this.opsService.getDashboard(this.getHospitalId(req));
   }
+  
+  @Patch('profile')
+  async updateProfile(@Body() dto: any, @Req() req: any) {
+    const hospitalId = this.getHospitalId(req);
+    return this.opsService.updateProfile(hospitalId, dto, req.user.userId, req.ip);
+  }
 }
