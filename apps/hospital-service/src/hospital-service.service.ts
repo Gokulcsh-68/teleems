@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Hospital, AuditLogService, MapsService } from '@app/common';
-import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
+import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto, PaginationDto } from './dto/hospital.dto';
 
 @Injectable()
 export class HospitalServiceService {
@@ -37,8 +37,34 @@ export class HospitalServiceService {
     return hospital;
   }
 
-  async findAll() {
-    return this.hospitalRepo.find({ order: { name: 'ASC' } });
+  async findAll(dto: PaginationDto = {}) {
+    const page = dto.page || 1;
+    const limit = dto.limit || 10;
+    const skip = (page - 1) * limit;
+    const search = dto.search || '';
+
+    const queryBuilder = this.hospitalRepo.createQueryBuilder('hospital');
+
+    if (search) {
+      queryBuilder.where('hospital.name ILIKE :search OR hospital.address ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    queryBuilder
+      .orderBy('hospital.name', 'ASC')
+      .skip(skip)
+      .take(limit);
+
+    const [items, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findNearest(dto: NearestHospitalDto) {

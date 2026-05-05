@@ -11,7 +11,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { HospitalServiceService } from './hospital-service.service';
-import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto } from './dto/hospital.dto';
+import { CreateHospitalDto, UpdateHospitalDto, NearestHospitalDto, PaginationDto } from './dto/hospital.dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 import { Query } from '@nestjs/common';
 
@@ -44,8 +44,8 @@ export class HospitalServiceController {
 
   @Get()
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Call Centre Executive (CCE)', 'EMT / Paramedic')
-  async findAll() {
-    return this.hospitalService.findAll();
+  async findAll(@Query() dto: PaginationDto) {
+    return this.hospitalService.findAll(dto);
   }
 
   @Get(':id')

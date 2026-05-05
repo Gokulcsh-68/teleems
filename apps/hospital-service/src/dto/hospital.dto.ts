@@ -100,3 +100,17 @@ export class NearestHospitalDto {
   @IsOptional()
   radius_km?: number;
 }
+
+export class PaginationDto {
+  @IsNumber()
+  @IsOptional()
+  page?: number;
+
+  @IsNumber()
+  @IsOptional()
+  limit?: number;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
