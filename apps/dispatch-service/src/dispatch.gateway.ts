@@ -38,6 +38,14 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
     return { event: 'joined', data: room };
   }
 
+  @SubscribeMessage('subscribe_trip')
+  handleSubscribeTrip(@MessageBody() data: { tripId: string }, @ConnectedSocket() client: Socket) {
+    const room = `trip_${data.tripId}`;
+    client.join(room);
+    this.logger.log(`Client ${client.id} subscribed to trip ${data.tripId}`);
+    return { event: 'subscribed', data: room };
+  }
+
   /**
    * Notify specific crew members about a new dispatch
    */
@@ -96,5 +104,29 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
         timestamp: new Date(),
       });
     }
+  }
+
+  /**
+   * Notify caller about arrival time changes
+   */
+  notifyETAUpdate(callerId: string, etaSeconds: number) {
+    if (callerId) {
+      this.server.to(`user_${callerId}`).emit('dispatch:eta_updated', {
+        eta_seconds: etaSeconds,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  /**
+   * Broadcast vitals update to all subscribers of a trip
+   */
+  notifyVitalsUpdate(tripId: string, vitals: any) {
+    this.server.to(`trip_${tripId}`).emit('trip:vitals_updated', {
+      trip_id: tripId,
+      ...vitals,
+      timestamp: new Date(),
+    });
+    this.logger.log(`Broadcast vitals update for Trip ${tripId}`);
   }
 }

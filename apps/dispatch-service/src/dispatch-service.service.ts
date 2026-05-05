@@ -47,8 +47,8 @@ import {
   VehicleInventory,
   StaffProfile,
   IncidentFeedback,
-  User
-  StaffType
+  User,
+  StaffType,
 } from '@app/common';
 
 export interface AuditContext {
@@ -752,9 +752,20 @@ export class DispatchServiceService implements OnModuleInit {
     id: string,
     dto: UpdateIncidentStatusDto,
     context: AuditContext,
+    user?: any
   ) {
     const incident = await this.incidentRepository.findOneBy({ id });
     if (!incident) throw new NotFoundException('Incident not found');
+
+    // RBAC: Public callers can only cancel their OWN incidents
+    if (user && user.roles.includes('Caller (Public)')) {
+      if (incident.caller_id !== user.userId) {
+        throw new ForbiddenException('You can only update status of your own incidents');
+      }
+      if (dto.status !== 'CANCELLED') {
+        throw new BadRequestException('Public callers can only cancel incidents');
+      }
+    }
 
     const oldStatus = incident.status;
     incident.status = dto.status;

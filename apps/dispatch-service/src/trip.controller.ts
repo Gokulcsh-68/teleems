@@ -182,6 +182,12 @@ export class TripController {
     return this.tripService.updateDestination(id, dto, req.user);
   }
 
+  @Patch(':id/location')
+  @Roles('Pilot', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'CureSelect Admin')
+  async updateLocation(@Param('id') id: string, @Body() dto: { gps_lat: number, gps_lon: number, speed?: number }, @Req() req: any) {
+    return this.tripService.updateLocation(id, dto, req.user);
+  }
+
   @Post(':id/clinical/patient')
   @Roles('EMT / Paramedic', 'CureSelect Admin')
   async createOrUpdatePatient(@Param('id') id: string, @Body() dto: CreatePatientProfileDto, @Req() req: any) {

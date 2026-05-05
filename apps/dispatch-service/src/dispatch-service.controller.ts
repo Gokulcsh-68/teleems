@@ -213,7 +213,7 @@ export class DispatchServiceController {
   }
 
   @Patch(':id/status')
-  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin')
+  @Roles('Call Centre Executive (CCE)', 'Fleet Operator', 'CureSelect Admin', 'Caller (Public)')
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateIncidentStatusDto,
@@ -225,7 +225,7 @@ export class DispatchServiceController {
       userAgent: req.get('user-agent'),
       organisationId: req.user.organisationId,
     };
-    return this.dispatchService.updateStatus(id, dto, context);
+    return this.dispatchService.updateStatus(id, dto, context, req.user);
   }
 
   @Patch(':id/assign')

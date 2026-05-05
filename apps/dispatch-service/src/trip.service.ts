@@ -34,7 +34,8 @@ import {
   Incident,
   Dispatch,
   StaffProfile,
-  Hospital
+  Hospital,
+  RedisService
 } from '@app/common';
 
 import { TripStatus } from './enums/trip-status.enum';
@@ -64,6 +65,7 @@ export class TripService {
     private readonly storageService: StorageService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
+    private readonly redisService: RedisService,
   ) {}
 
   private async getStaffProfileId(userId: string): Promise<string | null> {
@@ -886,6 +888,21 @@ export class TripService {
 
     const savedAssessment = await this.assessmentRepo.save(assessment);
     
+    // Broadcast via WebSocket
+    this.dispatchGateway.notifyVitalsUpdate(trip.id, {
+      patient_id: patient.id,
+      vitals: savedAssessment,
+    });
+
+    // Stream via Redis for RTVS integration
+    this.redisService.publish(`vitals:stream:${patient.id}`, JSON.stringify({
+      patient_id: patient.id,
+      trip_id: trip.id,
+      type: 'manual_entry',
+      ...savedAssessment,
+      timestamp: new Date(),
+    }));
+
     // Log to timeline
     await this.timelineRepo.save(this.timelineRepo.create({
       incident_id: trip.incident_id,
@@ -1045,5 +1062,31 @@ export class TripService {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  async updateLocation(id: string, dto: { gps_lat: number, gps_lon: number, speed?: number }, requestUser: any) {
+    const trip = await this.dispatchRepo.findOne({
+      where: { id },
+      relations: ['incident']
+    });
+
+    if (!trip) throw new NotFoundException('Trip not found');
+
+    if (trip.vehicle_id) {
+      await this.vehicleRepo.update({ registration_number: trip.vehicle_id }, {
+        gps_lat: dto.gps_lat,
+        gps_lon: dto.gps_lon
+      });
+
+      if (trip.incident?.caller_id) {
+        this.dispatchGateway.notifyVehicleLocation(trip.incident.caller_id, trip.vehicle_id, {
+          lat: dto.gps_lat,
+          lon: dto.gps_lon,
+          speed: dto.speed
+        });
+      }
+    }
+
+    return { success: true };
   }
 }
