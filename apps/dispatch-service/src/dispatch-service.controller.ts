@@ -37,6 +37,7 @@ import {
 } from './dto/pagination-query.dto';
 import { EscalateIncidentDto } from './dto/escalate-incident.dto';
 import { IncidentAnalyticsQueryDto } from './dto/incident-analytics-query.dto';
+import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../../../libs/common/src/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../libs/common/src/guards/roles.guard';
 import { Roles } from '../../../libs/common/src/decorators/roles.decorator';
@@ -394,5 +395,16 @@ export class DispatchServiceController {
     @Req() req: any,
   ) {
     return this.dispatchService.getAnalyticsSummary(query, req.user);
+  }
+
+  @Public()
+  @Post(':id/feedback')
+  @Roles('Caller (Public)', 'CureSelect Admin')
+  async submitFeedback(
+    @Param('id') id: string,
+    @Body() dto: CreateFeedbackDto,
+    @Req() req: any,
+  ) {
+    return this.dispatchService.submitFeedback(id, dto, req.user);
   }
 }

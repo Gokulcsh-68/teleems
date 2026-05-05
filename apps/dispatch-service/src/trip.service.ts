@@ -409,8 +409,21 @@ export class TripService {
     });
     await this.timelineRepo.save(timeline);
 
-    // 7. Emit WebSocket update to crew
+    // 7. Emit WebSocket update to crew and caller
     this.dispatchGateway.notifyStatusUpdate(trip, dto.status);
+    if (trip.incident?.caller_id) {
+      this.dispatchGateway.notifyCaller(trip.incident.caller_id, 'dispatch:status_updated', {
+        trip_id: trip.id,
+        status: dto.status,
+        timestamp: new Date(),
+      });
+      
+      this.dispatchGateway.notifyVehicleLocation(trip.incident.caller_id, trip.vehicle_id!, {
+        lat: dto.gps_lat,
+        lon: dto.gps_lon,
+        speed: dto.speed,
+      });
+    }
 
     return { data: trip };
   }

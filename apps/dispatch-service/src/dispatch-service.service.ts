@@ -46,6 +46,8 @@ import {
   DutyShiftStatus,
   VehicleInventory,
   StaffProfile,
+  IncidentFeedback,
+  User
   StaffType
 } from '@app/common';
 
@@ -77,6 +79,10 @@ export class DispatchServiceService implements OnModuleInit {
     private readonly inventoryRepository: Repository<VehicleInventory>,
     @InjectRepository(StaffProfile)
     private readonly staffProfileRepository: Repository<StaffProfile>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(IncidentFeedback)
+    private readonly feedbackRepository: Repository<IncidentFeedback>,
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
@@ -390,6 +396,13 @@ export class DispatchServiceService implements OnModuleInit {
           where: { id: incident.id }
         });
         if (latest) {
+          // Notify Caller via WebSocket about the assignment
+          this.dispatchGateway.notifyCaller(latest.caller_id, 'dispatch:assigned', {
+            incident_id: latest.id,
+            vehicle_id: assigned_vehicle,
+            eta_seconds,
+          });
+
           return {
             data: latest,
             assigned_vehicle,
@@ -620,6 +633,22 @@ export class DispatchServiceService implements OnModuleInit {
       });
       if (vehicle) {
         response.vehicle = vehicle;
+        
+        // Fetch active duty shift with crew details (Driver info)
+        const activeShift = await this.dutyShiftRepository.createQueryBuilder('shift')
+          .leftJoinAndMapOne('shift.driver', StaffProfile, 'driver', 'driver.id = shift.driverId')
+          .leftJoinAndMapOne('driver.user', User, 'driverUser', 'driverUser.id = driver.userId')
+          .where('shift.vehicleId = :vehicleId', { vehicleId: vehicle.id })
+          .andWhere('shift.status = :status', { status: 'ON_DUTY' })
+          .getOne();
+
+        if (activeShift && (activeShift as any).driver?.user) {
+          const driverUser = (activeShift as any).driver.user;
+          response.driver = {
+            name: driverUser.name,
+            phone: driverUser.phone,
+          };
+        }
       }
     }
 
@@ -1188,7 +1217,7 @@ export class DispatchServiceService implements OnModuleInit {
 
     // 2. Update Incident Status
     const incident = dispatch.incident;
-    incident.status = 'ASSIGNED';
+    incident.status = 'DISPATCHED';
     incident.assigned_vehicle = dispatch.vehicle_id;
     await this.incidentRepository.save(incident);
 
@@ -2017,6 +2046,21 @@ export class DispatchServiceService implements OnModuleInit {
     );
 
     return { data: saved };
+  }
+
+  async submitFeedback(incidentId: string, dto: any, user: any) {
+    const incident = await this.incidentRepository.findOneBy({ id: incidentId });
+    if (!incident) throw new NotFoundException('Incident not found');
+
+    const feedback = this.feedbackRepository.create({
+      incidentId,
+      rating: dto.rating,
+      comment: dto.comment,
+      userId: user?.userId,
+    });
+
+    await this.feedbackRepository.save(feedback);
+    return { message: 'Thank you for your feedback!' };
   }
 
   async getAnalyticsSummary(
