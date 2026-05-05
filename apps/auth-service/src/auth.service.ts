@@ -56,6 +56,7 @@ export class AuthService implements OnModuleInit {
     @InjectRepository(DutyRoster) private rosterRepo: Repository<DutyRoster>,
     @InjectRepository(DutyShift) private dutyShiftRepo: Repository<DutyShift>,
     @InjectRepository(Vehicle) private vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(Hospital) private hospitalRepo: Repository<Hospital>,
     private auditLogService: AuditLogService,
     private storageService: StorageService,
   ) { }
@@ -510,8 +511,18 @@ export class AuthService implements OnModuleInit {
 
     const { vehicle: assignedVehicle, isOnDuty } = await this.getAssignedVehicle(userId);
 
+    let hospitalName: string | null = null;
+    if (user.hospitalId) {
+      const hospital = await this.hospitalRepo.findOne({
+        where: { id: user.hospitalId },
+        select: ['name'],
+      });
+      hospitalName = hospital?.name || null;
+    }
+
     return {
       ...user,
+      hospitalName,
       assigned_vehicle: assignedVehicle,
       is_on_duty: isOnDuty,
     };
