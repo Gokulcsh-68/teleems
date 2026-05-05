@@ -68,26 +68,26 @@ export class HospitalServiceService {
   }
 
   async findNearest(dto: NearestHospitalDto) {
-    const hospitals = await this.hospitalRepo.find({
-      where: { status: 'ACTIVE' },
-    });
+    const hospitals = await this.hospitalRepo.find();
+    console.log(`[HOSPITAL] Total hospitals in DB: ${hospitals.length}`);
+    hospitals.forEach(h => console.log(`[HOSPITAL] ${h.name}: Status=${h.status}, Lat=${h.gps_lat}, Lon=${h.gps_lon}`));
 
-    const radius = dto.radius_km || 50; // Default 50km radius
+    const activeHospitals = hospitals.filter(h => h.status === 'ACTIVE');
+    const radius = dto.radius_km || 500; 
 
     const result = hospitals
       .map((h) => {
+        const hLat = h.gps_lat ? Number(h.gps_lat) : 0;
+        const hLon = h.gps_lon ? Number(h.gps_lon) : 0;
         const distance = this.mapsService.calculateDistance(
           { lat: dto.lat, lng: dto.lng },
-          { lat: Number(h.gps_lat), lng: Number(h.gps_lon) },
+          { lat: hLat, lng: hLon },
         );
         return { ...h, distance };
       })
       .filter((h) => {
-        const isInRadius = h.distance <= radius;
-        if (!isInRadius) {
-           // console.log(`[HOSPITAL] ${h.name} filtered out. Distance: ${h.distance}km, Radius: ${radius}km`);
-        }
-        return isInRadius;
+        const hasCoords = h.gps_lat && h.gps_lon;
+        return hasCoords && h.distance <= radius;
       })
       .sort((a, b) => a.distance - b.distance);
 
