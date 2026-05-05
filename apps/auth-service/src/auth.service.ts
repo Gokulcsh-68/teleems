@@ -1577,6 +1577,18 @@ export class AuthService implements OnModuleInit {
     if (dto.email !== undefined) user.email = dto.email;
     if (dto.phone !== undefined) user.phone = dto.phone;
 
+    if (dto.medical_profile !== undefined) {
+      user.metadata = { ...(user.metadata || {}), medical: dto.medical_profile };
+    }
+    if (dto.emergency_contacts !== undefined) {
+      user.metadata = { ...(user.metadata || {}), emergency_contacts: dto.emergency_contacts };
+    }
+    if (dto.saved_locations !== undefined) {
+      user.metadata = { ...(user.metadata || {}), saved_locations: dto.saved_locations };
+    }
+    if (dto.favourite_locations !== undefined) {
+      user.metadata = { ...(user.metadata || {}), favourite_locations: dto.favourite_locations };
+    }
     if (dto.metadata !== undefined) {
       user.metadata = { ...(user.metadata || {}), ...dto.metadata };
     }

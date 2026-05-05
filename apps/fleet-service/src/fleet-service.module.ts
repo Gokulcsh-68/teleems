@@ -8,6 +8,7 @@ import {
 } from '@app/common';
 import { LocationLog } from './entities/location-log.entity';
 import { AuthModule } from '../../auth-service/src/auth.module';
+import { CommonModule } from '../../../libs/common/src';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       DutyRoster
     ]),
     AuthModule,
+    CommonModule,
   ],
   controllers: [FleetServiceController],
   providers: [FleetServiceService],

@@ -9,7 +9,8 @@ import {
   Organisation, FleetOperator, Vehicle, VehicleStatus, Station, StaffProfile, StaffType, StaffStatus,
   DutyShift, DutyShiftStatus, InventoryItemMaster, VehicleInventory,
   DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType,
-  User, Role
+  User, Role,
+  RedisService
 } from '@app/common';
 import { DataSource } from 'typeorm';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
@@ -48,6 +49,7 @@ export class FleetServiceService {
     private readonly roleRepo: Repository<Role>,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
+    private readonly redisService: RedisService,
   ) {}
 
   async findAllVehicles(query: VehicleQueryDto, requestUser: any) {
@@ -256,6 +258,19 @@ export class FleetServiceService {
 
     Object.assign(vehicle, dto);
     const saved = await this.vehicleRepo.save(vehicle);
+
+    // Broadcast live location update if GPS coords were changed
+    if (dto.gps_lat !== undefined || dto.gps_lon !== undefined) {
+      await this.redisService.publish('fleet:location_updated', {
+        vehicle_id: vehicle.id,
+        registration_number: vehicle.registration_number,
+        lat: vehicle.gps_lat,
+        lon: vehicle.gps_lon,
+        status: vehicle.status,
+        timestamp: new Date(),
+      });
+    }
+
     return { data: saved };
   }
 

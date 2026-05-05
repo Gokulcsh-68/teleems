@@ -8,7 +8,8 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
+import { RedisService } from '@app/common';
 
 @WebSocketGateway({
   cors: {
@@ -16,11 +17,26 @@ import { Logger } from '@nestjs/common';
   },
   namespace: 'dispatch',
 })
-export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
   server: Server;
 
   private logger: Logger = new Logger('DispatchGateway');
+
+  constructor(private readonly redisService: RedisService) {}
+
+  async onModuleInit() {
+    // Subscribe to Redis updates from Fleet Service
+    await this.redisService.subscribe('fleet:location_updated', (message: string) => {
+      try {
+        const data = JSON.parse(message);
+        // Broadcast to everyone in the "fleet_locations" room (for BookingScreen map)
+        this.server.to('fleet_locations').emit('fleet:location_updated', data);
+      } catch (err) {
+        this.logger.error('Error parsing fleet:location_updated message', err);
+      }
+    });
+  }
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -43,6 +59,14 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
     const room = `trip_${data.tripId}`;
     client.join(room);
     this.logger.log(`Client ${client.id} subscribed to trip ${data.tripId}`);
+    return { event: 'subscribed', data: room };
+  }
+
+  @SubscribeMessage('subscribe_fleet')
+  handleSubscribeFleet(@ConnectedSocket() client: Socket) {
+    const room = 'fleet_locations';
+    client.join(room);
+    this.logger.log(`Client ${client.id} subscribed to fleet locations`);
     return { event: 'subscribed', data: room };
   }
 
