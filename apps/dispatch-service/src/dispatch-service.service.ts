@@ -328,6 +328,28 @@ export class DispatchServiceService implements OnModuleInit {
     return R * c;
   }
 
+  private async notifyEmergencyContacts(incident: Incident) {
+    if (!incident.caller_id) return;
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: incident.caller_id }
+      });
+
+      if (user && user.metadata?.emergency_contacts) {
+        const contacts = user.metadata.emergency_contacts;
+        for (const contact of contacts) {
+          console.log(`[NOTIFICATION] Sending SMS to emergency contact ${contact.name} (${contact.phone}): ` +
+            `Emergency booked for ${user.name || 'User'}. Location: ${incident.address}. ` +
+            `Mission ID: ${incident.id.slice(0, 8)}`);
+          // Integration point for SMS gateway (Twilio, Msg91, etc.)
+        }
+      }
+    } catch (err) {
+      console.error('[DispatchService] Failed to notify emergency contacts:', err);
+    }
+  }
+
   async createIncident(dto: CreateIncidentDto, context: Partial<AuditContext>) {
     // Construct a full AuditContext with defaults for mandatory fields
     const fullContext: AuditContext = {
@@ -364,6 +386,9 @@ export class DispatchServiceService implements OnModuleInit {
 
     const incident = this.incidentRepository.create(incidentData);
     await this.incidentRepository.save(incident);
+
+    // Trigger emergency contact notifications
+    await this.notifyEmergencyContacts(incident);
 
     await this.logTimelineEvent(
       incident.id,

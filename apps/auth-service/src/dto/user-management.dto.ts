@@ -6,7 +6,10 @@ import {
   IsUUID,
   IsArray,
   IsPhoneNumber,
+  IsNumber,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateUserDto {
   @IsPhoneNumber('IN')
@@ -91,6 +94,58 @@ export class UpdateUserDto {
   designation?: string;
 }
 
+export class MedicalProfileDto {
+  @IsString()
+  @IsOptional()
+  blood_group?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  conditions?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  medications?: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  allergies?: string[];
+
+  @IsString()
+  @IsOptional()
+  insurance?: string;
+
+  @IsString()
+  @IsOptional()
+  aadhaar?: string;
+}
+
+export class EmergencyContactDto {
+  @IsString()
+  name: string;
+
+  @IsString()
+  phone: string;
+
+  @IsString()
+  @IsOptional()
+  relation?: string;
+}
+
+export class SavedLocationDto {
+  @IsString()
+  address: string;
+
+  @IsNumber()
+  lat: number;
+
+  @IsNumber()
+  lon: number;
+}
+
 export class UpdateMeDto {
   @IsString()
   @IsOptional()
@@ -103,6 +158,29 @@ export class UpdateMeDto {
   @IsPhoneNumber('IN')
   @IsOptional()
   phone?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MedicalProfileDto)
+  medical_profile?: MedicalProfileDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EmergencyContactDto)
+  emergency_contacts?: EmergencyContactDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SavedLocationDto)
+  saved_locations?: SavedLocationDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SavedLocationDto)
+  favourite_locations?: SavedLocationDto[];
 
   @IsOptional()
   metadata?: Record<string, any>;
