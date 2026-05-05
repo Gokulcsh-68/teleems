@@ -50,4 +50,24 @@ export class UpdatePatientDto {
   @IsBoolean()
   @IsOptional()
   is_unknown?: boolean;
+
+  @IsString()
+  @IsOptional()
+  informer_phone?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_mlc?: boolean;
+
+  @IsString()
+  @IsOptional()
+  mlc_fir_number?: string;
+
+  @IsString()
+  @IsOptional()
+  mlc_police_station?: string;
+
+  @IsString()
+  @IsOptional()
+  mlc_officer_contact?: string;
 }

@@ -57,6 +57,21 @@ export class PatientProfile {
   @Column({ nullable: true })
   informer_relation: string;
 
+  @Column({ nullable: true })
+  informer_phone: string;
+
+  @Column({ default: false })
+  is_mlc: boolean;
+
+  @Column({ nullable: true })
+  mlc_fir_number: string;
+
+  @Column({ nullable: true })
+  mlc_police_station: string;
+
+  @Column({ nullable: true })
+  mlc_officer_contact: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

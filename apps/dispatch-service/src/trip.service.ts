@@ -852,9 +852,11 @@ export class TripService {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
 
-    let patient = await this.patientRepo.findOne({
-      where: { incident_id: trip.incident_id },
-    });
+    let patient: PatientProfile | null = null;
+    
+    if (dto.id) {
+      patient = await this.patientRepo.findOneBy({ id: dto.id });
+    }
 
     if (!patient) {
       patient = this.patientRepo.create({
