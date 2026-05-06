@@ -936,7 +936,7 @@ export class TripService {
         await this.patientRepo.manager.insert('patient_allergies', {
           patient_id: savedPatient.id,
           allergen: allergy.name,
-          severity: allergy.severity,
+          severity: allergy.severity?.toUpperCase() || 'MODERATE',
           recorded_by_id: requestUser.userId,
         });
       }
