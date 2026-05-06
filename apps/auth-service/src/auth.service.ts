@@ -511,18 +511,20 @@ export class AuthService implements OnModuleInit {
 
     const { vehicle: assignedVehicle, isOnDuty } = await this.getAssignedVehicle(userId);
 
-    let hospitalName: string | null = null;
+    let hospitalDetails: any = null;
     if (user.hospitalId) {
-      const hospital = await this.hospitalRepo.findOne({
+      hospitalDetails = await this.hospitalRepo.findOne({
         where: { id: user.hospitalId },
-        select: ['name'],
       });
-      hospitalName = hospital?.name || null;
     }
 
     return {
       ...user,
-      hospitalName,
+      hospitalName: hospitalDetails?.name || null,
+      hospitalAddress: hospitalDetails?.address || null,
+      hospitalEmail: hospitalDetails?.email || null,
+      hospitalPhone: hospitalDetails?.contact_phone || null,
+      hospitalDetails: hospitalDetails, // Full object for future use
       assigned_vehicle: assignedVehicle,
       is_on_duty: isOnDuty,
     };
