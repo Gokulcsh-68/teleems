@@ -409,9 +409,8 @@ export class DispatchServiceController {
     return this.dispatchService.getAnalyticsSummary(query, req.user);
   }
 
-  @Public()
   @Post(':id/feedback')
-  @Roles('Caller (Public)', 'CureSelect Admin')
+  @Roles('Caller (Public)', 'CALLER', 'CureSelect Admin')
   async submitFeedback(
     @Param('id') id: string,
     @Body() dto: CreateFeedbackDto,
