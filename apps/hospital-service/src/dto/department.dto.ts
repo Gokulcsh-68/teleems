@@ -22,6 +22,11 @@ export class CreateDepartmentDto {
   @IsOptional()
   totalBedsCapacity?: number;
 
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  occupiedBeds?: number;
+
   @IsString()
   @IsOptional()
   contactPhone?: string;
@@ -48,6 +53,11 @@ export class UpdateDepartmentDto {
   @Min(0)
   @IsOptional()
   totalBedsCapacity?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  occupiedBeds?: number;
 
   @IsString()
   @IsOptional()
