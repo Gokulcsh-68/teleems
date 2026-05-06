@@ -75,6 +75,24 @@ export class PatientProfile {
   @Column({ nullable: true })
   mlc_officer_contact: string;
 
+  @Column({ type: 'text', nullable: true })
+  chief_complaint: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  hpi: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  gcs: any;
+
+  @Column({ type: 'varchar', nullable: true })
+  avpu: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  pupils: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  trauma: any;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

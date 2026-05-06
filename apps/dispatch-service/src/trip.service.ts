@@ -894,9 +894,16 @@ export class TripService {
         mlc_fir_number: savedPatient.mlc_fir_number,
         mlc_police_station: savedPatient.mlc_police_station,
         mlc_officer_contact: savedPatient.mlc_officer_contact,
-        conditions: dto.conditions || (pIdx > -1 ? (incident.patients[pIdx] as any).conditions : []),
-        medications: dto.medications || (pIdx > -1 ? (incident.patients[pIdx] as any).medications : []),
-        allergies: dto.allergies || (pIdx > -1 ? (incident.patients[pIdx] as any).allergies : []),
+        conditions: dto.conditions !== undefined ? dto.conditions : (pIdx > -1 ? (incident.patients[pIdx] as any).conditions : []),
+        medications: dto.medications !== undefined ? dto.medications : (pIdx > -1 ? (incident.patients[pIdx] as any).medications : []),
+        surgeries: dto.surgeries !== undefined ? dto.surgeries : (pIdx > -1 ? (incident.patients[pIdx] as any).surgeries : []),
+        allergies: dto.allergies !== undefined ? dto.allergies : (pIdx > -1 ? (incident.patients[pIdx] as any).allergies : []),
+        chief_complaint: dto.chief_complaint !== undefined ? dto.chief_complaint : (pIdx > -1 ? (incident.patients[pIdx] as any).chief_complaint : undefined),
+        hpi: dto.hpi !== undefined ? dto.hpi : (pIdx > -1 ? (incident.patients[pIdx] as any).hpi : undefined),
+        gcs: dto.gcs !== undefined ? dto.gcs : (pIdx > -1 ? (incident.patients[pIdx] as any).gcs : undefined),
+        avpu: dto.avpu !== undefined ? dto.avpu : (pIdx > -1 ? (incident.patients[pIdx] as any).avpu : undefined),
+        pupils: dto.pupils !== undefined ? dto.pupils : (pIdx > -1 ? (incident.patients[pIdx] as any).pupils : undefined),
+        trauma: dto.trauma !== undefined ? dto.trauma : (pIdx > -1 ? (incident.patients[pIdx] as any).trauma : undefined),
       };
       
       console.log(`[TRIP] Syncing snapshot for patient ${savedPatient.name}. Meds: ${updatedPatientJson.medications?.length || 0}`);

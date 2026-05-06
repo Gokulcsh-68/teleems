@@ -51,7 +51,33 @@ export class Incident {
     mlc_officer_contact?: string;
     conditions?: string[];
     medications?: string[];
+    surgeries?: string[];
     allergies?: any[];
+    chief_complaint?: string;
+    hpi?: {
+      onset?: string;
+      duration?: string;
+      character?: string;
+      severity?: string;
+      radiation?: string;
+      associated_symptoms?: string;
+    };
+    gcs?: {
+      eye?: number;
+      verbal?: number;
+      motor?: number;
+      total?: number;
+    };
+    avpu?: string;
+    pupils?: {
+      left?: string;
+      right?: string;
+    };
+    trauma?: {
+      injury_type?: string;
+      mechanism?: string;
+      region?: string;
+    };
     symptoms?: { name: string; duration_minutes?: number }[] 
   }[];
 

@@ -94,5 +94,45 @@ export class CreatePatientProfileDto {
   medications?: string[];
 
   @IsOptional()
+  surgeries?: string[];
+
+  @IsOptional()
   allergies?: {name: string; severity: string}[];
+
+  @IsOptional()
+  chief_complaint?: string;
+
+  @IsOptional()
+  hpi?: {
+    onset?: string;
+    duration?: string;
+    character?: string;
+    severity?: string;
+    radiation?: string;
+    associated_symptoms?: string;
+  };
+
+  @IsOptional()
+  gcs?: {
+    eye?: number;
+    verbal?: number;
+    motor?: number;
+    total?: number;
+  };
+
+  @IsOptional()
+  avpu?: string;
+
+  @IsOptional()
+  pupils?: {
+    left?: string;
+    right?: string;
+  };
+
+  @IsOptional()
+  trauma?: {
+    injury_type?: string;
+    mechanism?: string;
+    region?: string;
+  };
 }
