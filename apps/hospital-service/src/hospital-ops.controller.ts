@@ -67,10 +67,12 @@ export class HospitalOpsController {
     @Query('status') status?: string,
     @Query('severity') severity?: string,
     @Query('category') category?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
     return this.opsService.getIncoming(
       this.getHospitalId(req),
-      { status, severity, category }
+      { status, severity, category, page, limit }
     );
   }
 

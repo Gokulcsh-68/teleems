@@ -89,8 +89,18 @@ export class HospitalOpsService {
 
   async getIncoming(
     hospitalId: string,
-    filters: { status?: string; severity?: string; category?: string } = {},
+    filters: {
+      status?: string;
+      severity?: string;
+      category?: string;
+      page?: number;
+      limit?: number;
+    } = {},
   ) {
+    const page = Number(filters.page) || 1;
+    const limit = Number(filters.limit) || 10;
+    const skip = (page - 1) * limit;
+
     // Build query for incoming incidents
     const queryBuilder = this.dispatchRepo
       .createQueryBuilder('dispatch')
@@ -123,11 +133,13 @@ export class HospitalOpsService {
       });
     }
 
-    const incomingDispatches = await queryBuilder
+    const [items, total] = await queryBuilder
       .orderBy('dispatch.dispatched_at', 'DESC')
-      .getMany();
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
-    return incomingDispatches.map((d) => ({
+    const data = items.map((d) => ({
       dispatch_id: d.id,
       incident_id: d.incident_id,
       status: d.status,
@@ -137,6 +149,14 @@ export class HospitalOpsService {
       patients: d.incident?.patients,
       dispatched_at: d.dispatched_at,
     }));
+
+    return {
+      items: data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getProfile(hospitalId: string) {
