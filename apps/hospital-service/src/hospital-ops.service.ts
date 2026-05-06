@@ -63,22 +63,16 @@ export class HospitalOpsService {
 
   // --- Hospital Dashboard Summary ---
 
-  async getDashboard(hospitalId: string) {
+  async getDashboard(
+    hospitalId: string,
+    filters: { status?: string; severity?: string; category?: string } = {},
+  ) {
     const hospital = await this.hospitalRepo.findOneBy({ id: hospitalId });
     if (!hospital)
       throw new NotFoundException(`Hospital ${hospitalId} not found`);
 
     const status = await this.getStatus(hospitalId);
-
-    // Fetch incoming incidents (Dispatches bound for this hospital)
-    const incomingDispatches = await this.dispatchRepo.find({
-      where: {
-        destination_hospital_id: hospitalId,
-        status: Not(In(['COMPLETED', 'CANCELLED'])),
-      },
-      relations: ['incident'],
-      order: { dispatched_at: 'DESC' },
-    });
+    const incomingIncidents = await this.getIncoming(hospitalId, filters);
 
     return {
       hospital: {
@@ -89,17 +83,55 @@ export class HospitalOpsService {
         specialties: hospital.specialties,
       },
       status,
-      incoming_incidents: incomingDispatches.map((d) => ({
-        dispatch_id: d.id,
-        incident_id: d.incident_id,
-        status: d.status,
-        eta_seconds: d.eta_seconds,
-        category: d.incident?.category,
-        severity: d.incident?.severity,
-        patients: d.incident?.patients,
-        dispatched_at: d.dispatched_at,
-      })),
+      incoming_incidents: incomingIncidents,
     };
+  }
+
+  async getIncoming(
+    hospitalId: string,
+    filters: { status?: string; severity?: string; category?: string } = {},
+  ) {
+    // Build query for incoming incidents
+    const queryBuilder = this.dispatchRepo
+      .createQueryBuilder('dispatch')
+      .leftJoinAndSelect('dispatch.incident', 'incident')
+      .where('dispatch.destination_hospital_id = :hospitalId', { hospitalId })
+      .andWhere('dispatch.status NOT IN (:...excludedStatuses)', {
+        excludedStatuses: ['COMPLETED', 'CANCELLED'],
+      });
+
+    if (filters.status) {
+      queryBuilder.andWhere('dispatch.status = :status', {
+        status: filters.status,
+      });
+    }
+
+    if (filters.severity) {
+      queryBuilder.andWhere('incident.severity = :severity', {
+        severity: filters.severity,
+      });
+    }
+
+    if (filters.category) {
+      queryBuilder.andWhere('incident.category = :category', {
+        category: filters.category,
+      });
+    }
+
+    const incomingDispatches = await queryBuilder
+      .orderBy('dispatch.dispatched_at', 'DESC')
+      .getMany();
+
+    return incomingDispatches.map((d) => ({
+      dispatch_id: d.id,
+      incident_id: d.incident_id,
+      status: d.status,
+      eta_seconds: d.eta_seconds,
+      category: d.incident?.category,
+      severity: d.incident?.severity,
+      patients: d.incident?.patients,
+      dispatched_at: d.dispatched_at,
+    }));
   }
 
   async getProfile(hospitalId: string) {
