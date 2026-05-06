@@ -473,6 +473,10 @@ export class DispatchServiceService implements OnModuleInit {
     );
 
     if (!isPlatformAdmin) {
+      console.log('--- MISSION HISTORY DEBUG ---');
+      console.log('Request User ID:', requestUser.userId);
+      console.log('Request User Roles:', requestUser.roles);
+      console.log('-----------------------------');
       queryBuilder.andWhere(
         new Brackets((qb) => {
           // Rule 1: Always show incidents where the user is the reporter
