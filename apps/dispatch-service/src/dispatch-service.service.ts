@@ -1603,7 +1603,7 @@ export class DispatchServiceService implements OnModuleInit {
         { driver_id: staffProfile.id, status: In(activeStatuses) },
         { emt_id: staffProfile.id, status: In(activeStatuses) },
       ],
-      relations: ['incident'],
+      relations: ['incident', 'destination_hospital'],
       order: { dispatched_at: 'DESC' }
     });
 
@@ -1623,7 +1623,7 @@ export class DispatchServiceService implements OnModuleInit {
             vehicle_id: activeShift.vehicle.registration_number,
             status: Not(In(['COMPLETED', 'CANCELLED', 'REJECTED', 'HANDOFF_COMPLETE']))
           },
-          relations: ['incident'],
+          relations: ['incident', 'destination_hospital'],
           order: { dispatched_at: 'DESC' }
         });
 

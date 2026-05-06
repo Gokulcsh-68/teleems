@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Incident } from './incident.entity';
+import { Hospital } from './hospital.entity';
 
 @Entity('dispatches')
 export class Dispatch {
@@ -87,6 +88,10 @@ export class Dispatch {
   @Column()
   @Index()
   incident_id: string;
+
+  @ManyToOne(() => Hospital)
+  @JoinColumn({ name: 'destination_hospital_id' })
+  destination_hospital: Hospital;
 
   @ManyToOne(() => Incident)
   @JoinColumn({ name: 'incident_id' })

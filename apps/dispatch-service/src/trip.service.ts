@@ -231,7 +231,7 @@ export class TripService {
   async findOneTrip(id: string, requestUser: any) {
     const trip = await this.dispatchRepo.findOne({
       where: { id },
-      relations: ['incident']
+      relations: ['incident', 'destination_hospital']
     });
 
     if (!trip) {
