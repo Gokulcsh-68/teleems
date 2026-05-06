@@ -30,6 +30,9 @@ export class PatientProfile {
   @Column({ nullable: true })
   age: number;
 
+  @Column({ nullable: true })
+  age_range: string;
+
   @Column()
   gender: string;
 

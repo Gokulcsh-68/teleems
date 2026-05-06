@@ -882,6 +882,7 @@ export class TripService {
         id: savedPatient.id,
         name: savedPatient.name,
         age: savedPatient.age,
+        age_range: savedPatient.age_range,
         gender: savedPatient.gender,
         triage_level: savedPatient.triage_code,
         mrn: savedPatient.mrn,

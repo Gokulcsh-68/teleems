@@ -29,6 +29,10 @@ export class CreatePatientProfileDto {
   age?: number;
 
   @IsString()
+  @IsOptional()
+  age_range?: string;
+
+  @IsString()
   @IsNotEmpty()
   gender: string;
 
