@@ -62,6 +62,8 @@ export class TripService {
     private readonly staffProfileRepo: Repository<StaffProfile>,
     @InjectRepository(Hospital)
     private readonly hospitalRepo: Repository<Hospital>,
+    @InjectRepository(Incident)
+    private readonly incidentRepo: Repository<Incident>,
     private readonly storageService: StorageService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
@@ -870,7 +872,34 @@ export class TripService {
 
     const savedPatient = await this.patientRepo.save(patient!);
 
-    // Handle Medical History (Conditions, Medications, Allergies)
+    // --- SYNC WITH INCIDENT JSONB ---
+    // This ensures my-dispatch/dashboard fetch shows the updated name/data
+    const incident = await this.incidentRepo.findOneBy({ id: trip.incident_id });
+    if (incident) {
+      if (!incident.patients) incident.patients = [];
+      const pIdx = incident.patients.findIndex(p => p.id === savedPatient.id || p.name === savedPatient.name);
+      const updatedPatientJson = {
+        id: savedPatient.id,
+        name: savedPatient.name,
+        age: savedPatient.age,
+        gender: savedPatient.gender,
+        triage_level: savedPatient.triage_code,
+        mrn: savedPatient.mrn,
+        phone: savedPatient.phone,
+        informer_name: savedPatient.informer_name,
+        is_mlc: savedPatient.is_mlc,
+        symptoms: dto.conditions?.map(c => ({ name: c })) || [],
+      };
+
+      if (pIdx > -1) {
+        incident.patients[pIdx] = updatedPatientJson;
+      } else {
+        incident.patients.push(updatedPatientJson);
+      }
+      await this.incidentRepo.save(incident);
+    }
+
+    // Handle Medical History...
     if (dto.conditions) {
       await this.patientRepo.manager.delete('patient_conditions', { patient_id: savedPatient.id });
       for (const cond of dto.conditions) {
