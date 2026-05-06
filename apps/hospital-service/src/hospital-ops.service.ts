@@ -107,9 +107,14 @@ export class HospitalOpsService {
     }
 
     if (filters.severity) {
-      queryBuilder.andWhere('incident.severity = :severity', {
-        severity: filters.severity,
-      });
+      // Check both incident.severity AND if any patient has matching triage_level
+      queryBuilder.andWhere(
+        '(incident.severity = :severity OR incident.patients @> :triageFilter)',
+        {
+          severity: filters.severity,
+          triageFilter: JSON.stringify([{ triage_level: filters.severity }]),
+        },
+      );
     }
 
     if (filters.category) {
