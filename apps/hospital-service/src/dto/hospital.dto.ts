@@ -57,6 +57,18 @@ export class BaseHospitalDto {
 
   @IsString()
   @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  district?: string;
+
+  @IsArray()
+  @IsOptional()
+  specialties?: string[];
+
+  @IsString()
+  @IsOptional()
   medical_director?: string;
 
   @IsObject()

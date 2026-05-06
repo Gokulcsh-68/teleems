@@ -79,19 +79,22 @@ export class HospitalOpsService {
     };
   }
 
-  async updateProfile(hospitalId: string, dto: any, userId: string, ip: string) {
+  async getProfile(hospitalId: string) {
     const hospital = await this.hospitalRepo.findOneBy({ id: hospitalId });
-    if (!hospital) throw new NotFoundException(`Hospital ${hospitalId} not found`);
+    if (!hospital)
+      throw new NotFoundException(`Hospital ${hospitalId} not found`);
+    return hospital;
+  }
 
-    // Allowed fields for self-update
-    if (dto.name) hospital.name = dto.name;
-    if (dto.address) hospital.address = dto.address;
-    if (dto.emergency_phone) hospital.emergency_phone = dto.emergency_phone;
-    if (dto.contact_phone) hospital.contact_phone = dto.contact_phone;
-    if (dto.contact_email) hospital.contact_email = dto.contact_email;
-    if (dto.gps_lat) hospital.gps_lat = dto.gps_lat;
-    if (dto.gps_lon) hospital.gps_lon = dto.gps_lon;
-    if (dto.nabh_status !== undefined) hospital.nabh_status = dto.nabh_status;
+  async updateProfile(hospitalId: string, dto: any, userId: string, ip: string) {
+    const hospital = await this.getProfile(hospitalId);
+
+    // Remove sensitive or restricted fields from dto
+    delete dto.id;
+    delete dto.createdAt;
+    delete dto.updatedAt;
+
+    Object.assign(hospital, dto);
 
     await this.hospitalRepo.save(hospital);
 
