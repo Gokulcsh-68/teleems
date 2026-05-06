@@ -416,6 +416,7 @@ export class DispatchServiceController {
     @Body() dto: CreateFeedbackDto,
     @Req() req: any,
   ) {
+    console.log('--- FEEDBACK CONTROLLER HIT ---');
     return this.dispatchService.submitFeedback(id, dto, req.user);
   }
 }
