@@ -5,8 +5,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Hospital, HospitalStatus, AuditLogService, Dispatch } from '@app/common';
+import { Hospital, HospitalStatus, AuditLogService, Dispatch, Admission, Department, PatientProfile, AdmissionStatus } from '@app/common';
 import { In, Not } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class HospitalOpsService {
@@ -17,8 +18,57 @@ export class HospitalOpsService {
     private readonly statusRepo: Repository<HospitalStatus>,
     @InjectRepository(Dispatch)
     private readonly dispatchRepo: Repository<Dispatch>,
+    @InjectRepository(Admission)
+    private readonly admissionRepo: Repository<Admission>,
+    @InjectRepository(Department)
+    private readonly departmentRepo: Repository<Department>,
+    @InjectRepository(PatientProfile)
+    private readonly patientRepo: Repository<PatientProfile>,
     private readonly auditLogService: AuditLogService,
   ) {}
+
+  async admitPatient(hospitalId: string, dto: { patientId: string; departmentId: string; bedType: string; bedNumber?: string }, userId: string, ip: string) {
+    const department = await this.departmentRepo.findOneBy({ id: dto.departmentId, hospitalId });
+    if (!department) throw new NotFoundException('Department not found in this hospital');
+
+    // 1. Check Capacity
+    const status = await this.getStatus(hospitalId);
+    const bedType = dto.bedType.toLowerCase() as 'icu' | 'general' | 'isolation';
+    
+    if (status.beds[bedType].available <= 0) {
+       throw new BadRequestException(`No available ${bedType} beds in the hospital`);
+    }
+
+    // 2. Create Admission Record
+    const admission = this.admissionRepo.create({
+      patient_id: dto.patientId,
+      hospital_id: hospitalId,
+      department_id: dto.departmentId,
+      bed_type: bedType,
+      bed_number: dto.bedNumber,
+      status: AdmissionStatus.ADMITTED,
+      admitted_by_id: userId,
+    });
+
+    await this.admissionRepo.save(admission);
+
+    // 3. Update Hospital-wide Capacity
+    status.beds[bedType].available -= 1;
+    await this.statusRepo.save(status);
+
+    // 4. Update Department-specific Occupancy
+    department.occupiedBeds += 1;
+    await this.departmentRepo.save(department);
+
+    await this.auditLogService.log({
+      userId,
+      action: 'PATIENT_ADMITTED',
+      ipAddress: ip,
+      metadata: { admissionId: admission.id, patientId: dto.patientId, departmentId: dto.departmentId },
+    });
+
+    return admission;
+  }
 
   // --- Bed & Resource Tracking (Spec 6.2) ---
 

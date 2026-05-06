@@ -25,6 +25,9 @@ export class Department {
   @Column({ name: 'total_beds_capacity', default: 0 })
   totalBedsCapacity: number;
 
+  @Column({ name: 'occupied_beds', default: 0 })
+  occupiedBeds: number;
+
   @Column({ name: 'contact_phone', nullable: true })
   contactPhone: string;
 

@@ -5,7 +5,7 @@ import { HospitalOpsController } from './hospital-ops.controller';
 import { HospitalOpsService } from './hospital-ops.service';
 
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Hospital, HospitalStatus, Department, Dispatch } from '@app/common';
+import { Hospital, HospitalStatus, Department, Dispatch, Admission, PatientProfile } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 import { DepartmentController } from './department.controller';
 import { DepartmentService } from './department.service';
@@ -13,7 +13,7 @@ import { CommonModule } from '../../../libs/common/src';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Hospital, HospitalStatus, Department, Dispatch]),
+    TypeOrmModule.forFeature([Hospital, HospitalStatus, Department, Dispatch, Admission, PatientProfile]),
     AuthModule,
     CommonModule,
   ],

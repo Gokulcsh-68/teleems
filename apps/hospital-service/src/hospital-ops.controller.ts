@@ -76,6 +76,20 @@ export class HospitalOpsController {
     );
   }
 
+  @Patch('incoming/:patientId/admit')
+  async admitPatient(
+    @Req() req: any,
+    @Body() dto: { departmentId: string; bedType: string; bedNumber?: string },
+  ) {
+    const { patientId } = req.params;
+    return this.opsService.admitPatient(
+      this.getHospitalId(req),
+      { ...dto, patientId },
+      req.user.userId,
+      req.ip,
+    );
+  }
+
   @Get('profile')
   async getProfile(@Req() req: any) {
     return this.opsService.getProfile(this.getHospitalId(req));
