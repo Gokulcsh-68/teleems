@@ -199,6 +199,18 @@ export class DispatchServiceController {
     return this.dispatchService.cancelDispatch(id, dto, context);
   }
 
+  @Get('history')
+  @Roles(
+    'Call Centre Executive (CCE)',
+    'Fleet Operator',
+    'CureSelect Admin',
+    'Caller (Public)',
+    'Hospital Admin',
+  )
+  async getMyHistory(@Query() query: IncidentQueryDto, @Req() req: any) {
+    return this.dispatchService.findAll(query, req.user);
+  }
+
   @Public()
   @Get(':id')
   @Roles(
@@ -397,14 +409,14 @@ export class DispatchServiceController {
     return this.dispatchService.getAnalyticsSummary(query, req.user);
   }
 
-  @Public()
   @Post(':id/feedback')
-  @Roles('Caller (Public)', 'CureSelect Admin')
+  @Roles('Caller (Public)', 'CALLER', 'CureSelect Admin')
   async submitFeedback(
     @Param('id') id: string,
     @Body() dto: CreateFeedbackDto,
     @Req() req: any,
   ) {
+    console.log('--- FEEDBACK CONTROLLER HIT ---');
     return this.dispatchService.submitFeedback(id, dto, req.user);
   }
 }

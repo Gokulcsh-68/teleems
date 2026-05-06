@@ -473,31 +473,37 @@ export class DispatchServiceService implements OnModuleInit {
     );
 
     if (!isPlatformAdmin) {
-      // Isolation for Hospital Admins and Fleet Operators
-      if (
-        roles.includes('Hospital Admin') ||
-        roles.includes('Fleet Operator')
-      ) {
-        const orgId = requestUser.organisationId || requestUser.org_id;
-        if (!orgId)
-          throw new ForbiddenException('User organization context missing');
-        queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
-      }
-      // Isolation for Dispatchers / Public Callers (only see their own)
-      else if (
-        roles.includes('Caller (Public)') ||
-        roles.includes('CALLER') ||
-        roles.includes('USER') ||
-        roles.includes('Individual Dispatcher')
-      ) {
-        queryBuilder.andWhere('incident.caller_id = :userId', {
-          userId: requestUser.userId,
-        });
-      } else {
-        throw new ForbiddenException(
-          'Insufficient permissions to list incidents',
-        );
-      }
+      console.log('--- MISSION HISTORY DEBUG ---');
+      console.log('Request User ID:', requestUser.userId);
+      console.log('Request User Roles:', requestUser.roles);
+      console.log('Request User Org:', requestUser.organisationId);
+      console.log('-----------------------------');
+
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          // Rule 1: Always show incidents where the user is the reporter
+          qb.where('incident.caller_id = :userId', { userId: requestUser.userId });
+
+          // Rule 2: Also show missions assigned to their organization (if they have one)
+          const orgId = requestUser.organisationId || requestUser.org_id;
+          if (orgId) {
+            qb.orWhere('incident.organisationId = :orgId', { orgId });
+          }
+
+          // Rule 3: Auto-claim GUEST incidents if the phone number matches
+          if (requestUser.phone) {
+            qb.orWhere(
+              new Brackets((inner) => {
+                inner
+                  .where('incident.caller_id = :guest', { guest: 'GUEST' })
+                  .andWhere('incident.guest_phone = :phone', {
+                    phone: requestUser.phone,
+                  });
+              }),
+            );
+          }
+        }),
+      );
     } else {
       // Platform Admin Filters
       if (org_id)
@@ -2085,8 +2091,16 @@ export class DispatchServiceService implements OnModuleInit {
   }
 
   async submitFeedback(incidentId: string, dto: any, user: any) {
+    console.log('--- SUBMIT FEEDBACK DEBUG ---');
+    console.log('Incident ID:', incidentId);
+    console.log('DTO:', JSON.stringify(dto, null, 2));
+    console.log('User Context:', JSON.stringify(user, null, 2));
+
     const incident = await this.incidentRepository.findOneBy({ id: incidentId });
-    if (!incident) throw new NotFoundException('Incident not found');
+    if (!incident) {
+      console.error('Feedback Error: Incident not found');
+      throw new NotFoundException('Incident not found');
+    }
 
     const feedback = this.feedbackRepository.create({
       incidentId,
@@ -2094,6 +2108,9 @@ export class DispatchServiceService implements OnModuleInit {
       comment: dto.comment,
       userId: user?.userId,
     });
+
+    console.log('Feedback Object to Save:', JSON.stringify(feedback, null, 2));
+    console.log('------------------------------');
 
     await this.feedbackRepository.save(feedback);
     return { message: 'Thank you for your feedback!' };

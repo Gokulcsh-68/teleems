@@ -154,6 +154,7 @@ export class AuthService implements OnModuleInit {
 
     const payload = {
       sub: user.id,
+      phone: user.phone,
       roles: user.roles,
       org_id: user.organisationId,
       hospital_id: user.hospitalId,
