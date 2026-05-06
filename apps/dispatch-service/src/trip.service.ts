@@ -887,7 +887,12 @@ export class TripService {
         mrn: savedPatient.mrn,
         phone: savedPatient.phone,
         informer_name: savedPatient.informer_name,
+        informer_relation: savedPatient.informer_relation,
+        informer_phone: savedPatient.informer_phone,
         is_mlc: savedPatient.is_mlc,
+        mlc_fir_number: savedPatient.mlc_fir_number,
+        mlc_police_station: savedPatient.mlc_police_station,
+        mlc_officer_contact: savedPatient.mlc_officer_contact,
         symptoms: dto.conditions?.map(c => ({ name: c })) || [],
       };
 
