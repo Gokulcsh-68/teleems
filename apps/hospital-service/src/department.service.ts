@@ -88,8 +88,13 @@ export class DepartmentService {
       take: limit,
     });
 
+    const mappedData = data.map(dept => ({
+      ...dept,
+      availableBeds: Math.max(0, dept.totalBedsCapacity - dept.occupiedBeds)
+    }));
+
     return new PaginatedResponse(
-      data,
+      mappedData,
       null, // cursor
       total,
       limit,
@@ -107,7 +112,10 @@ export class DepartmentService {
     if (!department) {
       throw new NotFoundException(`Department with ID ${id} not found`);
     }
-    return department;
+    return {
+      ...department,
+      availableBeds: Math.max(0, department.totalBedsCapacity - department.occupiedBeds)
+    };
   }
 
   async update(id: string, dto: UpdateDepartmentDto, user: any, ip: string) {

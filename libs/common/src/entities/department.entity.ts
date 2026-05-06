@@ -28,6 +28,10 @@ export class Department {
   @Column({ name: 'occupied_beds', default: 0 })
   occupiedBeds: number;
 
+  get availableBeds(): number {
+    return Math.max(0, this.totalBedsCapacity - this.occupiedBeds);
+  }
+
   @Column({ name: 'contact_phone', nullable: true })
   contactPhone: string;
 
