@@ -19,9 +19,11 @@ export enum IncidentCategory {
 
 export enum TriageLevel {
   RED = 'RED',       // Most Urgent - Life Threatening
+  YELLOW = 'YELLOW', // Urgent - Potential Life Threat
   ORANGE = 'ORANGE', // Urgent - Not Life Threatening
   GREEN = 'GREEN',   // Less Urgent - Walking Wounded
   WHITE = 'WHITE',   // Non-Emergency
+  BLUE = 'BLUE',     // Specialty/Protocol Transfer
   BLACK = 'BLACK',   // Dead/Deceased
 }
 
