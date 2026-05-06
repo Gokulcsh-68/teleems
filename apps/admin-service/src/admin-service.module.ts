@@ -27,6 +27,7 @@ import {
   ChiefComplaintMaster,
   InterventionMaster,
   FleetOperator,
+  TriageMaster,
 } from '@app/common';
 import { AuthModule } from '../../auth-service/src/auth.module';
 
@@ -51,6 +52,7 @@ import { AuthModule } from '../../auth-service/src/auth.module';
       ChiefComplaintMaster,
       InterventionMaster,
       FleetOperator,
+      TriageMaster,
     ]),
     AuthModule,
   ],

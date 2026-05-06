@@ -5,7 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuditLogService } from './audit-log.service';
-import { User, Role, Session, Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle } from '@app/common';
+import { User, Role, Session, Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle, Hospital } from '@app/common';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -25,7 +25,8 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
       StaffProfile,
       DutyRoster,
       DutyShift,
-      Vehicle
+      Vehicle,
+      Hospital
     ]),
     GlobalThrottlerModule,
     JwtModule.registerAsync({

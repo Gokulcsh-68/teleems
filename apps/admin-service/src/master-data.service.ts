@@ -19,6 +19,7 @@ import {
   ChiefComplaintMaster,
   InterventionMaster,
   MedicationRouteMaster,
+  TriageMaster,
   AuditLogService,
   COMMON_ICD10_CODES,
   COMMON_ALLERGENS,
@@ -30,6 +31,7 @@ import {
   COMMON_MEDICATION_ROUTES,
   COMMON_ACUTE_MEDICATIONS,
   COMMON_INCIDENT_CATEGORIES,
+  COMMON_TRIAGE_LEVELS,
   PaginatedResponse,
 } from '@app/common';
 import {
@@ -77,6 +79,8 @@ export class MasterDataService {
     private readonly complaintRepo: Repository<ChiefComplaintMaster>,
     @InjectRepository(InterventionMaster)
     private readonly interventionMasterRepo: Repository<InterventionMaster>,
+    @InjectRepository(TriageMaster)
+    private readonly triageRepo: Repository<TriageMaster>,
     private readonly auditLogService: AuditLogService,
     private readonly authService: AuthService,
   ) {}
@@ -92,6 +96,7 @@ export class MasterDataService {
     await this.seedAcuteMedications();
     await this.seedMedicationRoutes();
     await this.seedIncidentCategories();
+    await this.seedTriageLevels();
   }
 
   private async seedIcdCodes() {
@@ -1159,5 +1164,27 @@ export class MasterDataService {
       }
     }
     console.log(`[SEED] Success: Added ${count} new acute care medications.`);
+  }
+
+  // --- Triage Master ---
+
+  async findAllTriageLevels() {
+    return this.triageRepo.find({
+      where: { isActive: true },
+      order: { priority: 'ASC' },
+    });
+  }
+
+  private async seedTriageLevels() {
+    console.log('[SEED] Synchronizing Triage Master Registry...');
+    let count = 0;
+    for (const def of COMMON_TRIAGE_LEVELS) {
+      const existing = await this.triageRepo.findOneBy({ code: def.code });
+      if (!existing) {
+        await this.triageRepo.save(this.triageRepo.create(def));
+        count++;
+      }
+    }
+    console.log(`[SEED] Success: Added ${count} new triage levels.`);
   }
 }

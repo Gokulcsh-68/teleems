@@ -4,6 +4,7 @@ import {
   Patch,
   Body,
   Req,
+  Query,
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
@@ -48,7 +49,41 @@ export class HospitalOpsController {
   }
 
   @Get('dashboard')
-  async getDashboard(@Req() req: any) {
-    return this.opsService.getDashboard(this.getHospitalId(req));
+  async getDashboard(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('severity') severity?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.opsService.getDashboard(
+      this.getHospitalId(req),
+      { status, severity, category }
+    );
+  }
+
+  @Get('incoming')
+  async getIncoming(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('severity') severity?: string,
+    @Query('category') category?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.opsService.getIncoming(
+      this.getHospitalId(req),
+      { status, severity, category, page, limit }
+    );
+  }
+
+  @Get('profile')
+  async getProfile(@Req() req: any) {
+    return this.opsService.getProfile(this.getHospitalId(req));
+  }
+  
+  @Patch('profile')
+  async updateProfile(@Body() dto: any, @Req() req: any) {
+    const hospitalId = this.getHospitalId(req);
+    return this.opsService.updateProfile(hospitalId, dto, req.user.userId, req.ip);
   }
 }

@@ -69,6 +69,9 @@ export class Hospital {
   contact_email: string;
 
   @Column({ nullable: true })
+  email: string;
+
+  @Column({ nullable: true })
   medical_director: string;
 
   // Bed Capacity Metadata
