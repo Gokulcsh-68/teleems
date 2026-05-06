@@ -199,6 +199,18 @@ export class DispatchServiceController {
     return this.dispatchService.cancelDispatch(id, dto, context);
   }
 
+  @Get('history')
+  @Roles(
+    'Call Centre Executive (CCE)',
+    'Fleet Operator',
+    'CureSelect Admin',
+    'Caller (Public)',
+    'Hospital Admin',
+  )
+  async getMyHistory(@Query() query: IncidentQueryDto, @Req() req: any) {
+    return this.dispatchService.findAll(query, req.user);
+  }
+
   @Public()
   @Get(':id')
   @Roles(
