@@ -473,31 +473,25 @@ export class DispatchServiceService implements OnModuleInit {
     );
 
     if (!isPlatformAdmin) {
-      // Isolation for Hospital Admins and Fleet Operators
-      if (
-        roles.includes('Hospital Admin') ||
-        roles.includes('Fleet Operator')
-      ) {
-        const orgId = requestUser.organisationId || requestUser.org_id;
-        if (!orgId)
-          throw new ForbiddenException('User organization context missing');
-        queryBuilder.andWhere('incident.organisationId = :orgId', { orgId });
-      }
-      // Isolation for Dispatchers / Public Callers (only see their own)
-      else if (
-        roles.includes('Caller (Public)') ||
-        roles.includes('CALLER') ||
-        roles.includes('USER') ||
-        roles.includes('Individual Dispatcher')
-      ) {
-        queryBuilder.andWhere('incident.caller_id = :userId', {
-          userId: requestUser.userId,
-        });
-      } else {
-        throw new ForbiddenException(
-          'Insufficient permissions to list incidents',
-        );
-      }
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          // Rule 1: Always show incidents where the user is the reporter
+          qb.where('incident.caller_id = :userId', {
+            userId: requestUser.userId,
+          });
+
+          // Rule 2: For Staff, also show incidents assigned to their organization
+          if (
+            roles.includes('Hospital Admin') ||
+            roles.includes('Fleet Operator')
+          ) {
+            const orgId = requestUser.organisationId || requestUser.org_id;
+            if (orgId) {
+              qb.orWhere('incident.organisationId = :orgId', { orgId });
+            }
+          }
+        }),
+      );
     } else {
       // Platform Admin Filters
       if (org_id)
