@@ -155,6 +155,23 @@ export class MasterDataService {
     );
   }
 
+  async deleteSymptom(id: string, adminId: string, ip: string) {
+    const symptom = await this.symptomRepo.findOneBy({ id });
+    if (!symptom)
+      throw new NotFoundException(`Symptom with ID ${id} not found`);
+
+    await this.symptomRepo.remove(symptom);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_SYMPTOM_DELETED',
+      ipAddress: ip,
+      metadata: { symptomId: id, names: symptom.names },
+    });
+
+    return { success: true };
+  }
+
   // --- Incident Category Master ---
 
   async createCategory(
@@ -350,6 +367,23 @@ export class MasterDataService {
     );
   }
 
+  async deleteInventoryItem(id: string, adminId: string, ip: string) {
+    const item = await this.inventoryRepo.findOneBy({ id });
+    if (!item)
+      throw new NotFoundException(`Inventory item with ID ${id} not found`);
+
+    await this.inventoryRepo.remove(item);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_INVENTORY_ITEM_DELETED',
+      ipAddress: ip,
+      metadata: { itemId: id, name: item.name },
+    });
+
+    return { success: true };
+  }
+
   // --- Hospital Specialty Mapping ---
 
   async updateHospitalMaster(
@@ -467,6 +501,22 @@ export class MasterDataService {
     return icd;
   }
 
+  async deleteIcdCode(id: string, adminId: string, ip: string) {
+    const icd = await this.icdRepo.findOneBy({ id });
+    if (!icd) throw new NotFoundException(`ICD record with ID ${id} not found`);
+
+    await this.icdRepo.remove(icd);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_ICD_CODE_DELETED',
+      ipAddress: ip,
+      metadata: { id, code: icd.code, description: icd.description },
+    });
+
+    return { success: true };
+  }
+
   // --- Allergy Master ---
 
   private async seedAllergens() {
@@ -566,6 +616,23 @@ export class MasterDataService {
     });
 
     return allergen;
+  }
+
+  async deleteAllergen(id: string, adminId: string, ip: string) {
+    const allergen = await this.allergyRepo.findOneBy({ id });
+    if (!allergen)
+      throw new NotFoundException(`Allergen with ID ${id} not found`);
+
+    await this.allergyRepo.remove(allergen);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_ALLERGEN_DELETED',
+      ipAddress: ip,
+      metadata: { id, name: allergen.name },
+    });
+
+    return { success: true };
   }
 
   // --- Medication Master ---
@@ -673,6 +740,23 @@ export class MasterDataService {
     return medication;
   }
 
+  async deleteMedication(id: string, adminId: string, ip: string) {
+    const medication = await this.medicationRepo.findOneBy({ id });
+    if (!medication)
+      throw new NotFoundException(`Medication with ID ${id} not found`);
+
+    await this.medicationRepo.remove(medication);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_MEDICATION_DELETED',
+      ipAddress: ip,
+      metadata: { id, name: medication.name },
+    });
+
+    return { success: true };
+  }
+
   // --- Surgery Master ---
 
   private async seedSurgeries() {
@@ -772,6 +856,23 @@ export class MasterDataService {
     });
 
     return surgery;
+  }
+
+  async deleteSurgery(id: string, adminId: string, ip: string) {
+    const surgery = await this.surgeryRepo.findOneBy({ id });
+    if (!surgery)
+      throw new NotFoundException(`Surgery with ID ${id} not found`);
+
+    await this.surgeryRepo.remove(surgery);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_SURGERY_DELETED',
+      ipAddress: ip,
+      metadata: { id, name: surgery.name },
+    });
+
+    return { success: true };
   }
 
   // --- Hospitalisation Master ---
@@ -889,6 +990,25 @@ export class MasterDataService {
     return reason;
   }
 
+  async deleteHospitalisationReason(id: string, adminId: string, ip: string) {
+    const reason = await this.hospitalisationRepo.findOneBy({ id });
+    if (!reason)
+      throw new NotFoundException(
+        `Hospitalisation reason with ID ${id} not found`,
+      );
+
+    await this.hospitalisationRepo.remove(reason);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_HOSPITALISATION_REASON_DELETED',
+      ipAddress: ip,
+      metadata: { id, reason: reason.reason },
+    });
+
+    return { success: true };
+  }
+
   // --- Chief Complaint Master ---
 
   private async seedChiefComplaints() {
@@ -971,6 +1091,22 @@ export class MasterDataService {
     });
 
     return complaint;
+  }
+
+  async deleteChiefComplaint(id: string, adminId: string, ip: string) {
+    const complaint = await this.complaintRepo.findOneBy({ id });
+    if (!complaint) throw new NotFoundException('Chief complaint not found');
+
+    await this.complaintRepo.remove(complaint);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_CHIEF_COMPLAINT_DELETED',
+      ipAddress: ip,
+      metadata: { id, name: complaint.name },
+    });
+
+    return { success: true };
   }
 
   // --- Intervention Master ---
@@ -1064,6 +1200,23 @@ export class MasterDataService {
     return intervention;
   }
 
+  async deleteInterventionMaster(id: string, adminId: string, ip: string) {
+    const intervention = await this.interventionMasterRepo.findOneBy({ id });
+    if (!intervention)
+      throw new NotFoundException('Intervention master not found');
+
+    await this.interventionMasterRepo.remove(intervention);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_INTERVENTION_DELETED',
+      ipAddress: ip,
+      metadata: { id, name: intervention.name },
+    });
+
+    return { success: true };
+  }
+
   // --- Medication Route Master ---
 
   private async seedMedicationRoutes() {
@@ -1149,6 +1302,22 @@ export class MasterDataService {
     });
 
     return route;
+  }
+
+  async deleteMedicationRoute(id: string, adminId: string, ip: string) {
+    const route = await this.routeRepo.findOneBy({ id });
+    if (!route) throw new NotFoundException('Medication route not found');
+
+    await this.routeRepo.remove(route);
+
+    await this.auditLogService.log({
+      userId: adminId,
+      action: 'MASTER_MEDICATION_ROUTE_DELETED',
+      ipAddress: ip,
+      metadata: { id, code: route.code },
+    });
+
+    return { success: true };
   }
 
   // --- Acute Medication Seeding ---

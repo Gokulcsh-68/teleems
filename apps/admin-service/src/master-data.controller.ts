@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Req,
@@ -44,6 +45,16 @@ export class MasterDataController {
   async createSymptom(@Body() dto: CreateSymptomDto, @Req() req: any) {
     const result = await this.masterDataService.createSymptom(
       dto,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('symptoms/:id')
+  async deleteSymptom(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteSymptom(
+      id,
       req.user.userId,
       req.ip,
     );
@@ -106,7 +117,7 @@ export class MasterDataController {
     return { data: result };
   }
 
-  @Post('categories/:id/delete') // Or DELETE if preferred, but following some conventions
+  @Delete('categories/:id')
   async deleteCategory(@Param('id') id: string, @Req() req: any) {
     const result = await this.masterDataService.deleteCategory(
       id,
@@ -123,6 +134,16 @@ export class MasterDataController {
   ) {
     const result = await this.masterDataService.createInventoryItem(
       dto,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('inventory/:id')
+  async deleteInventoryItem(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteInventoryItem(
+      id,
       req.user.userId,
       req.ip,
     );
@@ -183,6 +204,16 @@ export class MasterDataController {
     return { data: result };
   }
 
+  @Delete('icd-codes/:id')
+  async deleteIcdCode(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteIcdCode(
+      id,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
   // --- Allergy Master ---
 
   @Post('allergies')
@@ -210,6 +241,16 @@ export class MasterDataController {
     const result = await this.masterDataService.toggleAllergenStatus(
       id,
       isActive,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('allergies/:id')
+  async deleteAllergen(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteAllergen(
+      id,
       req.user.userId,
       req.ip,
     );
@@ -249,6 +290,16 @@ export class MasterDataController {
     return { data: result };
   }
 
+  @Delete('medications/:id')
+  async deleteMedication(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteMedication(
+      id,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
   // --- Surgery Master ---
 
   @Post('surgeries')
@@ -276,6 +327,16 @@ export class MasterDataController {
     const result = await this.masterDataService.toggleSurgeryStatus(
       id,
       isActive,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('surgeries/:id')
+  async deleteSurgery(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteSurgery(
+      id,
       req.user.userId,
       req.ip,
     );
@@ -318,6 +379,16 @@ export class MasterDataController {
     return { data: result };
   }
 
+  @Delete('hospitalisations/:id')
+  async deleteHospitalisationReason(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteHospitalisationReason(
+      id,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
   // --- Chief Complaint Master ---
 
   @Get('chief-complaints')
@@ -348,6 +419,16 @@ export class MasterDataController {
     const result = await this.masterDataService.toggleChiefComplaintStatus(
       id,
       isActive,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('chief-complaints/:id')
+  async deleteChiefComplaint(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteChiefComplaint(
+      id,
       req.user.userId,
       req.ip,
     );
@@ -391,6 +472,16 @@ export class MasterDataController {
     return { data: result };
   }
 
+  @Delete('interventions/:id')
+  async deleteInterventionMaster(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteInterventionMaster(
+      id,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
   // --- Medication Route Master ---
 
   @Get('medication-routes')
@@ -421,6 +512,16 @@ export class MasterDataController {
     const result = await this.masterDataService.toggleMedicationRouteStatus(
       id,
       isActive,
+      req.user.userId,
+      req.ip,
+    );
+    return { data: result };
+  }
+
+  @Delete('medication-routes/:id')
+  async deleteMedicationRoute(@Param('id') id: string, @Req() req: any) {
+    const result = await this.masterDataService.deleteMedicationRoute(
+      id,
       req.user.userId,
       req.ip,
     );
