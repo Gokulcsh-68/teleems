@@ -894,7 +894,9 @@ export class TripService {
         mlc_fir_number: savedPatient.mlc_fir_number,
         mlc_police_station: savedPatient.mlc_police_station,
         mlc_officer_contact: savedPatient.mlc_officer_contact,
-        symptoms: dto.conditions?.map(c => ({ name: c })) || [],
+        conditions: dto.conditions || [],
+        medications: dto.medications || [],
+        allergies: dto.allergies || [],
       };
 
       if (pIdx > -1) {
