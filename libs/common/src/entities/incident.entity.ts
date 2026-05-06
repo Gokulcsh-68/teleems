@@ -37,8 +37,21 @@ export class Incident {
     id: string;
     name?: string; 
     age?: number; 
+    age_range?: string;
     gender: string; 
     triage_level: string; 
+    mrn?: string;
+    phone?: string;
+    informer_name?: string;
+    informer_relation?: string;
+    informer_phone?: string;
+    is_mlc?: boolean;
+    mlc_fir_number?: string;
+    mlc_police_station?: string;
+    mlc_officer_contact?: string;
+    conditions?: string[];
+    medications?: string[];
+    allergies?: any[];
     symptoms?: { name: string; duration_minutes?: number }[] 
   }[];
 

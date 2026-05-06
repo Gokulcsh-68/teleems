@@ -894,10 +894,12 @@ export class TripService {
         mlc_fir_number: savedPatient.mlc_fir_number,
         mlc_police_station: savedPatient.mlc_police_station,
         mlc_officer_contact: savedPatient.mlc_officer_contact,
-        conditions: dto.conditions || [],
-        medications: dto.medications || [],
-        allergies: dto.allergies || [],
+        conditions: dto.conditions || (pIdx > -1 ? (incident.patients[pIdx] as any).conditions : []),
+        medications: dto.medications || (pIdx > -1 ? (incident.patients[pIdx] as any).medications : []),
+        allergies: dto.allergies || (pIdx > -1 ? (incident.patients[pIdx] as any).allergies : []),
       };
+      
+      console.log(`[TRIP] Syncing snapshot for patient ${savedPatient.name}. Meds: ${updatedPatientJson.medications?.length || 0}`);
 
       if (pIdx > -1) {
         incident.patients[pIdx] = updatedPatientJson;
