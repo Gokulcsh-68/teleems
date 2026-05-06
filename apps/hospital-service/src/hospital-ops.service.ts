@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Hospital, HospitalStatus, AuditLogService } from '@app/common';
+import { Hospital, HospitalStatus, AuditLogService, Dispatch } from '@app/common';
+import { In, Not } from 'typeorm';
 
 @Injectable()
 export class HospitalOpsService {
@@ -14,6 +15,8 @@ export class HospitalOpsService {
     private readonly hospitalRepo: Repository<Hospital>,
     @InjectRepository(HospitalStatus)
     private readonly statusRepo: Repository<HospitalStatus>,
+    @InjectRepository(Dispatch)
+    private readonly dispatchRepo: Repository<Dispatch>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -67,6 +70,16 @@ export class HospitalOpsService {
 
     const status = await this.getStatus(hospitalId);
 
+    // Fetch incoming incidents (Dispatches bound for this hospital)
+    const incomingDispatches = await this.dispatchRepo.find({
+      where: {
+        destination_hospital_id: hospitalId,
+        status: Not(In(['COMPLETED', 'CANCELLED'])),
+      },
+      relations: ['incident'],
+      order: { dispatched_at: 'DESC' },
+    });
+
     return {
       hospital: {
         id: hospital.id,
@@ -76,6 +89,16 @@ export class HospitalOpsService {
         specialties: hospital.specialties,
       },
       status,
+      incoming_incidents: incomingDispatches.map((d) => ({
+        dispatch_id: d.id,
+        incident_id: d.incident_id,
+        status: d.status,
+        eta_seconds: d.eta_seconds,
+        category: d.incident?.category,
+        severity: d.incident?.severity,
+        patients: d.incident?.patients,
+        dispatched_at: d.dispatched_at,
+      })),
     };
   }
 
