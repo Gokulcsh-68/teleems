@@ -49,6 +49,9 @@ import {
   IncidentFeedback,
   User,
   StaffType,
+  PatientProfile,
+  PatientAssessment,
+  PatientIntervention,
 } from '@app/common';
 
 export interface AuditContext {
@@ -83,6 +86,12 @@ export class DispatchServiceService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
     @InjectRepository(IncidentFeedback)
     private readonly feedbackRepository: Repository<IncidentFeedback>,
+    @InjectRepository(PatientProfile)
+    private readonly patientRepo: Repository<PatientProfile>,
+    @InjectRepository(PatientAssessment)
+    private readonly assessmentRepo: Repository<PatientAssessment>,
+    @InjectRepository(PatientIntervention)
+    private readonly interventionRepo: Repository<PatientIntervention>,
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
@@ -1649,26 +1658,37 @@ export class DispatchServiceService implements OnModuleInit {
       return { data: null };
     }
 
-    // --- AGGREGATE CLINICAL DATA (Vitals) ---
-    // For each patient in the incident, fetch their latest vitals from rtvs-service
-    if (dispatch.incident && dispatch.incident.patients) {
-      for (const pt of dispatch.incident.patients) {
-        try {
-          const rtvsBaseUrl = process.env.RTVS_SERVICE_URL || 'http://localhost:3003';
-          const rtvsRes = await fetch(`${rtvsBaseUrl}/v1/rtvs/${dispatch.incident_id}/${pt.id}/vitals/latest`, {
-            headers: { 'Authorization': 'Internal-Secret-123' } // Placeholder for internal auth if needed
-          });
-          if (rtvsRes.ok) {
-            const rtvsData = await rtvsRes.json();
-            (pt as any).vitals = rtvsData.data?.vitals;
-          }
-        } catch (err) {
-          console.warn(`[DISPATCH] Failed to fetch vitals for patient ${pt.id}:`, err.message);
-        }
+    // 3. ENHANCEMENT: Attach Clinical Data (Vitals & Assessments) for Mobile Sync
+    // This allows the app to restore state even after a logout/login cycle
+    const result: any = { ...dispatch };
+    
+    try {
+      const patient = await this.patientRepo.findOne({
+        where: { incident_id: dispatch.incident_id },
+      });
+
+      if (patient) {
+        const assessments = await this.assessmentRepo.find({
+          where: { patient_id: patient.id },
+          order: { taken_at: 'ASC' },
+        });
+
+        const interventions = await this.interventionRepo.find({
+          where: { patient_id: patient.id },
+          order: { timestamp: 'ASC' },
+        });
+
+        result.clinical = {
+          patient,
+          assessments,
+          interventions
+        };
       }
+    } catch (err) {
+      console.warn('[DISPATCH] Failed to attach clinical data to active dispatch:', err.message);
     }
 
-    return { data: dispatch };
+    return { data: result };
   }
 
   async recommendVehicles(dto: RecommendVehicleDto) {
