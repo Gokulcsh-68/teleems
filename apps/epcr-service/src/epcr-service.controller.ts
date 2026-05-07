@@ -118,7 +118,7 @@ export class EpcrServiceController {
 
   @Post(':id/signatures/clinician')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('Hospital Admin', 'CureSelect Admin')
+  @Roles('EMT / Paramedic', 'Hospital Admin', 'CureSelect Admin')
   async addClinicianSignature(
     @Param('id') id: string,
     @Body() dto: SubmitClinicianSignatureDto,

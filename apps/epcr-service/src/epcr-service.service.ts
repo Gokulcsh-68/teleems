@@ -756,7 +756,7 @@ export class EpcrServiceService {
   private async fetchMissionBundle(tripId: string, authToken?: string) {
     try {
       const response = await fetch(
-        `http://127.0.0.1:3001/v1/trips/${tripId}/bundle`,
+        `http://127.0.0.1:3002/v1/trips/${tripId}/bundle`,
         {
           headers: { 
             Authorization: authToken || 'Internal-Secret-123' 

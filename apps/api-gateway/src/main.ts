@@ -32,6 +32,9 @@ async function bootstrap() {
   const rtvsUrl = ensureHttp(
     process.env.RTVS_SERVICE_URL || 'http://localhost:3003',
   );
+  const epcrUrl = ensureHttp(
+    process.env.EPCR_SERVICE_URL || 'http://localhost:3005',
+  );
 
   const rewriteSlashes = (path: string) => path.replace(/\/\/+/g, '/');
 
@@ -75,11 +78,20 @@ async function bootstrap() {
     }),
   );
 
-  // Proxy for Trip Service (Integrated in Dispatch Service)
   app.use(
     ['/v1/trips', '//v1/trips'],
     createProxyMiddleware({
       target: dispatchUrl,
+      changeOrigin: true,
+      pathRewrite: rewriteSlashes,
+    }),
+  );
+
+  // Proxy for ePCR Service
+  app.use(
+    ['/v1/epcr', '//v1/epcr'],
+    createProxyMiddleware({
+      target: epcrUrl,
       changeOrigin: true,
       pathRewrite: rewriteSlashes,
     }),
