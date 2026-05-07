@@ -45,15 +45,14 @@ export class HospitalOpsService {
     }
 
     // 2. Create Admission Record
-    const admission = this.admissionRepo.create({
-      patient_id: dto.patientId,
-      hospital_id: hospitalId,
-      department_id: dto.departmentId,
-      bed_type: bedType,
-      bed_number: dto.bedNumber || null,
-      status: AdmissionStatus.ADMITTED,
-      admitted_by_id: userId,
-    });
+    const admission = new Admission();
+    admission.patient_id = dto.patientId;
+    admission.hospital_id = hospitalId;
+    admission.department_id = dto.departmentId;
+    admission.bed_type = bedType;
+    admission.bed_number = dto.bedNumber || null;
+    admission.status = AdmissionStatus.ADMITTED;
+    admission.admitted_by_id = userId;
 
     await this.admissionRepo.save(admission);
 
@@ -87,13 +86,13 @@ export class HospitalOpsService {
     admission.discharged_at = new Date();
     await this.admissionRepo.save(admission);
 
-    // 2. Update Hospital-wide Capacity
-    const status = await this.getStatus(hospitalId);
-    const bedType = admission.bed_type.toLowerCase() as 'icu' | 'general' | 'isolation';
-    
-    // Increment available beds (making sure we don't exceed capacity, though usually we just add back)
-    status.beds[bedType].available += 1;
-    await this.statusRepo.save(status);
+    // 2. Update Hospital-wide Capacity (only if bed_type was set)
+    if (admission.bed_type) {
+      const status = await this.getStatus(hospitalId);
+      const bedType = admission.bed_type.toLowerCase() as 'icu' | 'general' | 'isolation';
+      status.beds[bedType].available += 1;
+      await this.statusRepo.save(status);
+    }
 
     // 3. Update Department-specific Occupancy
     const department = await this.departmentRepo.findOneBy({ id: admission.department_id, hospitalId });

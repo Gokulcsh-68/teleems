@@ -36,10 +36,10 @@ export class Admission {
   department_id: string;
 
   @Column({ nullable: true })
-  bed_number: string;
+  bed_number: string | null;
 
   @Column({ nullable: true, default: null })
-  bed_type: string; // icu, general, isolation
+  bed_type: string | null; // icu, general, isolation
 
   @Column({
     type: 'enum',
