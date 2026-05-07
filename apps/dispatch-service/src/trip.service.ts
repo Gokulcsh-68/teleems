@@ -966,7 +966,9 @@ export class TripService {
 
     const assessment = this.assessmentRepo.create({
       ...dto as any,
+      type: 'VITALS',
       patient_id: patient.id,
+      recorded_by_id: requestUser.userId,
       taken_at: dto.taken_at ? new Date(dto.taken_at) : new Date(),
     });
 
