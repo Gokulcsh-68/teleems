@@ -129,15 +129,30 @@ export class FleetServiceService {
 
     // Map shifts to vehicles
     const shiftMap = new Map(activeShifts.map(s => [s.vehicleId, s]));
+
+    // Fetch active rosters for today
+    const today = new Date();
+    const activeRosters = await this.rosterRepo.createQueryBuilder('roster')
+      .leftJoinAndMapOne('roster.driver', StaffProfile, 'driver', 'driver.id = roster.driverId')
+      .leftJoinAndMapOne('driver.user', User, 'driverUser', 'driverUser.id = driver.userId')
+      .leftJoinAndMapOne('roster.staff', StaffProfile, 'staff', 'staff.id = roster.staffId')
+      .leftJoinAndMapOne('staff.user', User, 'staffUser', 'staffUser.id = staff.userId')
+      .where('roster.organisationId = :orgId', { orgId })
+      .andWhere('roster.isActive = :isActive', { isActive: true })
+      .andWhere('roster.startDate <= :today AND roster.endDate >= :today', { today })
+      .getMany();
+
+    const rosterMap = new Map(activeRosters.map(r => [r.vehicleId, r]));
     
-    const dataWithShifts = vehicles.map(v => ({
+    const dataWithAssignments = vehicles.map(v => ({
       ...v,
-      activeShift: shiftMap.get(v.id) || null
+      activeShift: shiftMap.get(v.id) || null,
+      activeRoster: rosterMap.get(v.id) || null
     }));
     
     let next_cursor: string | null = null;
     const hasNextPage = vehicles.length > limit;
-    const data = hasNextPage ? dataWithShifts.slice(0, limit) : dataWithShifts;
+    const data = hasNextPage ? dataWithAssignments.slice(0, limit) : dataWithAssignments;
 
     if (hasNextPage) {
       const lastItem = data[data.length - 1];
