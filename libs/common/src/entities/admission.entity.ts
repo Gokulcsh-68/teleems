@@ -35,10 +35,10 @@ export class Admission {
   @Index()
   department_id: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   bed_number: string | null;
 
-  @Column({ nullable: true, default: null })
+  @Column({ type: 'varchar', nullable: true, default: null })
   bed_type: string | null; // icu, general, isolation
 
   @Column({
