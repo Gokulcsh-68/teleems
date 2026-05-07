@@ -31,6 +31,9 @@ export class HospitalOpsService {
     const department = await this.departmentRepo.findOneBy({ id: dto.departmentId, hospitalId });
     if (!department) throw new NotFoundException('Department not found in this hospital');
 
+    const patient = await this.patientRepo.findOneBy({ id: dto.patientId });
+    if (!patient) throw new NotFoundException('Patient record not found');
+
     const bedType = dto.bedType ? dto.bedType.toLowerCase() as 'icu' | 'general' | 'isolation' : null;
 
     // 1. Check Hospital-wide Capacity (only if bedType is specified)
