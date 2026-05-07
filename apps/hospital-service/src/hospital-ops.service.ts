@@ -307,14 +307,8 @@ export class HospitalOpsService {
       }
     });
 
-    const data = items.map((d) => ({
-      dispatch_id: d.id,
-      incident_id: d.incident_id,
-      status: d.status,
-      eta_seconds: d.eta_seconds,
-      category: d.incident?.category,
-      severity: d.incident?.severity,
-      patients: d.incident?.patients?.map(p => {
+    const data = items.map((d) => {
+      const enrichedPatients = d.incident?.patients?.map(p => {
         const admission = admissionMap.get(p.id);
         return {
           ...p,
@@ -323,9 +317,30 @@ export class HospitalOpsService {
           admitted_at: admission?.admitted_at || null,
           discharged_at: admission?.discharged_at || null
         };
-      }),
-      dispatched_at: d.dispatched_at,
-    }));
+      }) || [];
+
+      // Determine top-level status based on patient admissions
+      let displayStatus = d.status;
+      const hasAdmitted = enrichedPatients.some(p => p.admission_status === 'ADMITTED');
+      const allDischarged = enrichedPatients.length > 0 && enrichedPatients.every(p => p.admission_status === 'DISCHARGED');
+
+      if (hasAdmitted) {
+        displayStatus = 'ADMITTED';
+      } else if (allDischarged) {
+        displayStatus = 'DISCHARGED';
+      }
+
+      return {
+        dispatch_id: d.id,
+        incident_id: d.incident_id,
+        status: displayStatus,
+        eta_seconds: d.eta_seconds,
+        category: d.incident?.category,
+        severity: d.incident?.severity,
+        patients: enrichedPatients,
+        dispatched_at: d.dispatched_at,
+      };
+    });
 
     return {
       items: data,
