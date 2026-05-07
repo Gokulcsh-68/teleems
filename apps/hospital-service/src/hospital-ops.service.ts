@@ -110,6 +110,26 @@ export class HospitalOpsService {
     return { message: 'Patient discharged successfully', admission };
   }
 
+  async getAdmissions(hospitalId: string, page = 1, limit = 10) {
+    const [items, total] = await this.admissionRepo.findAndCount({
+      where: { hospital_id: hospitalId, status: AdmissionStatus.ADMITTED },
+      relations: ['patient', 'department'],
+      order: { admitted_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      items,
+      meta: {
+        total_count: total,
+        page,
+        per_page: limit,
+        total_pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
   // --- Bed & Resource Tracking (Spec 6.2) ---
 
   async getStatus(hospitalId: string) {
