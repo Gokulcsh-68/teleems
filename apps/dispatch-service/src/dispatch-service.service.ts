@@ -1649,6 +1649,25 @@ export class DispatchServiceService implements OnModuleInit {
       return { data: null };
     }
 
+    // --- AGGREGATE CLINICAL DATA (Vitals) ---
+    // For each patient in the incident, fetch their latest vitals from rtvs-service
+    if (dispatch.incident && dispatch.incident.patients) {
+      for (const pt of dispatch.incident.patients) {
+        try {
+          const rtvsBaseUrl = process.env.RTVS_SERVICE_URL || 'http://localhost:3003';
+          const rtvsRes = await fetch(`${rtvsBaseUrl}/v1/rtvs/${dispatch.incident_id}/${pt.id}/vitals/latest`, {
+            headers: { 'Authorization': 'Internal-Secret-123' } // Placeholder for internal auth if needed
+          });
+          if (rtvsRes.ok) {
+            const rtvsData = await rtvsRes.json();
+            (pt as any).vitals = rtvsData.data?.vitals;
+          }
+        } catch (err) {
+          console.warn(`[DISPATCH] Failed to fetch vitals for patient ${pt.id}:`, err.message);
+        }
+      }
+    }
+
     return { data: dispatch };
   }
 
