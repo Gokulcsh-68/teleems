@@ -27,6 +27,7 @@ import { AuthModule } from '../../auth-service/src/auth.module';
 import { CommonModule } from '../../../libs/common/src';
 
 import { DispatchGateway } from './dispatch.gateway';
+import { EpcrController } from './epcr.controller';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { DispatchGateway } from './dispatch.gateway';
     AuthModule,
     CommonModule,
   ],
-  controllers: [DispatchServiceController, TripController, DispatchController],
+  controllers: [DispatchServiceController, TripController, DispatchController, EpcrController],
   providers: [DispatchServiceService, TripService, JwtStrategy, DispatchGateway],
   exports: [DispatchServiceService, DispatchGateway],
 })
