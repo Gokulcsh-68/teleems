@@ -31,8 +31,39 @@ export class HospitalOpsService {
     const department = await this.departmentRepo.findOneBy({ id: dto.departmentId, hospitalId });
     if (!department) throw new NotFoundException('Department not found in this hospital');
 
-    const patient = await this.patientRepo.findOneBy({ id: dto.patientId });
-    if (!patient) throw new NotFoundException('Patient record not found');
+    let patient = await this.patientRepo.findOneBy({ id: dto.patientId });
+    
+    if (!patient) {
+      // If patient profile doesn't exist, try to find them in incoming dispatches for this hospital
+      const dispatch = await this.dispatchRepo.createQueryBuilder('dispatch')
+        .leftJoinAndSelect('dispatch.incident', 'incident')
+        .where('dispatch.destination_hospital_id = :hospitalId', { hospitalId })
+        .andWhere('incident.patients @> :patientFilter', { 
+          patientFilter: JSON.stringify([{ id: dto.patientId }]) 
+        })
+        .getOne();
+
+      if (!dispatch || !dispatch.incident) {
+        throw new NotFoundException('Patient record not found in system or incoming dispatches');
+      }
+
+      // Find the specific patient data in the incident JSON
+      const patientData = dispatch.incident.patients.find(p => p.id === dto.patientId);
+      
+      // Create a formal PatientProfile record so Admission FK works
+      const pData = patientData as any;
+      patient = this.patientRepo.create({
+        id: dto.patientId,
+        name: pData.name,
+        age: pData.age,
+        gender: pData.gender,
+        triage_code: pData.triage_level || pData.triage_code || 'WHITE',
+        incident_id: dispatch.incident_id,
+        trip_id: dispatch.id,
+        organisationId: dispatch.organisationId
+      });
+      await this.patientRepo.save(patient);
+    }
 
     const bedType = dto.bedType ? dto.bedType.toLowerCase() as 'icu' | 'general' | 'isolation' : null;
 
