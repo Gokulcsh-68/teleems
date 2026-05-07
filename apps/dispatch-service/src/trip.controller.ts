@@ -207,6 +207,12 @@ export class TripController {
     return this.tripService.recordIntervention(id, dto, req.user);
   }
 
+  @Post(':id/clinical/assessment')
+  @Roles('EMT / Paramedic', 'CureSelect Admin')
+  async recordAssessment(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.tripService.recordAssessment(id, dto, req.user);
+  }
+
   @Get(':id/route')
   @Roles('Pilot', 'Paramedic', 'EMT / Paramedic', 'CureSelect Admin')
   async getNavigationRoute(@Param('id') id: string, @Req() req: any) {

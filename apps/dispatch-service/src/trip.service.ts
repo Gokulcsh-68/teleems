@@ -1027,6 +1027,52 @@ export class TripService {
     return { data: savedIntervention };
   }
 
+  async recordAssessment(id: string, dto: any, requestUser: any) {
+    const response = await this.findOneTrip(id, requestUser);
+    const trip = response.data;
+
+    const patient = await this.patientRepo.findOne({
+      where: { incident_id: trip.incident_id },
+    });
+
+    if (!patient) throw new NotFoundException('Patient profile not found. Create profile first.');
+
+    const assessment = this.assessmentRepo.create({
+      type: 'CLINICAL',
+      patient_id: patient.id,
+      gcs_eye: dto.gcs_eye,
+      gcs_verbal: dto.gcs_verbal,
+      gcs_motor: dto.gcs_motor,
+      gcs_total: (dto.gcs_eye || 0) + (dto.gcs_verbal || 0) + (dto.gcs_motor || 0),
+      avpu: dto.avpu?.[0], // Take first letter A, V, P, U
+      pupil_left_reactivity: dto.pupil_left,
+      pupil_right_reactivity: dto.pupil_right,
+      trauma_json: dto.trauma,
+      chief_complaint: dto.chief_complaint,
+      triage_code: dto.triage_code,
+      recorded_by_id: requestUser.userId,
+      taken_at: dto.taken_at ? new Date(dto.taken_at) : new Date(),
+    });
+
+    const savedAssessment = await this.assessmentRepo.save(assessment);
+
+    // Broadcast via WebSocket
+    this.dispatchGateway.notifyVitalsUpdate(trip.id, {
+      patient_id: patient.id,
+      assessment: savedAssessment,
+    });
+
+    // Log to timeline
+    await this.timelineRepo.save(this.timelineRepo.create({
+      incident_id: trip.incident_id,
+      type: 'ASSESSMENT_RECORDED',
+      description: `Clinical Assessment Recorded: GCS ${assessment.gcs_total}/15, AVPU: ${dto.avpu}`,
+      user_id: requestUser.userId,
+    }));
+
+    return { data: savedAssessment };
+  }
+
   async getNavigationRoute(id: string, requestUser: any) {
     const response = await this.findOneTrip(id, requestUser);
     const trip = response.data;
