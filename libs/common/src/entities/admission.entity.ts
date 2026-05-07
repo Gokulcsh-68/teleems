@@ -38,7 +38,7 @@ export class Admission {
   @Column({ nullable: true })
   bed_number: string;
 
-  @Column({ default: 'general' })
+  @Column({ nullable: true, default: null })
   bed_type: string; // icu, general, isolation
 
   @Column({

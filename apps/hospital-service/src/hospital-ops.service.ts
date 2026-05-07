@@ -27,16 +27,21 @@ export class HospitalOpsService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async admitPatient(hospitalId: string, dto: { patientId: string; departmentId: string; bedType: string; bedNumber?: string }, userId: string, ip: string) {
+  async admitPatient(hospitalId: string, dto: { patientId: string; departmentId: string; bedType?: string; bedNumber?: string }, userId: string, ip: string) {
     const department = await this.departmentRepo.findOneBy({ id: dto.departmentId, hospitalId });
     if (!department) throw new NotFoundException('Department not found in this hospital');
 
-    // 1. Check Capacity
-    const status = await this.getStatus(hospitalId);
-    const bedType = dto.bedType.toLowerCase() as 'icu' | 'general' | 'isolation';
-    
-    if (status.beds[bedType].available <= 0) {
-       throw new BadRequestException(`No available ${bedType} beds in the hospital`);
+    const bedType = dto.bedType ? dto.bedType.toLowerCase() as 'icu' | 'general' | 'isolation' : null;
+
+    // 1. Check Hospital-wide Capacity (only if bedType is specified)
+    if (bedType) {
+      const status = await this.getStatus(hospitalId);
+      if (status.beds[bedType]?.available <= 0) {
+        throw new BadRequestException(`No available ${bedType} beds in the hospital`);
+      }
+      // Update Hospital-wide Capacity
+      status.beds[bedType].available -= 1;
+      await this.statusRepo.save(status);
     }
 
     // 2. Create Admission Record
@@ -45,18 +50,14 @@ export class HospitalOpsService {
       hospital_id: hospitalId,
       department_id: dto.departmentId,
       bed_type: bedType,
-      bed_number: dto.bedNumber,
+      bed_number: dto.bedNumber || null,
       status: AdmissionStatus.ADMITTED,
       admitted_by_id: userId,
     });
 
     await this.admissionRepo.save(admission);
 
-    // 3. Update Hospital-wide Capacity
-    status.beds[bedType].available -= 1;
-    await this.statusRepo.save(status);
-
-    // 4. Update Department-specific Occupancy
+    // 3. Update Department-specific Occupancy
     department.occupiedBeds += 1;
     await this.departmentRepo.save(department);
 
@@ -68,6 +69,7 @@ export class HospitalOpsService {
     });
 
     return admission;
+
   }
 
   async dischargePatient(hospitalId: string, admissionId: string, userId: string, ip: string) {
