@@ -70,6 +70,46 @@ export class HospitalOpsService {
     return admission;
   }
 
+  async dischargePatient(hospitalId: string, admissionId: string, userId: string, ip: string) {
+    const admission = await this.admissionRepo.findOne({
+      where: { id: admissionId, hospital_id: hospitalId },
+    });
+
+    if (!admission) throw new NotFoundException('Admission record not found');
+    if (admission.status === AdmissionStatus.DISCHARGED) {
+      throw new BadRequestException('Patient is already discharged');
+    }
+
+    // 1. Update Admission Record
+    admission.status = AdmissionStatus.DISCHARGED;
+    admission.discharged_at = new Date();
+    await this.admissionRepo.save(admission);
+
+    // 2. Update Hospital-wide Capacity
+    const status = await this.getStatus(hospitalId);
+    const bedType = admission.bed_type.toLowerCase() as 'icu' | 'general' | 'isolation';
+    
+    // Increment available beds (making sure we don't exceed capacity, though usually we just add back)
+    status.beds[bedType].available += 1;
+    await this.statusRepo.save(status);
+
+    // 3. Update Department-specific Occupancy
+    const department = await this.departmentRepo.findOneBy({ id: admission.department_id, hospitalId });
+    if (department) {
+      department.occupiedBeds = Math.max(0, department.occupiedBeds - 1);
+      await this.departmentRepo.save(department);
+    }
+
+    await this.auditLogService.log({
+      userId,
+      action: 'PATIENT_DISCHARGED',
+      ipAddress: ip,
+      metadata: { admissionId, patientId: admission.patient_id, departmentId: admission.department_id },
+    });
+
+    return { message: 'Patient discharged successfully', admission };
+  }
+
   // --- Bed & Resource Tracking (Spec 6.2) ---
 
   async getStatus(hospitalId: string) {

@@ -90,6 +90,17 @@ export class HospitalOpsController {
     );
   }
 
+  @Patch('admissions/:admissionId/discharge')
+  async dischargePatient(@Req() req: any) {
+    const { admissionId } = req.params;
+    return this.opsService.dischargePatient(
+      this.getHospitalId(req),
+      admissionId,
+      req.user.userId,
+      req.ip,
+    );
+  }
+
   @Get('profile')
   async getProfile(@Req() req: any) {
     return this.opsService.getProfile(this.getHospitalId(req));
