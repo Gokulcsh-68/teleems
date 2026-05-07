@@ -98,6 +98,10 @@ export class FleetServiceService {
       queryBuilder.andWhere('vehicle.model ILIKE :model', { model: `%${model}%` });
     }
 
+    if (query.station_id) {
+      queryBuilder.andWhere('vehicle.station_id = :stationId', { stationId: query.station_id });
+    }
+
     // Pagination
     if (cursor) {
       const decodedCursor = decodeCursor(cursor);

@@ -43,4 +43,8 @@ export class VehicleQueryDto {
   @IsString()
   @IsOptional()
   vehicle_type?: string;
+
+  @IsString()
+  @IsOptional()
+  station_id?: string;
 }
