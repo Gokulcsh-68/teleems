@@ -284,6 +284,29 @@ export class HospitalOpsService {
       .take(limit)
       .getManyAndCount();
 
+    // 1. Collect all patient IDs from the incidents
+    const patientIds = items.flatMap(d => d.incident?.patients?.map(p => p.id) || []);
+
+    // 2. Fetch active/recent admissions for these patients at this hospital
+    const admissions = patientIds.length > 0 
+      ? await this.admissionRepo.find({
+          where: { 
+            patient_id: In(patientIds),
+            hospital_id: hospitalId 
+          },
+          relations: ['department'],
+          order: { admitted_at: 'DESC' }
+        })
+      : [];
+
+    // 3. Map admissions by patient_id for quick lookup
+    const admissionMap = new Map();
+    admissions.forEach(a => {
+      if (!admissionMap.has(a.patient_id)) {
+        admissionMap.set(a.patient_id, a);
+      }
+    });
+
     const data = items.map((d) => ({
       dispatch_id: d.id,
       incident_id: d.incident_id,
@@ -291,7 +314,16 @@ export class HospitalOpsService {
       eta_seconds: d.eta_seconds,
       category: d.incident?.category,
       severity: d.incident?.severity,
-      patients: d.incident?.patients,
+      patients: d.incident?.patients?.map(p => {
+        const admission = admissionMap.get(p.id);
+        return {
+          ...p,
+          admission_status: admission?.status || null,
+          department_name: admission?.department?.name || null,
+          admitted_at: admission?.admitted_at || null,
+          discharged_at: admission?.discharged_at || null
+        };
+      }),
       dispatched_at: d.dispatched_at,
     }));
 
