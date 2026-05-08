@@ -219,13 +219,13 @@ export class FleetServiceController {
   }
 
   @Get('inventory/master')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async getMasterInventory(@Query('category') category: string, @Query('unit') unit: string, @Req() req: any) {
     return this.fleetService.getMasterInventory(req.user, category, unit);
   }
 
   @Get('inventory/metadata')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async getInventoryMetadata() {
     return this.fleetService.getInventoryMetadata();
   }
@@ -252,19 +252,19 @@ export class FleetServiceController {
   }
 
   @Get('vehicles/:id/inventory')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async getVehicleInventory(@Param('id') id: string, @Req() req: any) {
     return this.fleetService.getVehicleInventory(id, req.user);
   }
 
   @Patch('vehicles/:id/inventory')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async updateVehicleInventory(@Param('id') id: string, @Body() dto: UpdateVehicleInventoryDto, @Req() req: any) {
     return this.fleetService.updateVehicleInventory(id, dto, req.user);
   }
 
   @Post('vehicles/:id/inventory/bulk')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async bulkUpdateInventory(@Param('id') id: string, @Body() dto: BulkUpdateInventoryDto, @Req() req: any) {
     // Ensure the URL param ID matches the body ID
     dto.vehicleId = id;
@@ -272,7 +272,7 @@ export class FleetServiceController {
   }
 
   @Get('vehicles/:id/inventory/logs')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Ambulance Pilot (Driver)', 'EMT / Paramedic', 'On-board Doctor')
   async getInventoryLogs(@Param('id') id: string) {
     return this.fleetService.getInventoryLogs(id);
   }
