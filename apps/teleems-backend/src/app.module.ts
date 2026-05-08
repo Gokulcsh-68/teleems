@@ -74,7 +74,10 @@ import {
   Consult,
   HospitalStatus,
   TriageMaster,
-  Admission
+  TriageMaster,
+  Admission,
+  WarehouseInventory,
+  RestockRequest
 } from '@app/common';
 
 // Entities for global TypeORM config
@@ -111,7 +114,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           RtvsRecord, Vehicle, LocationLog, Station, StaffProfile, DutyShift,
           Organisation, Hospital, FleetOperator, Department,
           SymptomMaster, IncidentCategoryMaster, InventoryItemMaster,
-          VehicleInventory, InventoryLog, DutyRoster,
+          VehicleInventory, InventoryLog, DutyRoster, WarehouseInventory, RestockRequest,
           CCEProfile, SystemConfig, FeatureFlag, IotDeviceProfile,
           PatientPhoto, PatientDocument, PatientValuable, TeleLinkSession,
           Epcr, EpcrSignature, EpcrAcknowledgement, PrintJob, EpcrDeliveryLog, EpcrMlcRecord, EpcrExportJob, Consult, HospitalStatus, TriageMaster, Admission
