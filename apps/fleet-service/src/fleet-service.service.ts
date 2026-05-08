@@ -1249,7 +1249,53 @@ export class FleetServiceService {
     const orgId = requestUser.organisationId || requestUser.org_id;
     const where: any = { organisation_id: orgId };
     
-    if (vehicleId) {
+    // Determine user roles
+    const roles = requestUser.roles || [];
+    const isEMT = roles.includes('EMT / Paramedic') || roles.includes('EMT');
+    const isOperator = roles.includes('Fleet Operator') || roles.includes('CureSelect Admin') || roles.includes('CURESELECT_ADMIN');
+
+    // SECURITY: If EMT, they can ONLY see their own vehicle's requests
+    if (isEMT && !isOperator) {
+      // 1. Get Staff Profile
+      const profile = await this.dataSource.getRepository(StaffProfile).findOneBy({ 
+        userId: requestUser.id || requestUser.userId 
+      });
+      
+      if (profile) {
+        // 2. Check for an active DutyShift (Already ON_DUTY)
+        const activeShift = await this.dataSource.getRepository(DutyShift).findOne({
+          where: [
+            { driverId: profile.id, status: DutyShiftStatus.ON_DUTY },
+            { staffId: profile.id, status: DutyShiftStatus.ON_DUTY }
+          ],
+          relations: ['vehicle']
+        });
+
+        if (activeShift && activeShift.vehicle) {
+          where.vehicle_id = activeShift.vehicle.id;
+        } else {
+          // 3. Fallback to today's DutyRoster
+          const today = new Date().toISOString().split('T')[0];
+          const roster = await this.dataSource.getRepository(DutyRoster).createQueryBuilder('roster')
+            .leftJoinAndSelect('roster.vehicle', 'vehicle')
+            .where('(roster.driverId = :pId OR roster.staffId = :pId)', { pId: profile.id })
+            .andWhere('roster.startDate <= :today', { today })
+            .andWhere('roster.endDate >= :today', { today })
+            .andWhere('roster.isActive = :active', { active: true })
+            .getOne();
+
+          if (roster && roster.vehicle) {
+            where.vehicle_id = roster.vehicle.id;
+          }
+        }
+      }
+      
+      // If we still didn't find a vehicle, and they provided one, use it as last resort
+      if (!where.vehicle_id && vehicleId) {
+        where.vehicle_id = vehicleId;
+      }
+    } else if (vehicleId) {
+      // For operators, apply the filter if provided
       where.vehicle_id = vehicleId;
     }
 

@@ -284,7 +284,7 @@ export class FleetServiceController {
   }
 
   @Get('inventory/restock-requests')
-  @Roles('Fleet Operator', 'CureSelect Admin', 'CURESELECT_ADMIN')
+  @Roles('Fleet Operator', 'CureSelect Admin', 'CURESELECT_ADMIN', 'EMT / Paramedic')
   async listRestockRequests(@Query('vehicleId') vehicleId: string, @Query('status') status: string, @Req() req: any) {
     return this.fleetService.listRestockRequests(req.user, vehicleId, status);
   }
