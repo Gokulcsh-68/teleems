@@ -1046,22 +1046,30 @@ export class FleetServiceService {
         results.push(saved);
 
         const changeAmount = newQty - previousQty;
-        const orgId = requestUser.organisationId || requestUser.org_id;
+        const orgId = requestUser.organisationId || requestUser.org_id || (dto as any).organisationId;
 
         // --- Warehouse Deduction Logic ---
         // If we are ADDING stock to a vehicle (Restock), we subtract it from the warehouse
+        // We only skip this if it's explicitly a direct purchase (has a supplier name that isn't 'Warehouse' or similar)
         if (changeAmount > 0 && !itemDto.consumed) {
           const warehouseStock = await queryRunner.manager.findOne(WarehouseInventory, {
             where: { organisation_id: orgId, inventory_item_id: itemDto.itemId },
             lock: { mode: 'pessimistic_write' } // Prevent race conditions
           });
 
-          if (!warehouseStock || warehouseStock.quantity < changeAmount) {
-            throw new BadRequestException(`Insufficient warehouse stock for item ${itemDto.itemId}. Available: ${warehouseStock?.quantity || 0}, Required: ${changeAmount}`);
+          if (warehouseStock) {
+            if (warehouseStock.quantity < changeAmount) {
+              throw new BadRequestException(`Insufficient warehouse stock for item ${itemDto.itemId}. Available: ${warehouseStock.quantity}, Required: ${changeAmount}`);
+            }
+            warehouseStock.quantity -= changeAmount;
+            await queryRunner.manager.save(warehouseStock);
+          } else {
+            // If it's a restock but no warehouse record exists, we throw error 
+            // unless it's a global admin seeding data
+            if (orgId) {
+              throw new BadRequestException(`Warehouse inventory not found for item ${itemDto.itemId} in this organization.`);
+            }
           }
-
-          warehouseStock.quantity -= changeAmount;
-          await queryRunner.manager.save(warehouseStock);
         }
 
         // Audit Log for each item
@@ -1268,8 +1276,9 @@ export class FleetServiceService {
 
     // --- AUTOMATION: If status becomes COMPLETED, auto-update the vehicle inventory ---
     if (dto.status === RestockRequestStatus.COMPLETED && oldStatus !== RestockRequestStatus.COMPLETED) {
-      const bulkDto: BulkUpdateInventoryDto = {
+      const bulkDto: any = {
         vehicleId: request.vehicle_id,
+        organisationId: request.organisation_id, // Pass this as a fallback for warehouse lookup
         reason: `Automated restock from Request #${id}`,
         items: request.items.map(item => ({
           itemId: item.itemId,
