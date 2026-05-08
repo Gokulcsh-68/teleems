@@ -211,8 +211,14 @@ export class FleetServiceController {
 
   @Get('inventory/master')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
-  async getMasterInventory() {
-    return this.fleetService.getMasterInventory();
+  async getMasterInventory(@Query('category') category: string, @Query('unit') unit: string) {
+    return this.fleetService.getMasterInventory(category, unit);
+  }
+
+  @Get('inventory/metadata')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
+  async getInventoryMetadata() {
+    return this.fleetService.getInventoryMetadata();
   }
 
   @Get('inventory/reports/low-stock')

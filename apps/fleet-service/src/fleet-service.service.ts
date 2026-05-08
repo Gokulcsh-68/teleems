@@ -872,8 +872,13 @@ export class FleetServiceService {
     return { data: saved };
   }
 
-  async getMasterInventory() {
+  async getMasterInventory(category?: string, unit?: string) {
+    const where: any = {};
+    if (category) where.category = category;
+    if (unit) where.unit = unit;
+
     const items = await this.inventoryItemRepo.find({
+      where,
       order: { category: 'ASC', name: 'ASC' }
     });
     return { data: items };
@@ -1225,5 +1230,21 @@ export class FleetServiceService {
       .getMany();
 
     return { data: logs };
+  }
+
+  async getInventoryMetadata() {
+    return {
+      data: {
+        categories: Object.values(InventoryItemCategory),
+        units: ['Tablet', 'Vial', 'Ampoule', 'Bottle', 'Pack', 'Piece', 'Strip', 'Milliliter', 'Gram', 'Cylinder', 'Kit'],
+        common_names: {
+          MEDICATION: ['Aspirin', 'Paracetamol', 'Ibuprofen', 'Adrenaline', 'Atropine', 'Nitroglycerin', 'Salbutamol', 'Hydrocortisone', 'Ondansetron', 'Morphine', 'Fentanyl'],
+          DISPOSABLE: ['Bandage', 'Surgical Gloves', 'Syringe 5ml', 'Syringe 10ml', 'IV Cannula', 'Gauze Pad', 'Face Mask'],
+          MEDICAL_DEVICE: ['Stethoscope', 'BP Monitor', 'Pulse Oximeter', 'Thermometer', 'Glucometer', 'Defibrillator Pads'],
+          REUSABLE: ['Oxygen Cylinder', 'Stretchers', 'Cervical Collar', 'Splint'],
+          DRUG: ['Midazolam', 'Ketamine', 'Propofol']
+        }
+      }
+    };
   }
 }
