@@ -80,6 +80,7 @@ export class BulkUpdateInventoryDto {
     quantity?: number;
     minRequired?: number;
     consumed?: number;
+    added?: number;
     batch_number?: string;
     expiry_date?: string;
   }[];

@@ -1018,11 +1018,13 @@ export class FleetServiceService {
         const previousQty = inventory ? inventory.quantity : 0;
         let newQty = itemDto.quantity;
 
-        // Handle relative consumption in bulk
+        // Handle relative consumption or addition in bulk
         if (itemDto.consumed !== undefined) {
           newQty = previousQty - itemDto.consumed;
+        } else if (itemDto.added !== undefined) {
+          newQty = previousQty + itemDto.added;
         } else if (newQty === undefined) {
-          // Skip if neither quantity nor consumed is provided for this specific item
+          // Skip if neither quantity, consumed nor added is provided
           continue;
         }
 
@@ -1267,7 +1269,7 @@ export class FleetServiceService {
         reason: `Automated restock from Request #${id}`,
         items: request.items.map(item => ({
           itemId: item.itemId,
-          quantity: item.quantityRequested // Move requested amount into vehicle
+          added: item.quantityRequested // Use 'added' to INCREMENT instead of overwrite
         }))
       };
 
