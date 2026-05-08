@@ -232,8 +232,11 @@ export class FleetServiceController {
 
   @Post('inventory/warehouse')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async updateWarehouseStock(@Body() dto: UpdateWarehouseStockDto, @Req() req: any) {
-    return this.fleetService.updateWarehouseStock(dto, req.user);
+  async updateWarehouseStock(@Body() body: any, @Req() req: any) {
+    if (Array.isArray(body)) {
+      return this.fleetService.bulkUpdateWarehouseStock(body, req.user);
+    }
+    return this.fleetService.updateWarehouseStock(body, req.user);
   }
 
   @Get('inventory/warehouse')

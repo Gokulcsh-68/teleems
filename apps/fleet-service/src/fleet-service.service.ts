@@ -1332,6 +1332,15 @@ export class FleetServiceService {
     return { data: saved };
   }
 
+  async bulkUpdateWarehouseStock(items: UpdateWarehouseStockDto[], requestUser: any) {
+    const results: WarehouseInventory[] = [];
+    for (const item of items) {
+      const res = await this.updateWarehouseStock(item, requestUser);
+      results.push(res.data);
+    }
+    return { data: results, count: results.length };
+  }
+
   async getWarehouseStock(requestUser: any) {
     const orgId = requestUser.organisationId || requestUser.org_id;
     const stocks = await this.warehouseRepo.find({
