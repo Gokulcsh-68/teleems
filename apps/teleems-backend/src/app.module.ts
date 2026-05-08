@@ -74,7 +74,6 @@ import {
   Consult,
   HospitalStatus,
   TriageMaster,
-  TriageMaster,
   Admission,
   WarehouseInventory,
   RestockRequest
