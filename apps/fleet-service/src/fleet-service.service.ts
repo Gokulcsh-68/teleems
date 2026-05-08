@@ -1015,7 +1015,7 @@ export class FleetServiceService {
           supplier_name: dto.supplier_name,
           invoice_number: dto.invoice_number,
           batch_number: itemDto.batch_number,
-          expiry_date: itemDto.expiry_date ? new Date(itemDto.expiry_date) : null
+          expiry_date: itemDto.expiry_date ? new Date(itemDto.expiry_date) : undefined
         });
         await queryRunner.manager.save(log);
       }
