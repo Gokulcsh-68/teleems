@@ -4,7 +4,7 @@ import { FleetServiceController } from './fleet-service.controller';
 import { FleetServiceService } from './fleet-service.service';
 import { 
   FleetOperator, Organisation, Vehicle, Station, StaffProfile, DutyShift, 
-  InventoryItemMaster, VehicleInventory, InventoryLog, DutyRoster 
+  InventoryItemMaster, VehicleInventory, InventoryLog, DutyRoster, RestockRequest
 } from '@app/common';
 import { LocationLog } from './entities/location-log.entity';
 import { AuthModule } from '../../auth-service/src/auth.module';
@@ -23,7 +23,8 @@ import { CommonModule } from '../../../libs/common/src';
       InventoryItemMaster,
       VehicleInventory,
       InventoryLog,
-      DutyRoster
+      DutyRoster,
+      RestockRequest
     ]),
     AuthModule,
     CommonModule,

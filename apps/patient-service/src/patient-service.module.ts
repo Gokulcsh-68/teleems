@@ -16,6 +16,7 @@ import {
   PatientDocument,
   PatientValuable,
   VehicleInventory,
+  InventoryLog,
   Dispatch,
 } from '@app/common';
 import { PatientController } from './patient-service.controller';
@@ -39,6 +40,7 @@ import { PatientService } from './patient-service.service';
       PatientDocument,
       PatientValuable,
       VehicleInventory,
+      InventoryLog,
       Dispatch,
     ]),
   ],
