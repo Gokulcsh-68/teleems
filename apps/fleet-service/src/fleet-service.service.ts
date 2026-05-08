@@ -872,6 +872,15 @@ export class FleetServiceService {
     return { data: saved };
   }
 
+  async updateInventoryItem(id: string, dto: Partial<CreateInventoryItemDto>) {
+    const item = await this.inventoryItemRepo.findOneBy({ id });
+    if (!item) throw new NotFoundException('Inventory item not found');
+    
+    Object.assign(item, dto);
+    const saved = await this.inventoryItemRepo.save(item);
+    return { data: saved };
+  }
+
   async bulkCreateInventoryMaster(items: CreateInventoryItemDto[]) {
     const entities = items.map(item => {
       // Ensure category is uppercase to match enum

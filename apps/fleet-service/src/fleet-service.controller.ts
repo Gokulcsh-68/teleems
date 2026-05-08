@@ -206,6 +206,12 @@ export class FleetServiceController {
     return this.fleetService.createInventoryItem(body);
   }
 
+  @Patch('inventory/master/:id')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async updateInventoryItem(@Param('id') id: string, @Body() dto: any) {
+    return this.fleetService.updateInventoryItem(id, dto);
+  }
+
   @Post('inventory/seed')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
   async seedInventory() {
