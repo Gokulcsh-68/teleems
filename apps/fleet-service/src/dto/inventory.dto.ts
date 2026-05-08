@@ -24,6 +24,14 @@ export class CreateInventoryItemDto {
 
   @IsNumber()
   @IsOptional()
+  min_stock_threshold?: number;
+
+  @IsNumber()
+  @IsOptional()
+  max_stock_level?: number;
+
+  @IsNumber()
+  @IsOptional()
   lead_time_days?: number;
 }
 

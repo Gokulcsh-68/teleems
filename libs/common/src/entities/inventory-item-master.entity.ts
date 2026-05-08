@@ -10,6 +10,7 @@ export enum InventoryItemCategory {
   DISPOSABLE = 'DISPOSABLE',
   MEDICAL_DEVICE = 'MEDICAL_DEVICE',
   DRUG = 'DRUG',
+  MEDICATION = 'MEDICATION',
   REUSABLE = 'REUSABLE',
 }
 
