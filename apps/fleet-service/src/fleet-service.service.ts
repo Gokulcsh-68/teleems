@@ -1256,8 +1256,23 @@ export class FleetServiceService {
     const request = await this.restockRepo.findOneBy({ id });
     if (!request) throw new NotFoundException('Restock request not found');
 
+    const oldStatus = request.status;
     request.status = dto.status as RestockRequestStatus;
     const saved = await this.restockRepo.save(request);
+
+    // --- AUTOMATION: If status becomes COMPLETED, auto-update the vehicle inventory ---
+    if (dto.status === RestockRequestStatus.COMPLETED && oldStatus !== RestockRequestStatus.COMPLETED) {
+      const bulkDto: BulkUpdateInventoryDto = {
+        vehicleId: request.vehicle_id,
+        reason: `Automated restock from Request #${id}`,
+        items: request.items.map(item => ({
+          itemId: item.itemId,
+          quantity: item.quantityRequested // Move requested amount into vehicle
+        }))
+      };
+
+      await this.bulkUpdateInventory(bulkDto, requestUser);
+    }
 
     await this.auditLogService.log({
       userId: requestUser.id || requestUser.userId,
