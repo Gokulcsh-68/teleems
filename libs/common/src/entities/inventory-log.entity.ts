@@ -53,6 +53,18 @@ export class InventoryLog {
   @Column({ type: 'text', nullable: true })
   reason: string;
 
+  @Column({ nullable: true })
+  batch_number: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  expiry_date: Date;
+
+  @Column({ nullable: true })
+  supplier_name: string;
+
+  @Column({ nullable: true })
+  invoice_number: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 }

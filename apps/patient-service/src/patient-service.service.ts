@@ -20,6 +20,8 @@ import {
   PatientDocument,
   PatientValuable,
   VehicleInventory,
+  InventoryLog,
+  InventoryLogType,
   Dispatch,
   AuditLogService,
   StorageService,
@@ -78,6 +80,8 @@ export class PatientService {
     private readonly medLogRepo: Repository<PatientMedicationLog>,
     @InjectRepository(VehicleInventory)
     private readonly vehicleInventoryRepo: Repository<VehicleInventory>,
+    @InjectRepository(InventoryLog)
+    private readonly inventoryLogRepo: Repository<InventoryLog>,
     @InjectRepository(Dispatch)
     private readonly dispatchRepo: Repository<Dispatch>,
     @InjectRepository(PatientPhoto)
@@ -441,8 +445,22 @@ export class PatientService {
           });
 
           if (inventory && inventory.quantity > 0) {
+            const previousQty = inventory.quantity;
             inventory.quantity -= 1;
             await this.vehicleInventoryRepo.save(inventory);
+
+            // Create proper Inventory Log entry
+            const invLog = this.inventoryLogRepo.create({
+              vehicle_id: vehicleId!,
+              inventory_item_id: dto.inventory_item_id,
+              previous_quantity: previousQty,
+              new_quantity: inventory.quantity,
+              change_amount: -1,
+              log_type: InventoryLogType.USAGE,
+              performed_by_id: recordedBy,
+              reason: `Administered ${dto.drug_name} to patient ${patientId}`,
+            });
+            await this.inventoryLogRepo.save(invLog);
 
             await this.auditLogService.log({
               userId: recordedBy,
@@ -452,6 +470,7 @@ export class PatientService {
                 vehicleId,
                 itemId: dto.inventory_item_id,
                 remaining: inventory.quantity,
+                patientId
               },
             });
           }

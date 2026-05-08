@@ -52,6 +52,12 @@ export class InventoryItemMaster {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'text', nullable: true })
+  supplier_details: string;
+
+  @Column({ type: 'int', nullable: true })
+  lead_time_days: number;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

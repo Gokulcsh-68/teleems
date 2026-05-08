@@ -17,6 +17,14 @@ export class CreateInventoryItemDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  supplier_details?: string;
+
+  @IsNumber()
+  @IsOptional()
+  lead_time_days?: number;
 }
 
 export class UpdateVehicleInventoryDto {
@@ -50,11 +58,44 @@ export class BulkUpdateInventoryDto {
   @IsOptional()
   reason?: string;
 
+  @IsString()
+  @IsOptional()
+  supplier_name?: string;
+
+  @IsString()
+  @IsOptional()
+  invoice_number?: string;
+
   @IsNotEmpty()
   items: {
     itemId: string;
     quantity?: number;
     minRequired?: number;
     consumed?: number;
+    batch_number?: string;
+    expiry_date?: string;
   }[];
+}
+
+export class CreateRestockRequestDto {
+  @IsUUID()
+  @IsNotEmpty()
+  vehicleId: string;
+
+  @IsNotEmpty()
+  items: {
+    itemId: string;
+    name: string;
+    quantityRequested: number;
+  }[];
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class UpdateRestockRequestStatusDto {
+  @IsString()
+  @IsNotEmpty()
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 }

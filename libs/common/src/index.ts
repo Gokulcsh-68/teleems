@@ -73,7 +73,8 @@ export { PatientPhoto, PatientPhotoCategory } from './entities/patient-photo.ent
 export { PatientDocument, PatientDocumentType } from './entities/patient-document.entity';
 export { PatientValuable, ValuableLocationType } from './entities/patient-valuable.entity';
 export { TeleLinkSession, TeleLinkSessionStatus } from './entities/telelink-session.entity';
-export { EpcrExportJob, ExportJobStatus } from './entities/epcr-export-job.entity';
+export * from './entities/restock-request.entity';
+export { RestockRequest, RestockRequestStatus } from './entities/restock-request.entity';
 
 export * from './constants/icd-codes.constants';
 export * from './constants/allergens.constants';

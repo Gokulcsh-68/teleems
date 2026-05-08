@@ -24,7 +24,7 @@ import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto } from './dto/inventory.dto';
 import { CreateRosterDto } from './dto/roster.dto';
 import { StaffType } from '@app/common';
 
@@ -245,6 +245,30 @@ export class FleetServiceController {
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
   async getInventoryLogs(@Param('id') id: string) {
     return this.fleetService.getInventoryLogs(id);
+  }
+
+  @Post('inventory/restock-request')
+  @Roles('EMT / Paramedic', 'Ambulance Pilot (Driver)', 'Fleet Operator')
+  async createRestockRequest(@Body() dto: CreateRestockRequestDto, @Req() req: any) {
+    return this.fleetService.createRestockRequest(dto, req.user);
+  }
+
+  @Get('inventory/restock-requests')
+  @Roles('Fleet Operator', 'CureSelect Admin', 'CURESELECT_ADMIN')
+  async listRestockRequests(@Query('vehicleId') vehicleId: string, @Req() req: any) {
+    return this.fleetService.listRestockRequests(req.user, vehicleId);
+  }
+
+  @Patch('inventory/restock-requests/:id/status')
+  @Roles('Fleet Operator', 'CureSelect Admin', 'CURESELECT_ADMIN')
+  async updateRestockRequestStatus(@Param('id') id: string, @Body() dto: UpdateRestockRequestStatusDto, @Req() req: any) {
+    return this.fleetService.updateRestockRequestStatus(id, dto, req.user);
+  }
+
+  @Get('inventory/reports/expiring-soon')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async getExpiringSoonReport(@Req() req: any) {
+    return this.fleetService.getExpiringSoonReport(req.user);
   }
 
   // --- Roster Endpoints (Step 6) ---

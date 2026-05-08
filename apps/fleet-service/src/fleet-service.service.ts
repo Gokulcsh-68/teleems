@@ -9,14 +9,14 @@ import {
   Organisation, FleetOperator, Vehicle, VehicleStatus, Station, StaffProfile, StaffType, StaffStatus,
   DutyShift, DutyShiftStatus, InventoryItemMaster, VehicleInventory,
   DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType,
-  User, Role,
+  User, Role, RestockRequest, RestockRequestStatus,
   RedisService
 } from '@app/common';
 import { DataSource } from 'typeorm';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto } from './dto/inventory.dto';
 import { CreateRosterDto, RosterQueryDto } from './dto/roster.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -47,6 +47,8 @@ export class FleetServiceService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Role)
     private readonly roleRepo: Repository<Role>,
+    @InjectRepository(RestockRequest)
+    private readonly restockRepo: Repository<RestockRequest>,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
@@ -1009,7 +1011,11 @@ export class FleetServiceService {
           change_amount: newQty - previousQty,
           log_type: itemDto.consumed ? InventoryLogType.USAGE : InventoryLogType.RESTOCK,
           performed_by_id: requestUser.id || requestUser.userId,
-          reason: dto.reason || (itemDto.consumed ? 'Bulk Usage' : 'Bulk Sync')
+          reason: dto.reason || (itemDto.consumed ? 'Bulk Usage' : 'Bulk Sync'),
+          supplier_name: dto.supplier_name,
+          invoice_number: dto.invoice_number,
+          batch_number: itemDto.batch_number,
+          expiry_date: itemDto.expiry_date ? new Date(itemDto.expiry_date) : null
         });
         await queryRunner.manager.save(log);
       }
@@ -1141,5 +1147,83 @@ export class FleetServiceService {
     });
 
     return { data };
+  }
+
+  // --- Restock Request Management ---
+
+  async createRestockRequest(dto: CreateRestockRequestDto, requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    
+    const request = this.restockRepo.create({
+      ...dto,
+      requested_by_id: requestUser.id || requestUser.userId,
+      organisation_id: orgId,
+      status: RestockRequestStatus.PENDING
+    });
+
+    const saved = await this.restockRepo.save(request);
+
+    await this.auditLogService.log({
+      userId: requestUser.id || requestUser.userId,
+      action: 'INVENTORY_RESTOCK_REQUEST_CREATED',
+      metadata: { requestId: saved.id, vehicleId: dto.vehicleId },
+      ipAddress: '0.0.0.0'
+    });
+
+    return { data: saved };
+  }
+
+  async listRestockRequests(requestUser: any, vehicleId?: string) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    const where: any = { organisation_id: orgId };
+    
+    if (vehicleId) {
+      where.vehicle_id = vehicleId;
+    }
+
+    const requests = await this.restockRepo.find({
+      where,
+      relations: ['vehicle', 'requested_by'],
+      order: { createdAt: 'DESC' }
+    });
+
+    return { data: requests };
+  }
+
+  async updateRestockRequestStatus(id: string, dto: UpdateRestockRequestStatusDto, requestUser: any) {
+    const request = await this.restockRepo.findOneBy({ id });
+    if (!request) throw new NotFoundException('Restock request not found');
+
+    request.status = dto.status as RestockRequestStatus;
+    const saved = await this.restockRepo.save(request);
+
+    await this.auditLogService.log({
+      userId: requestUser.id || requestUser.userId,
+      action: 'INVENTORY_RESTOCK_REQUEST_STATUS_UPDATED',
+      metadata: { requestId: id, status: dto.status },
+      ipAddress: '0.0.0.0'
+    });
+
+    return { data: saved };
+  }
+
+  async getExpiringSoonReport(requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    
+    // Find logs with expiry date in next 30 days
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    const logs = await this.inventoryLogRepo.createQueryBuilder('log')
+      .leftJoinAndSelect('log.item_master', 'item')
+      .leftJoinAndSelect('log.vehicle', 'vehicle')
+      .where('log.expiry_date IS NOT NULL')
+      .andWhere('log.expiry_date <= :thirtyDaysFromNow', { thirtyDaysFromNow })
+      .andWhere('log.expiry_date >= :now', { now: new Date() })
+      .andWhere('vehicle.organisationId = :orgId', { orgId })
+      .orderBy('log.expiry_date', 'ASC')
+      .getMany();
+
+    return { data: logs };
   }
 }
