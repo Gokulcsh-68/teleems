@@ -1215,7 +1215,9 @@ export class FleetServiceService {
     const orgId = requestUser.organisationId || requestUser.org_id;
     
     const request = this.restockRepo.create({
-      ...dto,
+      vehicle_id: dto.vehicleId,
+      items: dto.items,
+      notes: dto.notes,
       requested_by_id: requestUser.id || requestUser.userId,
       organisation_id: orgId,
       status: RestockRequestStatus.PENDING
