@@ -1237,12 +1237,16 @@ export class FleetServiceService {
     return { data: saved };
   }
 
-  async listRestockRequests(requestUser: any, vehicleId?: string) {
+  async listRestockRequests(requestUser: any, vehicleId?: string, status?: string) {
     const orgId = requestUser.organisationId || requestUser.org_id;
     const where: any = { organisation_id: orgId };
     
     if (vehicleId) {
       where.vehicle_id = vehicleId;
+    }
+
+    if (status) {
+      where.status = status;
     }
 
     const requests = await this.restockRepo.find({
