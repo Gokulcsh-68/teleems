@@ -872,6 +872,18 @@ export class FleetServiceService {
     return { data: saved };
   }
 
+  async bulkCreateInventoryMaster(items: CreateInventoryItemDto[]) {
+    const entities = items.map(item => {
+      // Ensure category is uppercase to match enum
+      if (item.category) {
+        item.category = item.category.toUpperCase() as any;
+      }
+      return this.inventoryItemRepo.create(item);
+    });
+    const saved = await this.inventoryItemRepo.save(entities);
+    return { data: saved, count: saved.length };
+  }
+
   async getMasterInventory(category?: string, unit?: string) {
     const where: any = {};
     if (category) where.category = category;

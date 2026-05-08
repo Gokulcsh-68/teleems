@@ -199,8 +199,11 @@ export class FleetServiceController {
 
   @Post('inventory/master')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async createInventoryItem(@Body() dto: CreateInventoryItemDto) {
-    return this.fleetService.createInventoryItem(dto);
+  async createInventoryItem(@Body() body: any) {
+    if (Array.isArray(body)) {
+      return this.fleetService.bulkCreateInventoryMaster(body);
+    }
+    return this.fleetService.createInventoryItem(body);
   }
 
   @Post('inventory/seed')
