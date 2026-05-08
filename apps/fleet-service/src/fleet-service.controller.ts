@@ -199,17 +199,17 @@ export class FleetServiceController {
 
   @Post('inventory/master')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async createInventoryItem(@Body() body: any) {
+  async createInventoryItem(@Body() body: any, @Req() req: any) {
     if (Array.isArray(body)) {
-      return this.fleetService.bulkCreateInventoryMaster(body);
+      return this.fleetService.bulkCreateInventoryMaster(body, req.user);
     }
-    return this.fleetService.createInventoryItem(body);
+    return this.fleetService.createInventoryItem(body, req.user);
   }
 
   @Patch('inventory/master/:id')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
-  async updateInventoryItem(@Param('id') id: string, @Body() dto: any) {
-    return this.fleetService.updateInventoryItem(id, dto);
+  async updateInventoryItem(@Param('id') id: string, @Body() dto: any, @Req() req: any) {
+    return this.fleetService.updateInventoryItem(id, dto, req.user);
   }
 
   @Post('inventory/seed')
@@ -220,8 +220,8 @@ export class FleetServiceController {
 
   @Get('inventory/master')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
-  async getMasterInventory(@Query('category') category: string, @Query('unit') unit: string) {
-    return this.fleetService.getMasterInventory(category, unit);
+  async getMasterInventory(@Query('category') category: string, @Query('unit') unit: string, @Req() req: any) {
+    return this.fleetService.getMasterInventory(req.user, category, unit);
   }
 
   @Get('inventory/metadata')

@@ -63,7 +63,12 @@ export class InventoryItemMaster {
   supplier_details: string;
 
   @Column({ type: 'int', nullable: true })
+  @Index()
   lead_time_days: number;
+
+  @Column({ name: 'organisation_id', type: 'uuid', nullable: true })
+  @Index()
+  organisation_id: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

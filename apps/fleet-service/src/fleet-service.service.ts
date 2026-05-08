@@ -869,42 +869,54 @@ export class FleetServiceService {
 
   // --- Inventory Management (Step 5 of Phase 1) ---
 
-  async createInventoryItem(dto: CreateInventoryItemDto) {
-    const item = this.inventoryItemRepo.create(dto);
+  async createInventoryItem(dto: CreateInventoryItemDto, requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    const item = this.inventoryItemRepo.create({
+      ...dto,
+      organisation_id: orgId
+    });
     const saved = await this.inventoryItemRepo.save(item);
     return { data: saved };
   }
 
-  async updateInventoryItem(id: string, dto: Partial<CreateInventoryItemDto>) {
-    const item = await this.inventoryItemRepo.findOneBy({ id });
-    if (!item) throw new NotFoundException('Inventory item not found');
+  async updateInventoryItem(id: string, dto: Partial<CreateInventoryItemDto>, requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    const item = await this.inventoryItemRepo.findOneBy({ id, organisation_id: orgId });
+    if (!item) throw new NotFoundException('Inventory item not found or unauthorized');
     
     Object.assign(item, dto);
     const saved = await this.inventoryItemRepo.save(item);
     return { data: saved };
   }
 
-  async bulkCreateInventoryMaster(items: CreateInventoryItemDto[]) {
+  async bulkCreateInventoryMaster(items: CreateInventoryItemDto[], requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
     const entities = items.map(item => {
       // Ensure category is uppercase to match enum
       if (item.category) {
         item.category = item.category.toUpperCase() as any;
       }
-      return this.inventoryItemRepo.create(item);
+      return this.inventoryItemRepo.create({
+        ...item,
+        organisation_id: orgId
+      });
     });
     const saved = await this.inventoryItemRepo.save(entities);
     return { data: saved, count: saved.length };
   }
 
-  async getMasterInventory(category?: string, unit?: string) {
-    const where: any = {};
-    if (category) where.category = category;
-    if (unit) where.unit = unit;
-
-    const items = await this.inventoryItemRepo.find({
-      where,
-      order: { category: 'ASC', name: 'ASC' }
-    });
+  async getMasterInventory(requestUser: any, category?: string, unit?: string) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    
+    // Filter by own organisation OR global items (null orgId)
+    const items = await this.inventoryItemRepo.createQueryBuilder('item')
+      .where('(item.organisation_id = :orgId OR item.organisation_id IS NULL)', { orgId })
+      .andWhere(category ? 'item.category = :category' : '1=1', { category })
+      .andWhere(unit ? 'item.unit_of_measure = :unit' : '1=1', { unit })
+      .orderBy('item.category', 'ASC')
+      .addOrderBy('item.name', 'ASC')
+      .getMany();
+      
     return { data: items };
   }
 
