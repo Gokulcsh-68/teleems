@@ -24,7 +24,7 @@ import { CreateFleetOrganisationDto } from './dto/fleet-organisation.dto';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto, UpdateWarehouseStockDto } from './dto/inventory.dto';
 import { CreateRosterDto } from './dto/roster.dto';
 import { StaffType } from '@app/common';
 
@@ -228,6 +228,18 @@ export class FleetServiceController {
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Driver', 'EMT', 'Doctor')
   async getInventoryMetadata() {
     return this.fleetService.getInventoryMetadata();
+  }
+
+  @Post('inventory/warehouse')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async updateWarehouseStock(@Body() dto: UpdateWarehouseStockDto, @Req() req: any) {
+    return this.fleetService.updateWarehouseStock(dto, req.user);
+  }
+
+  @Get('inventory/warehouse')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
+  async getWarehouseStock(@Req() req: any) {
+    return this.fleetService.getWarehouseStock(req.user);
   }
 
   @Get('inventory/reports/low-stock')

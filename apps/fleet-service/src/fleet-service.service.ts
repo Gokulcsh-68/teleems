@@ -10,13 +10,14 @@ import {
   DutyShift, DutyShiftStatus, InventoryItemMaster, VehicleInventory,
   DutyRoster, ShiftType, InventoryItemCategory, InventoryLog, InventoryLogType,
   User, Role, RestockRequest, RestockRequestStatus,
+  WarehouseInventory,
   RedisService
 } from '@app/common';
 import { DataSource } from 'typeorm';
 import { CreateStationDto, UpdateStationDto } from './dto/station.dto';
 import { CreateStaffDto, UpdateStaffDto } from './dto/staff.dto';
 import { StartShiftDto, EndShiftDto } from './dto/duty.dto';
-import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto } from './dto/inventory.dto';
+import { CreateInventoryItemDto, UpdateVehicleInventoryDto, BulkUpdateInventoryDto, CreateRestockRequestDto, UpdateRestockRequestStatusDto, UpdateWarehouseStockDto } from './dto/inventory.dto';
 import { CreateRosterDto, RosterQueryDto } from './dto/roster.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -49,6 +50,8 @@ export class FleetServiceService {
     private readonly roleRepo: Repository<Role>,
     @InjectRepository(RestockRequest)
     private readonly restockRepo: Repository<RestockRequest>,
+    @InjectRepository(WarehouseInventory)
+    private readonly warehouseRepo: Repository<WarehouseInventory>,
     private readonly auditLogService: AuditLogService,
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
@@ -1028,13 +1031,32 @@ export class FleetServiceService {
         const saved = await queryRunner.manager.save(inventory);
         results.push(saved);
 
+        const changeAmount = newQty - previousQty;
+        const orgId = requestUser.organisationId || requestUser.org_id;
+
+        // --- Warehouse Deduction Logic ---
+        // If we are ADDING stock to a vehicle (Restock), we subtract it from the warehouse
+        if (changeAmount > 0 && !itemDto.consumed) {
+          const warehouseStock = await queryRunner.manager.findOne(WarehouseInventory, {
+            where: { organisation_id: orgId, inventory_item_id: itemDto.itemId },
+            lock: { mode: 'pessimistic_write' } // Prevent race conditions
+          });
+
+          if (!warehouseStock || warehouseStock.quantity < changeAmount) {
+            throw new BadRequestException(`Insufficient warehouse stock for item ${itemDto.itemId}. Available: ${warehouseStock?.quantity || 0}, Required: ${changeAmount}`);
+          }
+
+          warehouseStock.quantity -= changeAmount;
+          await queryRunner.manager.save(warehouseStock);
+        }
+
         // Audit Log for each item
         const log = queryRunner.manager.create(InventoryLog, {
           vehicle_id: dto.vehicleId,
           inventory_item_id: itemDto.itemId,
           previous_quantity: previousQty,
           new_quantity: newQty,
-          change_amount: newQty - previousQty,
+          change_amount: changeAmount,
           log_type: itemDto.consumed ? InventoryLogType.USAGE : InventoryLogType.RESTOCK,
           performed_by_id: requestUser.id || requestUser.userId,
           reason: dto.reason || (itemDto.consumed ? 'Bulk Usage' : 'Bulk Sync'),
@@ -1267,5 +1289,43 @@ export class FleetServiceService {
         }
       }
     };
+  }
+
+  async updateWarehouseStock(dto: UpdateWarehouseStockDto, requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    
+    let stock = await this.warehouseRepo.findOne({
+      where: { organisation_id: orgId, inventory_item_id: dto.itemId }
+    });
+
+    if (stock) {
+      stock.quantity += dto.quantity;
+    } else {
+      stock = this.warehouseRepo.create({
+        organisation_id: orgId,
+        inventory_item_id: dto.itemId,
+        quantity: dto.quantity
+      });
+    }
+
+    const saved = await this.warehouseRepo.save(stock);
+
+    await this.auditLogService.log({
+      userId: requestUser.id || requestUser.userId,
+      action: 'WAREHOUSE_STOCK_UPDATED',
+      metadata: { itemId: dto.itemId, added: dto.quantity, newTotal: saved.quantity, reason: dto.reason },
+      ipAddress: '0.0.0.0'
+    });
+
+    return { data: saved };
+  }
+
+  async getWarehouseStock(requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    const stocks = await this.warehouseRepo.find({
+      where: { organisation_id: orgId },
+      relations: ['item_master']
+    });
+    return { data: stocks };
   }
 }

@@ -107,3 +107,17 @@ export class UpdateRestockRequestStatusDto {
   @IsNotEmpty()
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 }
+
+export class UpdateWarehouseStockDto {
+  @IsUUID()
+  @IsNotEmpty()
+  itemId: string;
+
+  @IsNumber()
+  @IsNotEmpty()
+  quantity: number; // Amount to ADD to warehouse
+
+  @IsString()
+  @IsOptional()
+  reason?: string;
+}

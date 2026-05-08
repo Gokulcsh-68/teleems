@@ -75,6 +75,7 @@ export { PatientValuable, ValuableLocationType } from './entities/patient-valuab
 export { TeleLinkSession, TeleLinkSessionStatus } from './entities/telelink-session.entity';
 export * from './entities/restock-request.entity';
 export { RestockRequest, RestockRequestStatus } from './entities/restock-request.entity';
+export * from './entities/warehouse-inventory.entity';
 
 export * from './constants/icd-codes.constants';
 export * from './constants/allergens.constants';
