@@ -198,7 +198,7 @@ export class FleetServiceController {
   // --- Inventory Endpoints (Step 5) ---
 
   @Post('inventory/master')
-  @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator')
   async createInventoryItem(@Body() dto: CreateInventoryItemDto) {
     return this.fleetService.createInventoryItem(dto);
   }
