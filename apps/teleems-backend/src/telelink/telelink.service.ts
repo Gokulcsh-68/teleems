@@ -135,7 +135,7 @@ export class TelelinkService {
         hospitalId,
         status: 'ACTIVE' 
       },
-      select: ['id', 'name', 'roles', 'designation', 'profileImageUrl', 'isAvailable'],
+      select: ['id', 'name', 'roles', 'designation', 'isAvailable', 'profileImage'],
     });
 
     this.logger.log(`Found ${doctors.length} active users at hospital. Filtering for clinical roles...`);
