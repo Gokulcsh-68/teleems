@@ -131,19 +131,28 @@ export class TelelinkService {
   async getHospitalDoctors(hospitalId: string) {
     this.logger.log(`Fetching available doctors for hospital: ${hospitalId}`);
     const doctors = await this.userRepo.find({
-      where: [
-        { hospitalId, isAvailable: true },
-      ],
-      select: ['id', 'name', 'roles', 'designation', 'profileImageUrl'],
+      where: { 
+        hospitalId,
+        status: 'ACTIVE' 
+      },
+      select: ['id', 'name', 'roles', 'designation', 'profileImageUrl', 'isAvailable'],
     });
 
-    // Filter by role manually to handle simple-array
-    return doctors.filter(
+    this.logger.log(`Found ${doctors.length} active users at hospital. Filtering for clinical roles...`);
+
+    // Filter by role manually to handle simple-array with partial matches
+    const clinicalDoctors = doctors.filter(
       (u) =>
-        u.roles.includes('Doctor') ||
-        u.roles.includes('ERCP') ||
-        u.roles.includes('Specialist'),
+        u.roles.some(r => 
+          r.includes('Doctor') || 
+          r.includes('ERCP') || 
+          r.includes('Specialist') || 
+          r.includes('Physician')
+        )
     );
+
+    this.logger.log(`Returning ${clinicalDoctors.length} clinical doctors.`);
+    return clinicalDoctors;
   }
 
   async createSession(dto: CreateTeleLinkSessionDto, user: any) {
