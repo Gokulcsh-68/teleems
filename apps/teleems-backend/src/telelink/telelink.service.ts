@@ -257,15 +257,20 @@ export class TelelinkService {
         remoteResponse?.data?.id ||
         `local_${Date.now()}`;
 
-      const roomUrl =
-        remoteResponse?.room_url || `https://telelink.teleems.in/room/${roomId}`;
-
-      // Extract token: first try the initiator's participant, then first participant, then top-level
-      const initiatorParticipant = participants.find(
-        (p: any) => String(p.ref_number) === String(initiator.id),
+      const roomBaseUrl = this.config.get<string>('CURESELECT_ROOM_BASE_URL') || 'https://teleconsult.a2zhealth.in/room';
+      
+      // Get the EMT's participant ID from the remote response
+      const emtParticipant = participants.find(
+        (p: any) => String(p.ref_number) === String(initiator.id)
       );
+      const participantId = emtParticipant?.id || '';
+      
+      // Construct URL as: base/consultId/role/participantId
+      const roomUrl =
+        remoteResponse?.room_url || `${roomBaseUrl}/${roomId}/subscriber/${participantId}`;
+
       const roomToken =
-        initiatorParticipant?.token ||
+        emtParticipant?.token ||
         participants?.[0]?.token ||
         remoteResponse?.room_token ||
         remoteResponse?.data?.token ||
