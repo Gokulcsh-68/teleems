@@ -31,6 +31,10 @@ export class CreateUserDto {
   org_id?: string;
 
   @IsString()
+  @IsOptional()
+  hospital_id?: string;
+
+  @IsString()
   password: string;
 
   @IsString()
@@ -77,6 +81,10 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   org_id?: string;
+
+  @IsString()
+  @IsOptional()
+  hospital_id?: string;
 
   @IsOptional()
   metadata?: Record<string, any>;

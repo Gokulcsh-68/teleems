@@ -1411,7 +1411,7 @@ export class AuthService implements OnModuleInit {
       password: hashedPassword,
       roles: [targetRole],
       organisationId: targetOrgId,
-      hospitalId: hospitalRoles.includes(targetRole) ? targetOrgId : undefined,
+      hospitalId: dto.hospital_id || (hospitalRoles.includes(targetRole) ? targetOrgId : undefined),
       metadata: dto.metadata,
       employeeId: generatedEmployeeId,
       department: dto.department,
@@ -1553,6 +1553,7 @@ export class AuthService implements OnModuleInit {
     if (dto.phone !== undefined) user.phone = dto.phone;
     if (dto.status !== undefined) user.status = dto.status;
     if (dto.org_id !== undefined) user.organisationId = dto.org_id;
+    if (dto.hospital_id !== undefined) user.hospitalId = dto.hospital_id;
     if (dto.employee_id !== undefined) user.employeeId = dto.employee_id;
     if (dto.department !== undefined) user.department = dto.department;
     if (dto.designation !== undefined) user.designation = dto.designation;
