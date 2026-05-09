@@ -29,6 +29,7 @@ import {
   EscalateSessionDto,
   ToggleRecordingDto,
 } from './dto';
+import { TelelinkGateway } from './telelink.gateway';
 
 @Injectable()
 export class TelelinkService {
@@ -47,6 +48,7 @@ export class TelelinkService {
     private readonly userRepo: Repository<User>,
     private readonly cureselectApi: CureselectApiService,
     private readonly config: ConfigService,
+    private readonly gateway: TelelinkGateway,
   ) {}
 
   private formatDate(date: Date): string {
@@ -289,9 +291,12 @@ export class TelelinkService {
         professional_id: dto.professional_id,
       });
 
-      // We still save in background/fire-and-forget but we'll return the transformed object
       this.sessionRepo
         .save(session)
+        .then((saved) => {
+          this.logger.log(`Session ${saved.id} saved. Notifying doctors via socket...`);
+          this.gateway.notifyNewConsult(saved);
+        })
         .catch((e) => this.logger.error(`Local save failed: ${e.message}`));
 
       return {
@@ -536,12 +541,16 @@ export class TelelinkService {
     }
 
     // 2. Update Local
-    session.status = dto.status;
-    if (dto.status === TeleLinkSessionStatus.COMPLETED) {
-      session.ended_at = new Date();
-    }
+    const updated = await this.sessionRepo.save(session);
+    
+    // Notify all parties in the session (e.g., EMT, Patient App, Doctor)
+    this.gateway.notifyStatusUpdate(id, dto.status, {
+      updated_at: updated.ended_at || new Date(),
+      user_name: user.name,
+      user_role: user.roles?.[0] || 'User'
+    });
 
-    return this.sessionRepo.save(session);
+    return updated;
   }
 
   async addClinicalNotes(id: string, dto: AddClinicalNotesDto, user: any) {

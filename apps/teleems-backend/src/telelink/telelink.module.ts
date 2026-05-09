@@ -10,6 +10,7 @@ import {
 } from '@app/common';
 import { TelelinkController } from './telelink.controller';
 import { TelelinkService } from './telelink.service';
+import { TelelinkGateway } from './telelink.gateway';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { TelelinkService } from './telelink.service';
     ]),
   ],
   controllers: [TelelinkController],
-  providers: [TelelinkService],
-  exports: [TelelinkService],
+  providers: [TelelinkService, TelelinkGateway],
+  exports: [TelelinkService, TelelinkGateway],
 })
 export class TelelinkModule {}
