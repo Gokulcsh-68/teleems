@@ -59,15 +59,21 @@ export class RolesGuard implements CanActivate {
     };
 
     const hasAuthorizedRole = requiredRoles.some((requiredRole) => {
-      // Direct Match
+      // 1. Direct Match
       if (user.roles.includes(requiredRole)) return true;
 
-      // Alias Match (Legacy support)
+      // 2. Alias Match (Legacy support)
       const aliases = roleAliases[requiredRole];
       if (aliases && aliases.some((alias) => user.roles.includes(alias)))
         return true;
 
-      return false;
+      // 3. Reverse Alias / Combined Role Match
+      // If user has "EMT / Paramedic" and required is "EMT", authorize.
+      return user.roles.some(userRole => {
+        // If the user role contains the required role as a distinct word
+        const words = userRole.split(/[\s/]+/);
+        return words.includes(requiredRole);
+      });
     });
 
     if (!hasAuthorizedRole) {

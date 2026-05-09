@@ -28,13 +28,13 @@ export class TelelinkController {
   constructor(private readonly telelinkService: TelelinkService) { }
 
   @Post('sessions')
-  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
+  @Roles('EMT', 'Paramedic', 'EMT / Paramedic', 'CureSelect Admin', 'Doctor')
   createSession(@Body() dto: CreateTeleLinkSessionDto, @Req() req: any) {
     return this.telelinkService.createSession(dto, req.user);
   }
 
   @Get('hospitals/:hospitalId/doctors')
-  @Roles('EMT', 'Paramedic', 'Doctor', 'CureSelect Admin')
+  @Roles('EMT', 'Paramedic', 'EMT / Paramedic', 'Doctor', 'CureSelect Admin')
   getHospitalDoctors(@Param('hospitalId') hospitalId: string) {
     return this.telelinkService.getHospitalDoctors(hospitalId);
   }
@@ -52,19 +52,19 @@ export class TelelinkController {
   }
 
   @Get()
-  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
+  @Roles('EMT', 'Paramedic', 'EMT / Paramedic', 'CureSelect Admin', 'Doctor')
   findAll(@Req() req: any) {
     return this.telelinkService.findAll(req.user);
   }
 
   @Get('consult/:consultId')
-  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
+  @Roles('EMT', 'Paramedic', 'EMT / Paramedic', 'CureSelect Admin', 'Doctor')
   getConsultById(@Param('consultId') consultId: string) {
     return this.telelinkService.getConsultById(consultId);
   }
 
   @Get(':id')
-  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
+  @Roles('EMT', 'Paramedic', 'EMT / Paramedic', 'CureSelect Admin', 'Doctor')
   findOne(@Param('id') id: string, @Req() req: any) {
     return this.telelinkService.findOne(id, req.user);
   }
