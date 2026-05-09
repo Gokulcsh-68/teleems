@@ -192,6 +192,11 @@ export class TelelinkService {
         ? await this.patientRepo.findOneBy({ id: primaryPatientData.id })
         : null;
 
+      // 1.2 Fetch Professional (Doctor) if targeted
+      const professional = dto.professional_id 
+        ? await this.userRepo.findOneBy({ id: dto.professional_id })
+        : null;
+
       // 2. Prepare Payload
       const now = new Date();
       const formattedDate = this.formatDate(now);
@@ -206,21 +211,31 @@ export class TelelinkService {
         service_provider: 'tokbox',
         virtual_service_provider: 'tokbox',
         category_id: this.config.get<string>('CURESELECT_CATEGORY_ID') || '2',
-        provider: {
-          id: initiator.id,
-          name: initiator.name || 'EMT',
-          email: initiator.email,
-          phone: initiator.phone,
-          profile_pic: initiator.profileImageUrl,
-          metadata: initiator.metadata,
-          additional_info: { role: 'emt', x_name: 'teleems' },
+        provider: professional ? {
+          id: professional.id,
+          name: professional.name,
+          email: professional.email,
+          phone: professional.phone,
+          profile_pic: professional.profileImageUrl,
+          additional_info: { role: 'doctor', x_name: 'teleems' },
+        } : {
+          // Fallback if no specific doctor targeted yet (e.g. broadcast)
+          id: 'DOCTOR_WAITING',
+          name: 'Hospital Specialist',
+          email: 'doctor@teleems.in',
+          phone: '0000000000',
+          additional_info: { role: 'doctor', x_name: 'teleems' },
         },
         patient: {
-          id: patientProfile?.id || primaryPatientData?.id || `anon_${Date.now()}`,
-          name: patientProfile?.name || primaryPatientData?.name || 'Unknown Patient',
-          phone: patientProfile?.phone || '',
-          email: null,
-          additional_info: { x_name: 'teleems' },
+          id: patientProfile?.id || primaryPatientData?.id || initiator.id,
+          name: patientProfile?.name || primaryPatientData?.name || initiator.name,
+          phone: patientProfile?.phone || initiator.phone || '',
+          email: initiator.email,
+          additional_info: { 
+            x_name: 'teleems',
+            emt_id: initiator.id,
+            emt_name: initiator.name
+          },
         },
         additional_info: {
           trip_id: dto.trip_id,
@@ -257,16 +272,23 @@ export class TelelinkService {
 
       const roomBaseUrl = this.config.get<string>('CURESELECT_ROOM_BASE_URL') || 'https://teleconsult.a2zhealth.in/room';
       
-      // Get the EMT's participant ID from the remote response (searching thoroughly)
-      const emtInfo = remoteResponse?.data?.info || remoteResponse?.info || remoteResponse?.data || {};
-      const participantId = emtInfo?.id || remoteResponse?.data?.id || '';
+      // Role-Based Participant Discovery
+      const info = remoteResponse?.data?.info;
+      const participantsList = remoteResponse?.data?.participants || [];
       
-      // Construct URL as: base/consultId/role/participantId
+      // Find the subscriber (The EMT)
+      const subscriber = (info?.role === 'subscriber') 
+        ? info 
+        : participantsList.find((p: any) => p.role === 'subscriber');
+        
+      const participantId = subscriber?.id || '';
+      
+      // Construct URL
       const roomUrl =
         remoteResponse?.room_url || `${roomBaseUrl}/${roomId}/subscriber/${participantId}`;
 
       const roomToken =
-        emtInfo?.token ||
+        subscriber?.token ||
         remoteResponse?.data?.token ||
         remoteResponse?.data?.participants?.[0]?.token ||
         remoteResponse?.room_token ||
