@@ -275,21 +275,25 @@ export class TelelinkService {
       // Role-Based Participant Discovery
       const info = remoteResponse?.data?.info;
       const participantsList = remoteResponse?.data?.participants || [];
+      const consultDetails = remoteResponse?.data?.consult || {};
+      const tokboxData = consultDetails?.consult_data || {};
       
       // Find the subscriber (The EMT)
       const subscriber = (info?.role === 'subscriber' || String(info?.ref_number) === String(initiator.id)) 
         ? info 
         : participantsList.find((p: any) => p.role === 'subscriber' || String(p.ref_number) === String(initiator.id));
         
-      // Final ID Selection: Remote ID -> info.id -> initiator.id (as absolute fallback)
       const participantId = subscriber?.id || info?.id || initiator.id;
       
-      // Construct URL
-      const roomUrl =
-        remoteResponse?.room_url || `${roomBaseUrl}/${roomId}/subscriber/${participantId}`;
+      // Construct a Secure Bypass URL using TokBox credentials if available
+      // Format: base/meet?apiKey=...&sessionId=...&token=...
+      const roomUrl = (tokboxData.app_key && tokboxData.meeting_id)
+        ? `https://teleconsult.a2zhealth.in/meet?apiKey=${tokboxData.app_key}&sessionId=${tokboxData.meeting_id}&token=${tokboxData.signature}`
+        : (remoteResponse?.room_url || `${roomBaseUrl}/${roomId}/subscriber/${participantId}`);
 
       const roomToken =
         subscriber?.token ||
+        tokboxData?.signature ||
         remoteResponse?.data?.token ||
         remoteResponse?.data?.participants?.[0]?.token ||
         remoteResponse?.room_token ||
