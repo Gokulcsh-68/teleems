@@ -247,9 +247,7 @@ export class TelelinkService {
       console.timeEnd(`[PERF] TeleConsult Remote API (Trip: ${dto.trip_id})`);
 
       // 4. Extract consult data from Cureselect response
-      // API structure: { data: { consults: { id, participants: [{ token, ref_number }] } } }
       const consultData = remoteResponse?.data?.consults || remoteResponse?.data || {};
-      const participants = consultData?.participants || [];
 
       const roomId =
         remoteResponse?.consult_id ||
@@ -260,9 +258,14 @@ export class TelelinkService {
       const roomBaseUrl = this.config.get<string>('CURESELECT_ROOM_BASE_URL') || 'https://teleconsult.a2zhealth.in/room';
       
       // Get the EMT's participant ID from the remote response
-      const emtParticipant = participants.find(
-        (p: any) => String(p.ref_number) === String(initiator.id)
-      );
+      // Structure: remoteResponse.data.info is usually the initiator
+      const emtInfo = remoteResponse?.data?.info;
+      const participants = remoteResponse?.data?.participants || [];
+      
+      const emtParticipant = emtInfo?.ref_number === String(initiator.id) 
+        ? emtInfo 
+        : participants.find((p: any) => String(p.ref_number) === String(initiator.id));
+        
       const participantId = emtParticipant?.id || '';
       
       // Construct URL as: base/consultId/role/participantId
@@ -271,10 +274,9 @@ export class TelelinkService {
 
       const roomToken =
         emtParticipant?.token ||
+        remoteResponse?.data?.token ||
         participants?.[0]?.token ||
         remoteResponse?.room_token ||
-        remoteResponse?.data?.token ||
-        remoteResponse?.token ||
         'MOCK_TOKEN';
 
       const session = this.sessionRepo.create({
