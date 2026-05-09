@@ -303,6 +303,10 @@ export class TelelinkService {
         status: 201,
         message: 'Consultation initiated successfully',
         data: {
+          id: session.id, // Local UUID
+          consult_id: roomId, // Remote ID
+          room_url: roomUrl,
+          room_token: roomToken,
           consults: [consultData],
         },
         meta: {
