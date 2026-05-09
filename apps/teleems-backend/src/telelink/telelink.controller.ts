@@ -17,6 +17,8 @@ import {
   AddClinicalNotesDto,
   RescheduleTeleLinkSessionDto,
   CancelTeleLinkSessionDto,
+  EscalateSessionDto,
+  ToggleRecordingDto,
 } from './dto';
 import { JwtAuthGuard, RolesGuard, Roles } from '@app/common';
 
@@ -29,6 +31,18 @@ export class TelelinkController {
   @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
   createSession(@Body() dto: CreateTeleLinkSessionDto, @Req() req: any) {
     return this.telelinkService.createSession(dto, req.user);
+  }
+
+  @Get('hospitals/:hospitalId/doctors')
+  @Roles('EMT', 'Paramedic', 'Doctor', 'CureSelect Admin')
+  getHospitalDoctors(@Param('hospitalId') hospitalId: string) {
+    return this.telelinkService.getHospitalDoctors(hospitalId);
+  }
+
+  @Get('ercp/queue')
+  @Roles('Doctor', 'ERCP', 'CureSelect Admin')
+  getErcpQueue(@Req() req: any) {
+    return this.telelinkService.getErcpQueue(req.user);
   }
 
   @Post('doctor-consult')
@@ -56,7 +70,7 @@ export class TelelinkController {
   }
 
   @Patch(':id/status')
-  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor')
+  @Roles('EMT', 'Paramedic', 'CureSelect Admin', 'Doctor', 'ERCP')
   updateStatus(
     @Param('id') id: string,
     @Body() dto: UpdateTeleLinkStatusDto,
@@ -65,8 +79,28 @@ export class TelelinkController {
     return this.telelinkService.updateStatus(id, dto, req.user);
   }
 
+  @Patch(':id/recording')
+  @Roles('Doctor', 'ERCP', 'CureSelect Admin')
+  toggleRecording(
+    @Param('id') id: string,
+    @Body() dto: ToggleRecordingDto,
+    @Req() req: any,
+  ) {
+    return this.telelinkService.toggleRecording(id, dto, req.user);
+  }
+
+  @Post(':id/escalate')
+  @Roles('Doctor', 'ERCP', 'CureSelect Admin')
+  escalateSession(
+    @Param('id') id: string,
+    @Body() dto: EscalateSessionDto,
+    @Req() req: any,
+  ) {
+    return this.telelinkService.escalateSession(id, dto, req.user);
+  }
+
   @Post(':id/clinical-notes')
-  @Roles('Doctor', 'Paramedic', 'CureSelect Admin')
+  @Roles('Doctor', 'Paramedic', 'CureSelect Admin', 'ERCP')
   addClinicalNotes(
     @Param('id') id: string,
     @Body() dto: AddClinicalNotesDto,

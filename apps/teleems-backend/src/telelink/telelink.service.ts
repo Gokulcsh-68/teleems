@@ -26,6 +26,8 @@ import {
   AddClinicalNotesDto,
   RescheduleTeleLinkSessionDto,
   CancelTeleLinkSessionDto,
+  EscalateSessionDto,
+  ToggleRecordingDto,
 } from './dto';
 
 @Injectable()
@@ -126,6 +128,24 @@ export class TelelinkService {
     };
   }
 
+  async getHospitalDoctors(hospitalId: string) {
+    this.logger.log(`Fetching available doctors for hospital: ${hospitalId}`);
+    const doctors = await this.userRepo.find({
+      where: [
+        { hospitalId, isAvailable: true },
+      ],
+      select: ['id', 'name', 'roles', 'designation', 'profileImageUrl'],
+    });
+
+    // Filter by role manually to handle simple-array
+    return doctors.filter(
+      (u) =>
+        u.roles.includes('Doctor') ||
+        u.roles.includes('ERCP') ||
+        u.roles.includes('Specialist'),
+    );
+  }
+
   async createSession(dto: CreateTeleLinkSessionDto, user: any) {
     try {
       this.logger.log(`Initiating TeleLink session for Trip: ${dto.trip_id}`);
@@ -143,6 +163,12 @@ export class TelelinkService {
       if (!initiator)
         throw new UnauthorizedException('Initiator user not found');
       if (!incident) throw new NotFoundException('Incident not found');
+
+      // 1.1 Handle Hospital Targeting
+      const targetHospitalId = dto.target_hospital_id || trip.destination_hospital_id;
+      if (targetHospitalId) {
+        this.logger.log(`Targeting TeleLink to Hospital: ${targetHospitalId}`);
+      }
 
       // Automatically pick the first patient from the incident for the consult
       const primaryPatientData =
@@ -239,6 +265,7 @@ export class TelelinkService {
         trip_id: dto.trip_id,
         incident_id: dto.incident_id,
         patient_id: patientProfile?.id || undefined,
+        target_hospital_id: targetHospitalId || undefined,
         sos_flag: dto.sos_flag || false,
         initiator_role: 'EMT',
         status: TeleLinkSessionStatus.ACTIVE,
@@ -360,6 +387,69 @@ export class TelelinkService {
     }
   }
 
+  async getErcpQueue(user: any) {
+    const organisationId = user.organisationId;
+    const hospitalId = user.hospitalId || user.metadata?.hospital_id;
+
+    this.logger.log(`Fetching ERCP Queue for Org: ${organisationId}, Hospital: ${hospitalId}`);
+
+    const query = this.sessionRepo
+      .createQueryBuilder('session')
+      .leftJoinAndSelect('session.patient', 'patient')
+      .leftJoinAndSelect('session.incident', 'incident')
+      .leftJoinAndSelect('session.trip', 'trip')
+      .where('session.organisationId = :organisationId', { organisationId })
+      .andWhere('session.status IN (:...statuses)', {
+        statuses: [TeleLinkSessionStatus.ACTIVE, TeleLinkSessionStatus.ACCEPTED],
+      });
+
+    // If doctor is assigned to a hospital, filter by that hospital or broad requests
+    if (hospitalId) {
+      query.andWhere(
+        '(session.target_hospital_id = :hospitalId OR session.target_hospital_id IS NULL)',
+        { hospitalId },
+      );
+    }
+
+    const sessions = await query.getMany();
+
+    // Prioritization Logic: SOS first, then Triage Level (Red > Orange > Yellow), then Time
+    const triageOrder: Record<string, number> = {
+      Red: 1,
+      Orange: 2,
+      Yellow: 3,
+      Green: 4,
+      Unknown: 5,
+    };
+
+    const sortedSessions = sessions.sort((a, b) => {
+      // 1. SOS Priority
+      if (a.sos_flag !== b.sos_flag) return a.sos_flag ? -1 : 1;
+
+      // 2. Triage Priority (from Patient Profile)
+      const triageA = a.patient?.triage_code || 'Unknown';
+      const triageB = b.patient?.triage_code || 'Unknown';
+      if (triageA !== triageB) {
+        return (triageOrder[triageA] || 99) - (triageOrder[triageB] || 99);
+      }
+
+      // 3. Time Priority
+      return a.started_at.getTime() - b.started_at.getTime();
+    });
+
+    return {
+      status: 200,
+      message: 'ERCP Queue fetched successfully',
+      data: {
+        queue: sortedSessions,
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        request_id: crypto.randomUUID(),
+      },
+    };
+  }
+
   async findOne(id: string, user: any) {
     const session = await this.sessionRepo.findOne({
       where: { id, organisationId: user.organisationId },
@@ -460,9 +550,40 @@ export class TelelinkService {
     session.additional_info = {
       ...currentInfo,
       staff_notes: dto.notes,
+      prescriptions: dto.prescriptions || currentInfo.prescriptions,
+      care_instructions: dto.care_instructions || currentInfo.care_instructions,
       updated_at: new Date(),
       updated_by: user.userId,
     };
+
+    return this.sessionRepo.save(session);
+  }
+
+  async toggleRecording(id: string, dto: ToggleRecordingDto, user: any) {
+    const session = await this.sessionRepo.findOneBy({
+      id,
+      organisationId: user.organisationId,
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    session.is_recording = dto.is_recording;
+    session.recording_consent = dto.recording_consent;
+    
+    return this.sessionRepo.save(session);
+  }
+
+  async escalateSession(id: string, dto: EscalateSessionDto, user: any) {
+    const session = await this.sessionRepo.findOneBy({
+      id,
+      organisationId: user.organisationId,
+    });
+    if (!session) throw new NotFoundException('Session not found');
+
+    session.escalated_to = dto.escalated_to;
+    session.escalated_at = new Date();
+    
+    // Logic to notify the target (e.g., EDP) would go here
+    this.logger.log(`Session ${id} escalated to ${dto.escalated_to}`);
 
     return this.sessionRepo.save(session);
   }

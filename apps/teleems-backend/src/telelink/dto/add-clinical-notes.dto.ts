@@ -8,4 +8,11 @@ export class AddClinicalNotesDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsOptional()
+  prescriptions?: any[];
+
+  @IsString()
+  @IsOptional()
+  care_instructions?: string;
 }

@@ -4,3 +4,5 @@ export * from './update-status.dto';
 export * from './add-clinical-notes.dto';
 export * from './reschedule-session.dto';
 export * from './cancel-session.dto';
+export * from './escalate-session.dto';
+export * from './toggle-recording.dto';

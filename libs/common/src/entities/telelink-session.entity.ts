@@ -13,6 +13,9 @@ import { Incident } from './incident.entity';
 
 export enum TeleLinkSessionStatus {
   ACTIVE = 'ACTIVE',
+  ACCEPTED = 'ACCEPTED',
+  DECLINED = 'DECLINED',
+  DEFERRED = 'DEFERRED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
 }
@@ -33,6 +36,10 @@ export class TeleLinkSession {
   @Column({ type: 'uuid', nullable: true })
   @Index()
   patient_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  target_hospital_id: string;
 
   @Column({ default: false })
   sos_flag: boolean;
@@ -74,6 +81,18 @@ export class TeleLinkSession {
 
   @Column({ type: 'jsonb', nullable: true })
   clinical_record: Record<string, any>;
+
+  @Column({ default: false })
+  is_recording: boolean;
+
+  @Column({ default: false })
+  recording_consent: boolean;
+
+  @Column({ nullable: true })
+  escalated_to: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  escalated_at: Date;
 
   @CreateDateColumn({ type: 'timestamptz' })
   started_at: Date;

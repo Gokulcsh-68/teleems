@@ -28,4 +28,12 @@ export class CreateTeleLinkSessionDto {
   @IsString()
   @IsOptional()
   professional_id?: string;
+
+  @IsString()
+  @IsOptional()
+  target_hospital_id?: string;
+
+  @IsString()
+  @IsOptional()
+  target_user_id?: string;
 }
