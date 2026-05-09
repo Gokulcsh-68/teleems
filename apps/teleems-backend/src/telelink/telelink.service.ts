@@ -257,10 +257,9 @@ export class TelelinkService {
 
       const roomBaseUrl = this.config.get<string>('CURESELECT_ROOM_BASE_URL') || 'https://teleconsult.a2zhealth.in/room';
       
-      // Get the EMT's participant ID from the remote response
-      // In Cureselect API, data.info contains the initiator's (EMT's) remote profile
-      const emtInfo = remoteResponse?.data?.info;
-      const participantId = emtInfo?.id || '';
+      // Get the EMT's participant ID from the remote response (searching thoroughly)
+      const emtInfo = remoteResponse?.data?.info || remoteResponse?.info || remoteResponse?.data || {};
+      const participantId = emtInfo?.id || remoteResponse?.data?.id || '';
       
       // Construct URL as: base/consultId/role/participantId
       const roomUrl =
