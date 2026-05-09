@@ -277,11 +277,12 @@ export class TelelinkService {
       const participantsList = remoteResponse?.data?.participants || [];
       
       // Find the subscriber (The EMT)
-      const subscriber = (info?.role === 'subscriber') 
+      const subscriber = (info?.role === 'subscriber' || String(info?.ref_number) === String(initiator.id)) 
         ? info 
-        : participantsList.find((p: any) => p.role === 'subscriber');
+        : participantsList.find((p: any) => p.role === 'subscriber' || String(p.ref_number) === String(initiator.id));
         
-      const participantId = subscriber?.id || '';
+      // Final ID Selection: Remote ID -> info.id -> initiator.id (as absolute fallback)
+      const participantId = subscriber?.id || info?.id || initiator.id;
       
       // Construct URL
       const roomUrl =
