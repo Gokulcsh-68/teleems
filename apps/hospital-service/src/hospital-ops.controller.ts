@@ -95,11 +95,13 @@ export class HospitalOpsController {
     @Req() req: any,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
+    @Query('status') status?: string,
   ) {
     return this.opsService.getAdmissions(
       this.getHospitalId(req),
       Number(page) || 1,
       Number(limit) || 10,
+      status,
     );
   }
 

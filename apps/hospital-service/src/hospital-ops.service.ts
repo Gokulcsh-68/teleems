@@ -145,17 +145,34 @@ export class HospitalOpsService {
     return { message: 'Patient discharged successfully', admission };
   }
 
-  async getAdmissions(hospitalId: string, page = 1, limit = 10) {
+  async getAdmissions(hospitalId: string, page = 1, limit = 10, status?: string) {
+    const where: any = { hospital_id: hospitalId };
+    if (status && status !== 'ALL') {
+      where.status = status;
+    }
+
     const [items, total] = await this.admissionRepo.findAndCount({
-      where: { hospital_id: hospitalId, status: AdmissionStatus.ADMITTED },
+      where,
       relations: ['patient', 'department'],
       order: { admitted_at: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
 
+    // Fetch counts for stats
+    const [admittedCount, dischargedCount, totalCount] = await Promise.all([
+      this.admissionRepo.countBy({ hospital_id: hospitalId, status: AdmissionStatus.ADMITTED }),
+      this.admissionRepo.countBy({ hospital_id: hospitalId, status: AdmissionStatus.DISCHARGED }),
+      this.admissionRepo.countBy({ hospital_id: hospitalId }),
+    ]);
+
     return {
       items,
+      stats: {
+        total: totalCount,
+        admitted: admittedCount,
+        discharged: dischargedCount,
+      },
       meta: {
         total_count: total,
         page,
