@@ -147,8 +147,11 @@ export class HospitalOpsService {
 
   async getAdmissions(hospitalId: string, page = 1, limit = 10, status?: string) {
     const where: any = { hospital_id: hospitalId };
-    if (status && status !== 'ALL') {
-      where.status = status;
+    if (status && status.toUpperCase() !== 'ALL') {
+      const upperStatus = status.toUpperCase();
+      if (Object.values(AdmissionStatus).includes(upperStatus as any)) {
+        where.status = upperStatus;
+      }
     }
 
     const [items, total] = await this.admissionRepo.findAndCount({
