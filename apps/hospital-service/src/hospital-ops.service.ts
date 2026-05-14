@@ -270,6 +270,7 @@ export class HospitalOpsService {
     const queryBuilder = this.dispatchRepo
       .createQueryBuilder('dispatch')
       .leftJoinAndSelect('dispatch.incident', 'incident')
+      .leftJoinAndSelect('dispatch.vehicle', 'vehicle')
       .where('dispatch.destination_hospital_id = :hospitalId', { hospitalId })
       .andWhere('dispatch.status NOT IN (:...excludedStatuses)', {
         excludedStatuses: ['COMPLETED', 'CANCELLED'],
@@ -382,6 +383,9 @@ export class HospitalOpsService {
         eta_seconds: d.eta_seconds,
         category: d.incident?.category,
         severity: d.incident?.severity,
+        ambulance_number: d.vehicle?.registration_number || d.manual_vehicle_id || 'N/A',
+        lat: d.vehicle?.gps_lat ? Number(d.vehicle.gps_lat) : null,
+        lon: d.vehicle?.gps_lon ? Number(d.vehicle.gps_lon) : null,
         patients: enrichedPatients,
         dispatched_at: d.dispatched_at,
       };

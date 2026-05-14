@@ -96,4 +96,13 @@ export class Dispatch {
   @ManyToOne(() => Incident)
   @JoinColumn({ name: 'incident_id' })
   incident: Incident;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  vehicle_entity_id: string; // This is redundant if we use vehicle_id, but let's check if we can map vehicle_id
+
+  // Better way: map the existing vehicle_id column
+  @ManyToOne('Vehicle')
+  @JoinColumn({ name: 'vehicle_id' })
+  vehicle: any;
 }
