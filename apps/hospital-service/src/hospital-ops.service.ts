@@ -304,6 +304,31 @@ export class HospitalOpsService {
       .take(limit)
       .getManyAndCount();
 
+    // Calculate global stats (total patients and triage counts) across all matching dispatches
+    // We clone the query without pagination to get counts for all active dispatches
+    const statsQuery = queryBuilder.clone();
+    const allMatches = await statsQuery.getMany();
+    
+    let totalPatients = 0;
+    const triageStats = {
+      RED: 0,
+      YELLOW: 0,
+      GREEN: 0,
+      BLACK: 0,
+      WHITE: 0,
+    };
+
+    allMatches.forEach(d => {
+      const patients = d.incident?.patients || [];
+      totalPatients += patients.length;
+      patients.forEach(p => {
+        const level = (p.triage_level || 'WHITE').toUpperCase();
+        if (triageStats.hasOwnProperty(level)) {
+          triageStats[level]++;
+        }
+      });
+    });
+
     // 1. Collect all patient IDs from the incidents
     const patientIds = items.flatMap(d => d.incident?.patients?.map(p => p.id) || []);
 
@@ -365,6 +390,10 @@ export class HospitalOpsService {
     return {
       items: data,
       total,
+      totalPatients,
+      stats: {
+        triage: triageStats,
+      },
       page,
       limit,
       totalPages: Math.ceil(total / limit),
