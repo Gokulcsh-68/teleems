@@ -16,7 +16,7 @@ export class Dispatch {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   vehicle_id: string;
 
   @Column()
@@ -97,9 +97,6 @@ export class Dispatch {
   @JoinColumn({ name: 'incident_id' })
   incident: Incident;
 
-  @Column({ type: 'uuid', nullable: true })
-  @Index()
-  vehicle_entity_id: string; // This is redundant if we use vehicle_id, but let's check if we can map vehicle_id
 
   // Better way: map the existing vehicle_id column
   @ManyToOne('Vehicle')
