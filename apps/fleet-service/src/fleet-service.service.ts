@@ -318,6 +318,21 @@ export class FleetServiceService {
     return { message: 'Vehicle soft-deleted successfully' };
   }
 
+  async resetAllVehicles(requestUser: any) {
+    const orgId = requestUser.organisationId || requestUser.org_id;
+    if (!orgId) throw new ForbiddenException('Organization context missing');
+
+    const result = await this.vehicleRepo.update(
+      { organisationId: orgId, isActive: true },
+      { status: VehicleStatus.AVAILABLE }
+    );
+
+    return { 
+      message: `Successfully reset ${result.affected} vehicles to AVAILABLE status.`,
+      affected: result.affected 
+    };
+  }
+
   async createOperator(dto: CreateFleetOperatorDto, adminId: string, ip: string): Promise<FleetOperator> {
     const operator = (await this.operatorRepo.save(this.operatorRepo.create(dto))) as FleetOperator;
 

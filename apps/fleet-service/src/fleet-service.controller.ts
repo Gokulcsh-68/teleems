@@ -74,6 +74,12 @@ export class FleetServiceController {
     return this.fleetService.deleteVehicle(id, req.user);
   }
 
+  @Post('vehicles/reset-all')
+  @Roles('CureSelect Admin', 'CURESELECT_ADMIN', 'Fleet Operator', 'Hospital Admin')
+  async resetAllVehicles(@Req() req: any) {
+    return this.fleetService.resetAllVehicles(req.user);
+  }
+
   @Get('operators')
   @Roles('CureSelect Admin', 'CURESELECT_ADMIN')
   async listOperators() {
