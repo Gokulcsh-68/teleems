@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Incident } from './incident.entity';
 import { Hospital } from './hospital.entity';
+import { Vehicle } from './vehicle.entity';
 
 @Entity('dispatches')
 export class Dispatch {
@@ -98,8 +99,7 @@ export class Dispatch {
   incident: Incident;
 
 
-  // Better way: map the existing vehicle_id column
-  @ManyToOne('Vehicle')
+  @ManyToOne(() => Vehicle)
   @JoinColumn({ name: 'vehicle_id' })
-  vehicle: any;
+  vehicle: Vehicle;
 }
