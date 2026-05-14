@@ -318,9 +318,22 @@ export class FleetServiceService {
     return { message: 'Vehicle soft-deleted successfully' };
   }
 
-  async resetAllVehicles(requestUser: any) {
-    const orgId = requestUser.organisationId || requestUser.org_id;
-    if (!orgId) throw new ForbiddenException('Organization context missing');
+  async resetAllVehicles(requestUser: any, providedOrgId?: string) {
+    const roles = requestUser.roles || [];
+    const isPlatformAdmin = roles.some((r: string) => 
+      ['CureSelect Admin', 'CURESELECT_ADMIN'].includes(r)
+    );
+
+    const orgId = providedOrgId || requestUser.organisationId || requestUser.org_id;
+    
+    if (!orgId) {
+      throw new ForbiddenException('Organization context missing. Please provide org_id in the request body.');
+    }
+
+    // Security: Only platform admins can reset other organizations
+    if (!isPlatformAdmin && orgId !== (requestUser.organisationId || requestUser.org_id)) {
+      throw new ForbiddenException('Access denied: You can only reset vehicles in your own organization');
+    }
 
     const result = await this.vehicleRepo.update(
       { organisationId: orgId, isActive: true },
