@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { AuditLogService } from './services/audit-log.service';
 import { RedisService } from './redis.service';
 import { MapsService } from './maps.service';
@@ -18,6 +19,10 @@ import { FeatureFlag } from './entities/feature-flag.entity';
 import { IotDeviceProfile } from './entities/iot-device-profile.entity';
 import { HospitalStatus } from './entities/hospital-status.entity';
 import { TriageMaster } from './entities/triage-master.entity';
+import { User } from './entities/user.entity';
+import { Role } from './entities/role.entity';
+import { Session } from './entities/session.entity';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Global()
 @Module({
@@ -35,11 +40,15 @@ import { TriageMaster } from './entities/triage-master.entity';
       IotDeviceProfile,
       HospitalStatus,
       TriageMaster,
+      User,
+      Role,
+      Session
     ]),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super-secret',
       signOptions: { expiresIn: '1h' },
     }),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   providers: [
     AuditLogService,
@@ -47,6 +56,7 @@ import { TriageMaster } from './entities/triage-master.entity';
     MapsService,
     StorageService,
     CureselectApiService,
+    JwtStrategy,
   ],
   exports: [
     AuditLogService,
@@ -56,6 +66,8 @@ import { TriageMaster } from './entities/triage-master.entity';
     CureselectApiService,
     TypeOrmModule,
     JwtModule,
+    PassportModule,
+    JwtStrategy,
   ],
 })
 export class CommonModule {}

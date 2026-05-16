@@ -61,6 +61,8 @@ export interface AuditContext {
   organisationId?: string;
 }
 
+import { jsPDF } from 'jspdf';
+import { StorageService } from '@app/common';
 import { DispatchGateway } from './dispatch.gateway';
 
 @Injectable()
@@ -95,6 +97,7 @@ export class DispatchServiceService implements OnModuleInit {
     private readonly auditLogService: AuditLogService,
     private readonly mapsService: MapsService,
     private readonly dispatchGateway: DispatchGateway,
+    private readonly storageService: StorageService,
   ) {}
 
   onModuleInit() {
@@ -2153,6 +2156,94 @@ export class DispatchServiceService implements OnModuleInit {
 
     await this.feedbackRepository.save(feedback);
     return { message: 'Thank you for your feedback!' };
+  }
+
+  async generateReport(id: string, requestUser: any) {
+    const incidentWrapper = await this.findOne(id, requestUser);
+    const incident = incidentWrapper.data;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    doc.setFillColor(231, 27, 35); // IntelliEMS Red
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.text('INTELLI-EMS', 20, 25);
+    doc.setFontSize(10);
+    doc.text('Emergency Mission Report', 20, 32);
+    
+    y = 55;
+
+    // Mission Details
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.text('MISSION DETAILS', 20, y);
+    y += 10;
+    
+    doc.setFontSize(10);
+    doc.text(`ID: ${incident.id}`, 20, y);
+    y += 7;
+    doc.text(`Date: ${new Date(incident.createdAt).toLocaleString()}`, 20, y);
+    y += 7;
+    doc.text(`Status: ${incident.status}`, 20, y);
+    y += 7;
+    doc.text(`Category: ${incident.category}`, 20, y);
+    y += 7;
+    doc.text(`Severity: ${incident.severity}`, 20, y);
+    y += 15;
+
+    // Location
+    doc.setFontSize(14);
+    doc.text('LOCATION', 20, y);
+    y += 10;
+    doc.setFontSize(10);
+    doc.text(incident.address || 'No address provided', 20, y, { maxWidth: pageWidth - 40 });
+    y += 15;
+
+    // Patients
+    if (incident.patients && incident.patients.length > 0) {
+      doc.setFontSize(14);
+      doc.text('PATIENTS', 20, y);
+      y += 10;
+      doc.setFontSize(10);
+      
+      incident.patients.forEach((p: any, i: number) => {
+        doc.text(`${i + 1}. ${p.name || 'Unknown'} (${p.age || 'N/A'}y, ${p.gender || 'N/A'})`, 20, y);
+        y += 7;
+        doc.text(`   Triage: ${p.triage_level || 'N/A'}`, 20, y);
+        y += 7;
+        if (p.symptoms && p.symptoms.length > 0) {
+          doc.text(`   Symptoms: ${p.symptoms.map((s: any) => s.name).join(', ')}`, 20, y);
+          y += 7;
+        }
+        y += 5;
+      });
+    }
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('System Generated Report | Confidential', pageWidth / 2, 285, { align: 'center' });
+
+    const buffer = Buffer.from(doc.output('arraybuffer'));
+    const fileName = `report_${id}_${Date.now()}.pdf`;
+    
+    const { dbUrl, readUrl } = await this.storageService.uploadBuffer(
+      buffer,
+      'reports/',
+      fileName,
+      'application/pdf'
+    );
+
+    return {
+      pdf_url: readUrl,
+      db_url: dbUrl,
+      fileName
+    };
   }
 
   async getAnalyticsSummary(

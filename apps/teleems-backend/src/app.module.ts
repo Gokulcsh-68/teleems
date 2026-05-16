@@ -53,6 +53,7 @@ import {
   ChiefComplaintMaster,
   InterventionMaster,
   Incident,
+  IncidentFeedback,
   Dispatch,
   FleetOperator,
   Vehicle,
@@ -76,11 +77,15 @@ import {
   TriageMaster,
   Admission,
   WarehouseInventory,
-  RestockRequest
+  RestockRequest,
+  CommonModule,
+  JwtStrategy,
+  User,
+  Role,
+  Session
 } from '@app/common';
 
 // Entities for global TypeORM config
-import { User, Role, Session } from '@app/common';
 import { IncidentTimeline } from '../../dispatch-service/src/entities/incident-timeline.entity';
 import { RtvsRecord } from '../../rtvs-service/src/entities/rtvs-record.entity';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
@@ -91,6 +96,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    CommonModule,
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -104,7 +110,7 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
           config.get('DB_NAME') || config.get('DB_DATABASE') || 'teleems',
         entities: [
           User, AuditLog, Role, Session, 
-          Incident, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
+          Incident, IncidentFeedback, IncidentTimeline, Dispatch, IncidentEscalation, PatientProfile,
           PatientAssessment, PatientAssessmentNote, PatientIntervention, PatientCondition, IcdMaster,
           PatientAllergy, PatientMedication, PatientSurgery, PatientHospitalisation,
           AllergyMaster, MedicationMaster, SurgeryMaster, HospitalisationMaster,
@@ -134,6 +140,6 @@ import { IncidentEscalation } from '../../dispatch-service/src/entities/incident
     ConsultModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, JwtStrategy],
 })
 export class AppModule {}

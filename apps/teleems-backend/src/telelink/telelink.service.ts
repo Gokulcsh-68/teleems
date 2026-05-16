@@ -69,68 +69,9 @@ export class TelelinkService {
   }
 
 
-  private transformToConsult(session: TeleLinkSession) {
-    const statusMap = {
-      [TeleLinkSessionStatus.ACTIVE]: { id: 3, name: 'Waiting', slug: 'waiting' },
-      [TeleLinkSessionStatus.COMPLETED]: { id: 6, name: 'Completed', slug: 'completed' },
-      [TeleLinkSessionStatus.CANCELLED]: { id: 11, name: 'Cancelled', slug: 'cancelled' },
-    };
-
-    const status =
-      statusMap[session.status] || statusMap[TeleLinkSessionStatus.ACTIVE];
-
-    // Reconstruct basic participants from available local info
-    const participants: any[] = [];
-    if (session.initiator_id) {
-      participants.push({
-        id: Math.floor(Math.random() * 10000),
-        role: 'subscriber',
-        ref_number: String(session.initiator_id),
-        participant_info: {
-          name: 'Staff / Initiator',
-          additional_info: { x_name: 'teleems' },
-        },
-        token: session.room_token,
-        participant_status: { id: 8, name: 'In Call', slug: 'in_call' },
-      });
-    }
-
-    return {
-      id: parseInt(session.room_id) || session.id,
-      consult_current_status: status,
-      consult_status: status,
-      consult_entity_id: { id: 10, name: 'Ended', slug: 'ended' },
-      scheduled_at: this.formatDate(session.scheduled_at || session.started_at),
-      consult_code: session.room_id,
-      consult_type: 'virtual',
-      consult_data: {
-        tokbox: {
-          meeting_id: session.room_id,
-        },
-      },
-      additional_info: {
-        ...session.additional_info,
-        organization_id: parseInt(session.organisationId) || session.organisationId,
-        trip_id: session.trip_id,
-        incident_id: session.incident_id,
-      },
-      started_at: this.formatDate(session.started_at),
-      ended_at: session.ended_at ? this.formatDate(session.ended_at) : null,
-      reason: session.reason,
-      virtual_service_provider: {
-        id: 12,
-        name: 'Tokbox',
-        slug: 'tokbox',
-      },
-      active: session.status === TeleLinkSessionStatus.ACTIVE,
-      created_at: this.formatDate(session.started_at),
-      participants: participants,
-      payment: [],
-      editConsult: true,
-    };
-  }
 
   async getHospitalDoctors(hospitalId: string) {
+    console.log(`[TelelinkService] getHospitalDoctors called for hospitalId: ${hospitalId}`);
     this.logger.log(`Fetching available doctors for hospital: ${hospitalId}`);
     const doctors = await this.userRepo.find({
       where: { 
@@ -153,11 +94,14 @@ export class TelelinkService {
         )
     );
 
+    console.log(`[TelelinkService] getHospitalDoctors returning ${clinicalDoctors.length} clinical doctors`);
     this.logger.log(`Returning ${clinicalDoctors.length} clinical doctors.`);
     return clinicalDoctors;
   }
 
   async createSession(dto: CreateTeleLinkSessionDto, user: any) {
+    console.log(`[TelelinkService] createSession called with DTO:`, JSON.stringify(dto, null, 2));
+    console.log(`[TelelinkService] User initiating session:`, user.userId);
     try {
       this.logger.log(`Initiating TeleLink session for Trip: ${dto.trip_id}`);
 
@@ -251,12 +195,13 @@ export class TelelinkService {
       let remoteResponse:any;
       console.time(`[PERF] TeleConsult Remote API (Trip: ${dto.trip_id})`);
       try {
-        console.log("remotePayload", remotePayload);
+        console.log("[TelelinkService] Sending remotePayload to Cureselect:", JSON.stringify(remotePayload, null, 2));
         remoteResponse = await this.cureselectApi.createConsult(remotePayload);
-        console.log("remoteResponse", remoteResponse);
+        console.log("[TelelinkService] Received remoteResponse from Cureselect:", JSON.stringify(remoteResponse, null, 2));
       } catch (err: any) {
         const msg = `External TeleConsult API Error: ${err.message}`;
         this.logger.error(msg);
+        console.error(`[TelelinkService] Remote API error: ${err.message}`);
         throw new BadGatewayException(msg);
       }
       console.timeEnd(`[PERF] TeleConsult Remote API (Trip: ${dto.trip_id})`);
@@ -270,34 +215,43 @@ export class TelelinkService {
         remoteResponse?.data?.id ||
         `local_${Date.now()}`;
 
+      let fullRemoteData: any = null;
+      if (roomId && !String(roomId).startsWith('local_')) {
+        try {
+          console.log(`[TelelinkService] Fetching full details for created consult ${roomId}...`);
+          fullRemoteData = await this.cureselectApi.fetchConsultById(roomId);
+        } catch (e) {
+          console.error(`[TelelinkService] Failed to fetch full data: ${e.message}`);
+        }
+      }
+
       const roomBaseUrl = this.config.get<string>('CURESELECT_ROOM_BASE_URL') || 'https://teleconsult.a2zhealth.in/room';
       
-      // Role-Based Participant Discovery
-      const info = remoteResponse?.data?.info;
-      const participantsList = remoteResponse?.data?.participants || [];
-      const consultDetails = remoteResponse?.data?.consult || {};
-      const tokboxData = consultDetails?.consult_data || {};
+      const consultDataFull = fullRemoteData?.data?.consults || fullRemoteData?.data || {};
+      const participantsList = consultDataFull.participants || [];
+      const info = fullRemoteData?.data?.info || {};
       
       // Find the subscriber (The EMT)
-      const subscriber = (info?.role === 'subscriber' || String(info?.ref_number) === String(initiator.id)) 
+      const subscriber = (info?.role === 'subscriber' || String(info?.ref_number) === String(initiator.id) || String(info?.user_id) === String(initiator.id)) 
         ? info 
-        : participantsList.find((p: any) => p.role === 'subscriber' || String(p.ref_number) === String(initiator.id));
+        : participantsList.find((p: any) => 
+            p.role === 'subscriber' || 
+            String(p.ref_number) === String(initiator.id) || 
+            String(p.user_id) === String(initiator.id)
+          );
+        
+      const consultDetails = consultDataFull || {};
+      const tokboxData = consultDetails?.consult_data || {};
         
       const participantId = subscriber?.id || info?.id || initiator.id;
+      const participantToken = subscriber?.token || info?.token || tokboxData?.signature;
       
-      // Construct a Secure Bypass URL using TokBox credentials if available
-      // Format: base/meet?apiKey=...&sessionId=...&token=...
-      const roomUrl = (tokboxData.app_key && tokboxData.meeting_id)
-        ? `https://teleconsult.a2zhealth.in/meet?apiKey=${tokboxData.app_key}&sessionId=${tokboxData.meeting_id}&token=${tokboxData.signature}`
+      // Construct the URL (Subscriber uses /consult/)
+      const roomUrl = participantToken
+        ? `https://teleconsult.a2zhealth.in/consult/${participantToken}`
         : (remoteResponse?.room_url || `${roomBaseUrl}/${roomId}/subscriber/${participantId}`);
 
-      const roomToken =
-        subscriber?.token ||
-        tokboxData?.signature ||
-        remoteResponse?.data?.token ||
-        remoteResponse?.data?.participants?.[0]?.token ||
-        remoteResponse?.room_token ||
-        'MOCK_TOKEN';
+      const roomToken = participantToken || 'MOCK_TOKEN';
 
       const session = this.sessionRepo.create({
         trip_id: dto.trip_id,
@@ -318,31 +272,23 @@ export class TelelinkService {
         professional_id: dto.professional_id,
       });
 
-      this.sessionRepo
-        .save(session)
-        .then((saved) => {
-          this.logger.log(`Session ${saved.id} saved. Notifying doctors via socket...`);
-          this.gateway.notifyNewConsult(saved);
-        })
-        .catch((e) => this.logger.error(`Local save failed: ${e.message}`));
 
-      return {
-        status: 201,
-        message: 'Consultation initiated successfully',
-        data: {
-          id: session.id, // Local UUID
-          consult_id: roomId, // Remote ID
-          room_url: roomUrl,
-          room_token: roomToken,
-          consults: [consultData],
-        },
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      const saved = await this.sessionRepo.save(session);
+      this.gateway.notifyNewConsult(saved);
+
+      // Inject fields for frontend compatibility
+      if (remoteResponse.data) {
+        remoteResponse.data.room_url = roomUrl;
+        remoteResponse.data.room_token = roomToken;
+        remoteResponse.data.consult_id = roomId;
+        remoteResponse.data.id = saved.id; // Correct local UUID for status updates
+      }
+
+      console.log(`[TelelinkService] createSession successful returning direct remoteResponse:`, JSON.stringify(remoteResponse, null, 2));
+      return remoteResponse;
     } catch (err: any) {
       this.logger.error(`TELELINK_SESSION_ERROR: ${err.message}`, err.stack);
+      console.error(`[TelelinkService] createSession failed error: ${err.message}`);
       if (err.getStatus && typeof err.getStatus === 'function') {
         throw err;
       }
@@ -359,6 +305,7 @@ export class TelelinkService {
   }
 
   async findAll(user: any) {
+    console.log(`[TelelinkService] findAll called for user: ${user.userId}`);
     const roles = user.roles || [];
     const isStateAdmin =
       roles.includes('STATE_ADMIN') || roles.includes('state');
@@ -393,50 +340,25 @@ export class TelelinkService {
       params.x_name = 'teleems';
 
       // 2. Fetch remote list with optimized filters
+      console.log(`[TelelinkService] Fetching remote consults with params:`, JSON.stringify(params, null, 2));
       const remoteResponse = await this.cureselectApi.fetchConsults(params);
+      console.log(`[TelelinkService] Remote fetch successful found ${remoteResponse.data?.consults?.length || 0} consults`);
 
-      return {
-        status: 200,
-        message: remoteResponse.message || 'Consults fetched successfully',
-        data: {
-          consults: remoteResponse.data?.consults || [],
-        },
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      return remoteResponse;
     } catch (err) {
       this.logger.error(`Remote List Fetch Failed: ${err.message}`);
-
-      // Fallback query building for local DB
-      const query: any = { organisationId };
-
-      const sessions = await this.sessionRepo.find({
-        where: query,
-        order: { started_at: 'DESC' },
-        relations: ['patient', 'trip', 'incident'],
-      });
-
-      return {
-        status: 200,
-        message: 'Fetched from local cache (Remote Offline)',
-        data: {
-          consults: sessions.map((s) => this.transformToConsult(s)),
-        },
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      console.error(`[TelelinkService] Remote List Fetch Failed: ${err.message}`);
+      throw err;
     }
   }
 
   async getErcpQueue(user: any) {
+    console.log(`[TelelinkService] getErcpQueue called for user: ${user.userId}`);
     const organisationId = user.organisationId;
     const hospitalId = user.hospitalId || user.metadata?.hospital_id;
 
     this.logger.log(`Fetching ERCP Queue for Org: ${organisationId}, Hospital: ${hospitalId}`);
+    console.log(`[TelelinkService] Org: ${organisationId}, Hospital: ${hospitalId}`);
 
     const query = this.sessionRepo
       .createQueryBuilder('session')
@@ -457,6 +379,7 @@ export class TelelinkService {
     }
 
     const sessions = await query.getMany();
+    console.log(`[TelelinkService] Queue query found ${sessions.length} sessions before sorting`);
 
     // Prioritization Logic: SOS first, then Triage Level (Red > Orange > Yellow), then Time
     const triageOrder: Record<string, number> = {
@@ -482,6 +405,7 @@ export class TelelinkService {
       return a.started_at.getTime() - b.started_at.getTime();
     });
 
+    console.log(`[TelelinkService] Returning sorted queue with ${sortedSessions.length} items`);
     return {
       status: 200,
       message: 'ERCP Queue fetched successfully',
@@ -496,6 +420,7 @@ export class TelelinkService {
   }
 
   async findOne(id: string, user: any) {
+    console.log(`[TelelinkService] findOne called for sessionId: ${id}`);
     const session = await this.sessionRepo.findOne({
       where: { id, organisationId: user.organisationId },
     });
@@ -503,54 +428,53 @@ export class TelelinkService {
     if (!session) throw new NotFoundException('TeleLink Session not found');
 
     try {
+      console.log(`[TelelinkService] Found local session, fetching remote detail for room_id: ${session.room_id}`);
       this.logger.log(
         `Fetching rich session detail from remote: ${session.room_id}`,
       );
       const remoteResponse = await this.cureselectApi.fetchConsultById(
         session.room_id,
       );
+      console.log(`[TelelinkService] Remote fetch successful for room_id: ${session.room_id}`);
 
       // Background Sync: Update local status if it changed remotely
       const remoteStatus =
         remoteResponse?.data?.status_id ||
         remoteResponse?.data?.consult_status?.id;
+      console.log(`[TelelinkService] Remote status: ${remoteStatus}, Local status: ${session.status}`);
+      
       if (remoteStatus == 6 || remoteStatus == 'completed') {
         if (session.status !== TeleLinkSessionStatus.COMPLETED) {
+          console.log(`[TelelinkService] Syncing local status to COMPLETED`);
           session.status = TeleLinkSessionStatus.COMPLETED;
           session.ended_at = new Date();
           this.sessionRepo
             .save(session)
-            .catch((e) => this.logger.error(`BG Sync fail: ${e.message}`));
+            .catch((e) => {
+               this.logger.error(`BG Sync fail: ${e.message}`);
+               console.error(`[TelelinkService] BG Sync fail: ${e.message}`);
+            });
         }
       }
 
-      return {
-        status: 200,
-        message: 'Consultation retrieved successfully',
-        ...remoteResponse,
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      // Inject fields for frontend compatibility
+      if (remoteResponse.data) {
+        remoteResponse.data.room_url = session.room_url;
+        remoteResponse.data.room_token = session.room_token;
+        remoteResponse.data.consult_id = session.room_id;
+        remoteResponse.data.id = session.id;
+      }
+
+      return remoteResponse;
     } catch (err) {
       this.logger.error(`Remote detail fetch failed for ${id}: ${err.message}`);
-      // Fallback to local transformed data
-      return {
-        status: 200,
-        message: 'Fetched from local record',
-        data: {
-          consults: [this.transformToConsult(session)],
-        },
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      console.error(`[TelelinkService] Remote detail fetch failed for ${id}: ${err.message}`);
+      throw err;
     }
   }
 
   async updateStatus(id: string, dto: UpdateTeleLinkStatusDto, user: any) {
+    console.log(`[TelelinkService] updateStatus called for session: ${id}, status: ${dto.status}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -559,32 +483,44 @@ export class TelelinkService {
     if (!session) throw new NotFoundException('Session not found');
 
     // 1. Update Remote if room_id exists
+    let remoteResponse: any = null;
     if (session.room_id) {
       try {
         const remoteStatusId = dto.status === TeleLinkSessionStatus.COMPLETED ? 6 : 7;
-        await this.cureselectApi.patchConsult(session.room_id, {
+        console.log(`[TelelinkService] Updating remote status for room: ${session.room_id} to statusId: ${remoteStatusId}`);
+        remoteResponse = await this.cureselectApi.patchConsult(session.room_id, {
           status_id: remoteStatusId,
         });
       } catch (err: any) {
         this.logger.error(`Remote Status Sync Failed: ${err.message}`);
+        console.error(`[TelelinkService] Remote Status Sync Failed: ${err.message}`);
         // We continue to update local if remote fails but log it
       }
     }
 
     // 2. Update Local
-    const updated = await this.sessionRepo.save(session);
+    session.status = dto.status;
+    if (dto.status === TeleLinkSessionStatus.COMPLETED) {
+      session.ended_at = new Date();
+    }
     
-    // Notify all parties in the session (e.g., EMT, Patient App, Doctor)
-    this.gateway.notifyStatusUpdate(id, dto.status, {
-      updated_at: updated.ended_at || new Date(),
-      user_name: user.name,
-      user_role: user.roles?.[0] || 'User'
+    this.sessionRepo.save(session).then((updated) => {
+      
+      // Notify all parties in the session (e.g., EMT, Patient App, Doctor)
+      this.gateway.notifyStatusUpdate(id, dto.status, {
+        updated_at: updated.ended_at || new Date(),
+        user_name: user.name,
+        user_role: user.roles?.[0] || 'User'
+      });
+    }).catch(e => {
+       console.error(`[TelelinkService] Local status save fail: ${e.message}`);
     });
 
-    return updated;
+    return remoteResponse || { status: 'success', local_id: session.id };
   }
 
   async addClinicalNotes(id: string, dto: AddClinicalNotesDto, user: any) {
+    console.log(`[TelelinkService] addClinicalNotes called for session: ${id}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -605,10 +541,12 @@ export class TelelinkService {
       updated_by: user.userId,
     };
 
+    console.log(`[TelelinkService] Saving clinical notes for session: ${id}`);
     return this.sessionRepo.save(session);
   }
 
   async toggleRecording(id: string, dto: ToggleRecordingDto, user: any) {
+    console.log(`[TelelinkService] toggleRecording called for session: ${id}, is_recording: ${dto.is_recording}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -622,6 +560,7 @@ export class TelelinkService {
   }
 
   async escalateSession(id: string, dto: EscalateSessionDto, user: any) {
+    console.log(`[TelelinkService] escalateSession called for session: ${id}, to: ${dto.escalated_to}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -633,11 +572,13 @@ export class TelelinkService {
     
     // Logic to notify the target (e.g., EDP) would go here
     this.logger.log(`Session ${id} escalated to ${dto.escalated_to}`);
+    console.log(`[TelelinkService] Session ${id} escalated to ${dto.escalated_to}`);
 
     return this.sessionRepo.save(session);
   }
 
   async rescheduleSession(id: string, dto: RescheduleTeleLinkSessionDto, user: any) {
+    console.log(`[TelelinkService] rescheduleSession called for session: ${id}, to: ${dto.scheduled_at}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -645,22 +586,35 @@ export class TelelinkService {
 
     if (!session) throw new NotFoundException('Session not found');
 
+    // 1. Update Remote if room_id exists
+    let remoteResponse: any = null;
     if (session.room_id) {
-      await this.cureselectApi.patchConsult(session.room_id, {
-        scheduled_at: dto.scheduled_at,
-        additional_info: {
-          ...session.additional_info,
-          reschedule_reason: dto.reason,
-        },
-      });
+      try {
+        console.log(`[TelelinkService] Updating remote schedule for room: ${session.room_id}`);
+        remoteResponse = await this.cureselectApi.patchConsult(session.room_id, {
+          scheduled_at: dto.scheduled_at,
+          additional_info: {
+            ...session.additional_info,
+            reschedule_reason: dto.reason,
+          },
+        });
+      } catch (err: any) {
+        console.error(`[TelelinkService] Remote reschedule fail: ${err.message}`);
+      }
     }
 
+    // 2. Update Local
     session.scheduled_at = new Date(dto.scheduled_at);
     session.reason = dto.reason;
-    return this.sessionRepo.save(session);
+    this.sessionRepo.save(session).catch(e => {
+       console.error(`[TelelinkService] Local reschedule save fail: ${e.message}`);
+    });
+
+    return remoteResponse || { status: 'success', local_id: session.id };
   }
 
   async cancelSession(id: string, dto: CancelTeleLinkSessionDto, user: any) {
+    console.log(`[TelelinkService] cancelSession called for session: ${id}`);
     const session = await this.sessionRepo.findOneBy({
       id,
       organisationId: user.organisationId,
@@ -668,61 +622,64 @@ export class TelelinkService {
 
     if (!session) throw new NotFoundException('Session not found');
 
+    // 1. Update Remote if room_id exists
+    let remoteResponse: any = null;
     if (session.room_id) {
-      await this.cureselectApi.patchConsult(session.room_id, {
-        status_id: 11, // Assuming 11 is CANCELLED based on common patterns
-        additional_info: {
-          ...session.additional_info,
-          cancel_reason: dto.reason,
-        },
-      });
+      try {
+        console.log(`[TelelinkService] Cancelling remote consult for room: ${session.room_id}`);
+        remoteResponse = await this.cureselectApi.patchConsult(session.room_id, {
+          status_id: 11, // Assuming 11 is CANCELLED based on common patterns
+          additional_info: {
+            ...session.additional_info,
+            cancel_reason: dto.reason,
+          },
+        });
+      } catch (err: any) {
+        console.error(`[TelelinkService] Remote cancel fail: ${err.message}`);
+      }
     }
 
+    // 2. Update Local
     session.status = TeleLinkSessionStatus.CANCELLED;
     session.reason = dto.reason;
     session.ended_at = new Date();
-    return this.sessionRepo.save(session);
+    this.sessionRepo.save(session).catch(e => {
+       console.error(`[TelelinkService] Local cancel save fail: ${e.message}`);
+    });
+
+    return remoteResponse || { status: 'success', local_id: session.id };
   }
 
   async getConsultDetailsByToken(token: string) {
+    console.log(`[TelelinkService] getConsultDetailsByToken called`);
     try {
       this.logger.log(`Validating consultation token: ${token.substring(0, 8)}...`);
       const response = await this.cureselectApi.validateToken(token);
-      return {
-        status: 200,
-        message: 'Token validated successfully',
-        ...response,
-        meta: {
-          timestamp: new Date().toISOString(),
-          request_id: crypto.randomUUID(),
-        },
-      };
+      console.log(`[TelelinkService] Token validation successful`);
+      return response;
     } catch (err) {
       this.logger.error(`Token validation failed: ${err.message}`);
+      console.error(`[TelelinkService] Token validation failed: ${err.message}`);
       throw new BadGatewayException(`Consultation access denied: ${err.message}`);
     }
   }
 
   async getConsultById(consultId: string) {
+    console.log(`[TelelinkService] getConsultById called for consultId: ${consultId}`);
     try {
       this.logger.log(`Fetching consult by remote ID: ${consultId}`);
       const remoteResponse = await this.cureselectApi.fetchConsultById(consultId);
-      return {
-        status: 200,
-        message: 'Consultation fetched successfully',
-        data: remoteResponse?.data || remoteResponse,
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      console.log(`[TelelinkService] Remote fetch successful for consultId: ${consultId}`);
+      return remoteResponse;
     } catch (err) {
       this.logger.error(`Fetch consult ${consultId} failed: ${err.message}`);
+      console.error(`[TelelinkService] Fetch consult ${consultId} failed: ${err.message}`);
       throw new BadGatewayException(`Failed to fetch consultation: ${err.message}`);
     }
   }
 
   async createDoctorConsult(dto: CreateDoctorConsultDto, user: any) {
+    console.log(`[TelelinkService] createDoctorConsult called with DTO:`, JSON.stringify(dto, null, 2));
     try {
       this.logger.log(`Doctor initiating consult for patient: ${dto.patient_id}`);
 
@@ -772,11 +729,14 @@ export class TelelinkService {
       // 4. Call Remote Cureselect API
       let remoteResponse: any;
       try {
+        console.log(`[TelelinkService] Sending doctor remotePayload:`, JSON.stringify(remotePayload, null, 2));
         remoteResponse = await this.cureselectApi.createConsult(remotePayload);
         this.logger.log(`Doctor Consult Response: ${JSON.stringify(remoteResponse)}`);
+        console.log(`[TelelinkService] Doctor remoteResponse:`, JSON.stringify(remoteResponse, null, 2));
       } catch (err: any) {
         const msg = `External TeleConsult API Error: ${err.message}`;
         this.logger.error(msg);
+        console.error(`[TelelinkService] Doctor Remote API error: ${err.message}`);
         throw new BadGatewayException(msg);
       }
 
@@ -784,16 +744,32 @@ export class TelelinkService {
       const consultData = remoteResponse?.data?.consults || remoteResponse?.data || {};
       const participants = consultData?.participants || [];
       const roomId = consultData?.id || remoteResponse?.consult_id || `local_${Date.now()}`;
-      const roomUrl = remoteResponse?.room_url || `https://telelink.teleems.in/room/${roomId}`;
+      
+      let fullRemoteData: any = null;
+      if (roomId && !String(roomId).startsWith('local_')) {
+        try {
+          console.log(`[TelelinkService] Fetching full details for created doctor consult ${roomId}...`);
+          fullRemoteData = await this.cureselectApi.fetchConsultById(roomId);
+        } catch (e) {
+          console.error(`[TelelinkService] Failed to fetch full data: ${e.message}`);
+        }
+      }
 
-      const doctorParticipant = participants.find(
-        (p: any) => String(p.ref_number) === String(doctor.id),
+      const consultDataFull = fullRemoteData?.data?.consults || fullRemoteData?.data || {};
+      const participantsList = consultDataFull.participants || [];
+      
+      const doctorParticipant = participantsList.find(
+        (p: any) => 
+          String(p.ref_number) === String(doctor.id) || 
+          String(p.user_id) === String(doctor.id),
       );
-      const roomToken =
-        doctorParticipant?.token ||
-        participants?.[0]?.token ||
-        remoteResponse?.room_token ||
-        'MOCK_TOKEN';
+      
+      const roomToken = doctorParticipant?.token || participantsList?.[0]?.token || 'MOCK_TOKEN';
+
+      // Publisher uses /teleconsult-v3/
+      const roomUrl = roomToken && roomToken !== 'MOCK_TOKEN'
+        ? `https://teleconsult.a2zhealth.in/teleconsult-v3/${roomToken}`
+        : (remoteResponse?.room_url || `https://telelink.teleems.in/room/${roomId}`);
 
       // 6. Save locally (background)
       const session = this.sessionRepo.create({
@@ -813,23 +789,22 @@ export class TelelinkService {
         initiator_id: doctor.id,
       });
 
-      this.sessionRepo
-        .save(session)
-        .catch((e) => this.logger.error(`Local save failed: ${e.message}`));
 
-      return {
-        status: 201,
-        message: 'Doctor consultation initiated successfully',
-        data: {
-          consults: [consultData],
-        },
-        meta: {
-          request_id: crypto.randomUUID(),
-          timestamp: new Date().toISOString(),
-        },
-      };
+      const saved = await this.sessionRepo.save(session);
+
+      // Inject fields for frontend compatibility
+      if (remoteResponse.data) {
+        remoteResponse.data.room_url = roomUrl;
+        remoteResponse.data.room_token = roomToken;
+        remoteResponse.data.consult_id = roomId;
+        remoteResponse.data.id = saved.id; // Correct local UUID
+      }
+
+      console.log(`[TelelinkService] createDoctorConsult successful returning direct remoteResponse:`, JSON.stringify(remoteResponse, null, 2));
+      return remoteResponse;
     } catch (err: any) {
       this.logger.error(`DOCTOR_CONSULT_ERROR: ${err.message}`, err.stack);
+      console.error(`[TelelinkService] createDoctorConsult failed error: ${err.message}`);
       if (err.getStatus && typeof err.getStatus === 'function') throw err;
       throw new InternalServerErrorException({
         status: 500,

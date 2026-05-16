@@ -289,6 +289,17 @@ export class DispatchServiceController {
     await this.dispatchService.cancelIncident(id, dto, context);
   }
 
+  @Get(':id/report')
+  @Roles(
+    'Call Centre Executive (CCE)',
+    'CureSelect Admin',
+    'Caller (Public)',
+    'Hospital Admin',
+  )
+  async generateReport(@Param('id') id: string, @Req() req: any) {
+    return this.dispatchService.generateReport(id, req.user);
+  }
+
   @Public()
   @Get(':id/timeline')
   @Roles(

@@ -733,6 +733,16 @@ export class FleetServiceService {
     vehicle.status = VehicleStatus.AVAILABLE;
     await this.vehicleRepo.save(vehicle);
 
+    // 8. Broadcast Assignment via Redis
+    await this.redisService.publish('vehicle:assigned', {
+      vehicle_id: vehicle.id,
+      registration_number: vehicle.registration_number,
+      shift_id: savedShift.id,
+      driver_id: driver.userId,
+      staff_id: staff.userId,
+      timestamp: new Date(),
+    });
+
     return { data: savedShift };
   }
 
@@ -769,6 +779,18 @@ export class FleetServiceService {
         await this.vehicleRepo.save(vehicle);
       }
     }
+
+    // 3. Broadcast Unassignment
+    const driverProfile = shift.driverId ? await this.staffProfileRepo.findOneBy({ id: shift.driverId }) : null;
+    const staffProfile = shift.staffId ? await this.staffProfileRepo.findOneBy({ id: shift.staffId }) : null;
+
+    await this.redisService.publish('vehicle:unassigned', {
+      vehicle_id: shift.vehicleId,
+      shift_id: shift.id,
+      driver_id: driverProfile?.userId,
+      staff_id: staffProfile?.userId,
+      timestamp: new Date(),
+    });
 
     return { message: 'Shift completed successfully', data: shift };
   }
@@ -853,6 +875,19 @@ export class FleetServiceService {
          await this.vehicleRepo.save(vehicle);
       }
     }
+
+    // 6. Broadcast Assignment
+    const driverProfile = savedShift.driverId ? await this.staffProfileRepo.findOneBy({ id: savedShift.driverId }) : null;
+    const staffProfile = savedShift.staffId ? await this.staffProfileRepo.findOneBy({ id: savedShift.staffId }) : null;
+
+    await this.redisService.publish('vehicle:assigned', {
+      vehicle_id: vehicle.id,
+      registration_number: vehicle.registration_number,
+      shift_id: savedShift.id,
+      driver_id: driverProfile?.userId,
+      staff_id: staffProfile?.userId,
+      timestamp: new Date(),
+    });
 
     return { message: 'Duty started successfully', data: savedShift };
   }

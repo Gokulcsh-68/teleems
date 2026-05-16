@@ -17,12 +17,13 @@ import {
   Vehicle,
   StaffProfile,
   Hospital,
-  IncidentFeedback
+  IncidentFeedback,
+  JwtStrategy,
+  DutyShift,
+  User,
+  VehicleInventory
 } from '@app/common';
-import { DutyShift, User } from '@app/common';
-import { VehicleInventory } from '@app/common';
 import { LocationLog } from '../../fleet-service/src/entities/location-log.entity';
-import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthModule } from '../../auth-service/src/auth.module';
 import { CommonModule } from '../../../libs/common/src';
 

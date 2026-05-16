@@ -83,3 +83,4 @@ export * from './constants/medications.constants';
 export * from './constants/surgeries.constants';
 export * from './constants/hospitalisations.constants';
 export * from './constants/clinical-masters.constants';
+export * from './strategies/jwt.strategy';

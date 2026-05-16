@@ -5,8 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuditLogService } from './audit-log.service';
-import { User, Role, Session, Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle, Hospital } from '@app/common';
-import { JwtStrategy } from './strategies/jwt.strategy';
+import { User, Role, Session, Organisation, AuditLog, StaffProfile, DutyRoster, DutyShift, Vehicle, Hospital, JwtStrategy } from '@app/common';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -69,7 +68,6 @@ import { DynamicRateLimitGuard } from '../../../libs/common/src/guards/dynamic-r
   providers: [
     AuthService,
     AuditLogService,
-    JwtStrategy,
     {
       provide: APP_GUARD,
       useClass: DynamicRateLimitGuard,

@@ -36,6 +36,38 @@ export class DispatchGateway implements OnGatewayConnection, OnGatewayDisconnect
         this.logger.error('Error parsing fleet:location_updated message', err);
       }
     });
+
+    // Subscribe to Vehicle Assignment updates
+    await this.redisService.subscribe('vehicle:assigned', (message: string) => {
+      try {
+        const data = JSON.parse(message);
+        if (data.driver_id) {
+          this.server.to(`user_${data.driver_id}`).emit('vehicle:assigned', data);
+        }
+        if (data.staff_id) {
+          this.server.to(`user_${data.staff_id}`).emit('vehicle:assigned', data);
+        }
+        this.logger.log(`Broadcast vehicle:assigned for vehicle ${data.registration_number}`);
+      } catch (err) {
+        this.logger.error('Error parsing vehicle:assigned message', err);
+      }
+    });
+
+    // Subscribe to Vehicle Unassignment updates
+    await this.redisService.subscribe('vehicle:unassigned', (message: string) => {
+      try {
+        const data = JSON.parse(message);
+        if (data.driver_id) {
+          this.server.to(`user_${data.driver_id}`).emit('vehicle:unassigned', data);
+        }
+        if (data.staff_id) {
+          this.server.to(`user_${data.staff_id}`).emit('vehicle:unassigned', data);
+        }
+        this.logger.log(`Broadcast vehicle:unassigned for shift ${data.shift_id}`);
+      } catch (err) {
+        this.logger.error('Error parsing vehicle:unassigned message', err);
+      }
+    });
   }
 
   handleConnection(client: Socket) {
