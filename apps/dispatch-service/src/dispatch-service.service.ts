@@ -920,7 +920,7 @@ export class DispatchServiceService implements OnModuleInit {
           `Vehicle '${dto.manual_vehicle_id}' is not available.`,
         );
       }
-      vehicleId = targetVehicle.registration_number;
+      vehicleId = targetVehicle.id;
       // Simulated ETA for manually selected vehicle (distance based)
       const dist = this.getDistance(
         Number(incident.gps_lat),
@@ -939,7 +939,7 @@ export class DispatchServiceService implements OnModuleInit {
           'No available ambulances found in the system for auto-assignment.',
         );
       }
-      vehicleId = targetVehicle.registration_number;
+      vehicleId = targetVehicle.id;
       const dist = this.getDistance(
         Number(incident.gps_lat),
         Number(incident.gps_lon),
@@ -1198,7 +1198,7 @@ export class DispatchServiceService implements OnModuleInit {
     // 4. Create PENDING Dispatch
     const dispatch = this.dispatchRepository.create({
       incident_id: incidentId,
-      vehicle_id: targetVehicle.registration_number,
+      vehicle_id: targetVehicle.id,
       dispatched_by: context.userId || 'SYSTEM',
       status: 'DISPATCHED',
       driver_id: activeShift?.driverId,
@@ -1638,7 +1638,7 @@ export class DispatchServiceService implements OnModuleInit {
       if (activeShift && activeShift.vehicle) {
         dispatch = await this.dispatchRepository.findOne({
           where: {
-            vehicle_id: activeShift.vehicle.registration_number,
+            vehicle_id: activeShift.vehicle.id,
             status: Not(In(['COMPLETED', 'CANCELLED', 'REJECTED', 'HANDOFF_COMPLETE']))
           },
           relations: ['incident', 'destination_hospital'],

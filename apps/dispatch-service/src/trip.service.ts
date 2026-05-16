@@ -375,7 +375,7 @@ export class TripService {
     }
 
     // 4. Update Vehicle Status & Location
-    const vehicle = await this.vehicleRepo.findOne({ where: { registration_number: trip.vehicle_id! } });
+    const vehicle = await this.vehicleRepo.findOne({ where: { id: trip.vehicle_id! } });
     if (vehicle) {
       if (
         dto.status === TripStatus.HANDOFF_COMPLETE ||
@@ -642,7 +642,7 @@ export class TripService {
     const trip = this.dispatchRepo.create({
       incident_id: savedIncident.id,
       organisationId: orgId,
-      vehicle_id: vehicle?.registration_number || 'TBD',
+      vehicle_id: vehicle?.id || 'TBD',
       dispatched_by: requestUser.userId,
       status: TripStatus.CREATED,
       is_ift: true,
@@ -764,7 +764,7 @@ export class TripService {
     // 4. Release Vehicle
     if (trip.vehicle_id && trip.vehicle_id !== 'TBD') {
       await this.vehicleRepo.update(
-        { registration_number: trip.vehicle_id },
+        { id: trip.vehicle_id },
         { status: VehicleStatus.AVAILABLE },
       );
     }
